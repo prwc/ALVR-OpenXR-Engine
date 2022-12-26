@@ -714,7 +714,7 @@ struct OpenXrProgram final : IOpenXrProgram {
     }
 
     using XrEnvironmentBlendModeList = std::vector<XrEnvironmentBlendMode>;
-    XrEnvironmentBlendModeList GetEnvironmentBlendModes(const XrViewConfigurationType type) const
+    XrEnvironmentBlendModeList GetEnvironmentBlendModes(const XrViewConfigurationType type, const bool sortEntries = true) const
     {
         uint32_t count = 0;
         CHECK_XRCMD(xrEnumerateEnvironmentBlendModes(m_instance, m_systemId, type, 0, &count, nullptr));
@@ -722,6 +722,9 @@ struct OpenXrProgram final : IOpenXrProgram {
             return {};
         std::vector<XrEnvironmentBlendMode> blendModes(count, XR_ENVIRONMENT_BLEND_MODE_OPAQUE);
         CHECK_XRCMD(xrEnumerateEnvironmentBlendModes(m_instance, m_systemId, type, count, &count, blendModes.data()));
+        if (sortEntries) {
+            std::sort(blendModes.begin(), blendModes.end());
+        }
         return blendModes;
     }
 
