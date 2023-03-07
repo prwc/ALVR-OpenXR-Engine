@@ -171,7 +171,7 @@ constexpr inline auto ToTrackingSpaceName(const ALXRTrackingSpace ts)
 {
     switch (ts)
     {
-    case ALXRTrackingSpace::LocalRefSpace: return "Local";
+    case ALXRTrackingSpace::LocalRefSpace: return "ALXRLocal";
     case ALXRTrackingSpace::ViewRefSpace: return "View";
     }
     return "Stage";
@@ -179,7 +179,7 @@ constexpr inline auto ToTrackingSpaceName(const ALXRTrackingSpace ts)
 
 /*constexpr*/ inline ALXRTrackingSpace ToTrackingSpace(const std::string_view& tsname)
 {
-    if (EqualsIgnoreCase(tsname, "Local"))
+    if (EqualsIgnoreCase(tsname, "Local") || EqualsIgnoreCase(tsname, "ALXRLocal"))
         return ALXRTrackingSpace::LocalRefSpace;
     if (EqualsIgnoreCase(tsname, "View"))
         return ALXRTrackingSpace::ViewRefSpace;
@@ -214,9 +214,12 @@ inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const std::strin
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
     } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "ViewFront")) {
         // Render head-locked 2m in front of device.
-        referenceSpaceCreateInfo.poseInReferenceSpace = Math::Pose::Translation({0.f, 0.f, -2.f}),
+        referenceSpaceCreateInfo.poseInReferenceSpace = Math::Pose::Translation({ 0.f, 0.f, -2.f });
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
     } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "Local")) {
+        referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+    } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "ALXRLocal")) {
+        referenceSpaceCreateInfo.poseInReferenceSpace = Math::Pose::Translation({ 0.f, -1.4f,0.f });
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
     } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "Stage")) {
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
@@ -856,7 +859,7 @@ struct OpenXrProgram final : IOpenXrProgram {
             constexpr const auto refSpaceName = [](const XrReferenceSpaceType refType) {
                 switch (refType) {
                 case XR_REFERENCE_SPACE_TYPE_VIEW: return "View";
-                case XR_REFERENCE_SPACE_TYPE_LOCAL: return "Local";
+                case XR_REFERENCE_SPACE_TYPE_LOCAL: return "ALXRLocal";
                 case XR_REFERENCE_SPACE_TYPE_STAGE: return "Stage";
                 case XR_REFERENCE_SPACE_TYPE_UNBOUNDED_MSFT: return "UboundedMSFT";
                 //case XR_REFERENCE_SPACE_TYPE_COMBINED_EYE_VARJO:
@@ -2835,7 +2838,7 @@ struct OpenXrProgram final : IOpenXrProgram {
                 const auto oldTrackingSpaceName = ToTrackingSpaceName(m_streamConfig.trackingSpaceType);
                 const auto newTrackingSpaceName = ToTrackingSpaceName(newConfig.trackingSpaceType);
                 Log::Write(Log::Level::Info, Fmt("Changing tracking space from %s to %s", oldTrackingSpaceName, newTrackingSpaceName));
-                XrReferenceSpaceCreateInfo referenceSpaceCreateInfo = GetXrReferenceSpaceCreateInfo(newTrackingSpaceName);
+                const auto referenceSpaceCreateInfo = GetXrReferenceSpaceCreateInfo(newTrackingSpaceName);
                 CHECK_XRCMD(xrCreateReferenceSpace(m_session, &referenceSpaceCreateInfo, &m_appSpace));
 
                 m_streamConfig.trackingSpaceType = newConfig.trackingSpaceType;
