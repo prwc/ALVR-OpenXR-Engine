@@ -179,7 +179,9 @@ constexpr inline auto ToTrackingSpaceName(const ALXRTrackingSpace ts)
 
 /*constexpr*/ inline ALXRTrackingSpace ToTrackingSpace(const std::string_view& tsname)
 {
-    if (EqualsIgnoreCase(tsname, "Local") || EqualsIgnoreCase(tsname, "ALXRLocal"))
+    if (EqualsIgnoreCase(tsname, "Local") || 
+        EqualsIgnoreCase(tsname, "LocalFloor") ||
+        EqualsIgnoreCase(tsname, "ALXRLocal"))
         return ALXRTrackingSpace::LocalRefSpace;
     if (EqualsIgnoreCase(tsname, "View"))
         return ALXRTrackingSpace::ViewRefSpace;
@@ -216,6 +218,8 @@ inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const std::strin
         // Render head-locked 2m in front of device.
         referenceSpaceCreateInfo.poseInReferenceSpace = Math::Pose::Translation({ 0.f, 0.f, -2.f });
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+    } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "LocalFloor")) {
+        referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
     } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "Local")) {
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
     } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "ALXRLocal")) {
@@ -490,6 +494,7 @@ struct OpenXrProgram final : IOpenXrProgram {
         { XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME, false },
 #endif
         { XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME, false },
+        { XR_EXT_LOCAL_FLOOR_EXTENSION_NAME, false },
         { XR_MSFT_UNBOUNDED_REFERENCE_SPACE_EXTENSION_NAME, false },
 #ifndef XR_USE_OXR_OCULUS
         // Quest v46 firmware update added support for this extension which breaks the suggested grip button bindings for touch (pro) profiles...
@@ -853,6 +858,7 @@ struct OpenXrProgram final : IOpenXrProgram {
                 switch (refType) {
                 case XR_REFERENCE_SPACE_TYPE_VIEW: return "View";
                 case XR_REFERENCE_SPACE_TYPE_LOCAL: return "ALXRLocal";
+                case XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT: return "LocalFloor";
                 case XR_REFERENCE_SPACE_TYPE_STAGE: return "Stage";
                 case XR_REFERENCE_SPACE_TYPE_UNBOUNDED_MSFT: return "UboundedMSFT";
                 //case XR_REFERENCE_SPACE_TYPE_COMBINED_EYE_VARJO:
@@ -865,6 +871,7 @@ struct OpenXrProgram final : IOpenXrProgram {
             // iterate through order of preference/priority, STAGE is the most preferred if available.
             for (const auto spaceType : {   XR_REFERENCE_SPACE_TYPE_STAGE,
                                             XR_REFERENCE_SPACE_TYPE_UNBOUNDED_MSFT,
+                                            XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT,
                                             XR_REFERENCE_SPACE_TYPE_LOCAL,
                                             XR_REFERENCE_SPACE_TYPE_VIEW })
             {
