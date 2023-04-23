@@ -2294,8 +2294,8 @@ struct OpenXrProgram final : IOpenXrProgram {
                 const auto& jointLoc = jointLocations[jointIdx];
                 const auto& newPose = Math::Pose::IsPoseValid(jointLoc) ?
                     jointLoc.pose : ALXR::IdentityPose;
-                constexpr const float scale = 0.01f;
-                handCubes.push_back(Cube{ newPose, {scale, scale, scale} });
+                const auto scale = ALXR::GetHandJointScale(static_cast<XrHandJointEXT>(jointIdx));
+                handCubes.push_back(Cube{ newPose, scale });
             }
         }
         return handCubes;
