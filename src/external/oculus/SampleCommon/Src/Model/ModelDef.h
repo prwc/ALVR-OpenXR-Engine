@@ -11,8 +11,9 @@ Authors     :   John Carmack, J.M.P. van Waveren
 
 #pragma once
 
-#include <vector>
+#include <functional>
 #include <string>
+#include <vector>
 
 #include "Render/GlProgram.h" // GlProgram
 #include "Render/GlTexture.h"
@@ -38,6 +39,7 @@ struct MaterialParms {
     bool EnableEmissiveLodClamp; // enable LOD clamp on the emissive texture to avoid light bleeding
     bool Transparent; // surfaces with this material flag need to render in a transparent pass
     bool PolygonOffset; // render with polygon offset enabled
+    std::function<bool(ModelFile&, const std::string&)> ImageUriHandler; // custom image URI handler
 };
 
 enum ModelJointAnimation {

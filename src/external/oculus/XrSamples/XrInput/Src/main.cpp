@@ -14,6 +14,7 @@ Copyright:  Copyright (c) Facebook Technologies, LLC and its affiliates. All rig
 #include <unordered_map>
 
 #include <openxr/openxr.h>
+#include <openxr/fb_touch_controller_pro.h>
 
 #include "GUI/VRMenuObject.h"
 #include "Render/BitmapFont.h"
@@ -97,6 +98,7 @@ class XrInputSampleApp : public OVRFW::XrApp {
     virtual std::vector<const char*> GetExtensions() override {
         std::vector<const char*> extensions = XrApp::GetExtensions();
         extensions.push_back(XR_EXT_HAND_TRACKING_EXTENSION_NAME);
+        extensions.push_back(XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME);
         return extensions;
     }
 
@@ -232,6 +234,28 @@ class XrInputSampleApp : public OVRFW::XrApp {
             {actionCubeAimPose_,        "/user/hand/right/input/aim/pose"},
             {actionControllerGripPose_, "/user/hand/right/input/grip/pose"}};
 
+        // If the touch controller pro bindings below are dropped, the touch
+        // controller will be automatically emulated. Try it for yourself!
+        // == Bindings for /interaction_profiles/oculus/touch_controller_pro
+        std::vector<std::pair<XrAction, const char*>> touchProBindings{
+            {actionSelect_,             "/user/hand/left/input/trigger/value"},
+            {actionSpawnCube_,          "/user/hand/left/input/trigger/value"},
+            {actionGrabRelease_,        "/user/hand/left/input/squeeze/value"},
+            {actionRotateCube_,         "/user/hand/left/input/thumbstick"},
+            {actionMenuBeamPose_,       "/user/hand/left/input/aim/pose"},
+            {actionCubeAimPose_,        "/user/hand/left/input/aim/pose"},
+            {actionControllerGripPose_, "/user/hand/left/input/grip/pose"},
+
+            {actionSelect_,             "/user/hand/right/input/trigger/value"},
+            {actionSpawnCube_,          "/user/hand/right/input/trigger/value"},
+            {actionGrabRelease_,        "/user/hand/right/input/squeeze/value"},
+            {actionScaleCube_,          "/user/hand/right/input/thumbstick/x"},
+            {actionTranslateCube_,      "/user/hand/right/input/thumbstick/y"},
+            {actionToggleColor_,        "/user/hand/right/input/a/click"},
+            {actionMenuBeamPose_,       "/user/hand/right/input/aim/pose"},
+            {actionCubeAimPose_,        "/user/hand/right/input/aim/pose"},
+            {actionControllerGripPose_, "/user/hand/right/input/grip/pose"}};
+
         // == Bindings for /interaction_profiles/khr/simple_controller ==
         //
         // While interaction profiles in general map to specific input hardware,
@@ -262,6 +286,10 @@ class XrInputSampleApp : public OVRFW::XrApp {
             instance, "/interaction_profiles/oculus/touch_controller", &touchInteractionProfile_));
         OXR(xrStringToPath(
             instance, "/interaction_profiles/khr/simple_controller", &simpleInteractionProfile_));
+        OXR(xrStringToPath(
+            instance,
+            "/interaction_profiles/facebook/touch_controller_pro",
+            &touchProInteractionProfile_));
 
         // Get the default bindings suggested by XrApp framework
         auto suggestedBindings = XrApp::GetSuggestedBindings(instance);
@@ -274,6 +302,10 @@ class XrInputSampleApp : public OVRFW::XrApp {
         }
         for (const auto& binding : simpleBindings) {
             suggestedBindings[simpleInteractionProfile_].emplace_back(
+                ActionSuggestedBinding(binding.first, binding.second));
+        }
+        for (const auto& binding : touchProBindings) {
+            suggestedBindings[touchProInteractionProfile_].emplace_back(
                 ActionSuggestedBinding(binding.first, binding.second));
         }
 
@@ -1191,6 +1223,7 @@ class XrInputSampleApp : public OVRFW::XrApp {
     XrPath rightHandPath_{XR_NULL_PATH};
     XrPath simpleInteractionProfile_{XR_NULL_PATH};
     XrPath touchInteractionProfile_{XR_NULL_PATH};
+    XrPath touchProInteractionProfile_{XR_NULL_PATH};
 
     /// Hands
     PFN_xrCreateHandTrackerEXT xrCreateHandTrackerEXT_ = nullptr;

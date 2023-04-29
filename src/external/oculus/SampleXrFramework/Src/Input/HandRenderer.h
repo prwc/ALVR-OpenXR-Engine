@@ -67,6 +67,7 @@ class HandRenderer {
     OVR::Vector3f AmbientLightColor;
     OVR::Vector3f GlowColor;
     float Confidence;
+    float Solidity;
 
    private:
     bool isLeftHand;

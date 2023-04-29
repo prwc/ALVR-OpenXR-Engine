@@ -2589,7 +2589,10 @@ ModelFile* LoadModelFile_glB(
                                         (const char*)imageBuffer,
                                         imageBufferLength,
                                         materialParms);
-
+                                } else if (
+                                    materialParms.ImageUriHandler &&
+                                    materialParms.ImageUriHandler(modelFile, uri)) {
+                                    LOGV("LoadModelFile_glB: uri processed by custom handler");
                                 } else {
                                     ALOGW(
                                         "Loading images from othen then bufferView currently unsupported in glBfd, defaulting image");
