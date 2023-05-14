@@ -1074,9 +1074,7 @@ static bool ovrFramebuffer_Create(
 
     // Swapchain for main pass
     {
-        XrSwapchainCreateInfo swapChainCreateInfo;
-        memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
-        swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+        XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
         swapChainCreateInfo.usageFlags =
             XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
         swapChainCreateInfo.format = selectedFormat;
@@ -1196,9 +1194,7 @@ static bool ovrFramebuffer_Create(
 
         GLenum mvFormat = GL_RGBA16F;
         GLenum mvDepthFormat = GL_DEPTH_COMPONENT24;
-        XrSwapchainCreateInfo swapChainCreateInfo;
-        memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
-        swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+        XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
         swapChainCreateInfo.usageFlags =
             XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
         swapChainCreateInfo.format = mvFormat;
@@ -1373,9 +1369,7 @@ static void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer, bool isMotionVec
     if (isMotionVectorPass) {
         // AppSpaceWarp Need wait both MotionVectorSwapChain and MotionVectorDepthSwapChain are
         // ready
-        XrSwapchainImageWaitInfo waitInfo;
-        waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
-        waitInfo.next = NULL;
+        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         waitInfo.timeout = 1000000000; /* timeout in nanoseconds */
 
         OXR(xrAcquireSwapchainImage(
@@ -1413,9 +1407,7 @@ static void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer, bool isMotionVec
         OXR(xrAcquireSwapchainImage(
             frameBuffer->ColorSwapChain.Handle, &acquireInfo, &frameBuffer->TextureSwapChainIndex));
 
-        XrSwapchainImageWaitInfo waitInfo;
-        waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
-        waitInfo.next = NULL;
+        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         waitInfo.timeout = 1000000000; /* timeout in nanoseconds */
         XrResult res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
         int i = 0;
@@ -1847,9 +1839,7 @@ ovrScene_Create(AAssetManager* amgr, XrInstance instance, XrSession session, ovr
         static const int QUAD_WIDTH = 256;
         static const int QUAD_HEIGHT = 256;
 
-        XrSwapchainCreateInfo swapChainCreateInfo;
-        memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
-        swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+        XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
         swapChainCreateInfo.createFlags = XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT;
         swapChainCreateInfo.usageFlags =
             XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
@@ -2229,10 +2219,7 @@ static void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) 
         assert(app->NativeWindow != NULL);
         assert(app->SessionActive == false);
 
-        XrSessionBeginInfo sessionBeginInfo;
-        memset(&sessionBeginInfo, 0, sizeof(sessionBeginInfo));
-        sessionBeginInfo.type = XR_TYPE_SESSION_BEGIN_INFO;
-        sessionBeginInfo.next = NULL;
+        XrSessionBeginInfo sessionBeginInfo = {XR_TYPE_SESSION_BEGIN_INFO};
         sessionBeginInfo.primaryViewConfigurationType = app->ViewportConfig.viewConfigurationType;
 
         XrResult result;
@@ -2616,10 +2603,7 @@ void android_main(struct android_app* app) {
     xrGetInstanceProcAddr(
         XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
     if (xrInitializeLoaderKHR != NULL) {
-        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
-        memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
-        loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
-        loaderInitializeInfoAndroid.next = NULL;
+        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
         loaderInitializeInfoAndroid.applicationVM = app->activity->vm;
         loaderInitializeInfoAndroid.applicationContext = app->activity->clazz;
         xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
@@ -2736,10 +2720,7 @@ void android_main(struct android_app* app) {
     appInfo.engineVersion = 0;
     appInfo.apiVersion = XR_CURRENT_API_VERSION;
 
-    XrInstanceCreateInfo instanceCreateInfo;
-    memset(&instanceCreateInfo, 0, sizeof(instanceCreateInfo));
-    instanceCreateInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
-    instanceCreateInfo.next = NULL;
+    XrInstanceCreateInfo instanceCreateInfo = {XR_TYPE_INSTANCE_CREATE_INFO};
     instanceCreateInfo.createFlags = 0;
     instanceCreateInfo.applicationInfo = appInfo;
     instanceCreateInfo.enabledApiLayerCount = 0;
@@ -2754,9 +2735,7 @@ void android_main(struct android_app* app) {
         exit(1);
     }
 
-    XrInstanceProperties instanceInfo;
-    instanceInfo.type = XR_TYPE_INSTANCE_PROPERTIES;
-    instanceInfo.next = NULL;
+    XrInstanceProperties instanceInfo = {XR_TYPE_INSTANCE_PROPERTIES};
     OXR(xrGetInstanceProperties(appState.Instance, &instanceInfo));
     ALOGV(
         "Runtime %s: Version : %u.%u.%u",
@@ -2765,10 +2744,7 @@ void android_main(struct android_app* app) {
         XR_VERSION_MINOR(instanceInfo.runtimeVersion),
         XR_VERSION_PATCH(instanceInfo.runtimeVersion));
 
-    XrSystemGetInfo systemGetInfo;
-    memset(&systemGetInfo, 0, sizeof(systemGetInfo));
-    systemGetInfo.type = XR_TYPE_SYSTEM_GET_INFO;
-    systemGetInfo.next = NULL;
+    XrSystemGetInfo systemGetInfo = {XR_TYPE_SYSTEM_GET_INFO};
     systemGetInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
 
     XrSystemId systemId;

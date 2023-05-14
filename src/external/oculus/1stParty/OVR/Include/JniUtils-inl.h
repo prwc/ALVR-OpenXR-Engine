@@ -100,6 +100,11 @@ inline jint ovr_DetachCurrentThread(JavaVM* vm) {
 OVR_NO_SANITIZE_ADDRESS
 inline TempJniEnv::TempJniEnv(JavaVM* vm, const char*, int)
     : vm_(vm), jni_(nullptr), privateEnv_(false) {
+    if (!vm_) {
+        OVR_WARN("Null JavaVM is passed");
+        return;
+    }
+
     if (JNI_OK != getEnv(vm_, reinterpret_cast<void**>(&jni_), JNI_VERSION_1_6)) {
         OVR_LOG(
             "Creating temporary JNIEnv. This is a heavy operation and should be infrequent. To optimize, use JNI AttachCurrentThread on calling thread");

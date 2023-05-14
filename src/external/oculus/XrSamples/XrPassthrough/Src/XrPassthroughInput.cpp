@@ -58,9 +58,7 @@ namespace {
 
 XrActionSet
 CreateActionSet(XrInstance instance, int priority, const char* name, const char* localizedName) {
-    XrActionSetCreateInfo asci = {};
-    asci.type = XR_TYPE_ACTION_SET_CREATE_INFO;
-    asci.next = nullptr;
+    XrActionSetCreateInfo asci = {XR_TYPE_ACTION_SET_CREATE_INFO};
     asci.priority = priority;
     strcpy(asci.actionSetName, name);
     strcpy(asci.localizedActionSetName, localizedName);
@@ -78,9 +76,7 @@ XrAction CreateAction(
     XrPath* subactionPaths = nullptr) {
     ALOGV("CreateAction %s, %" PRIi32, actionName, countSubactionPaths);
 
-    XrActionCreateInfo aci = {};
-    aci.type = XR_TYPE_ACTION_CREATE_INFO;
-    aci.next = nullptr;
+    XrActionCreateInfo aci = {XR_TYPE_ACTION_CREATE_INFO};
     aci.actionType = type;
     if (countSubactionPaths > 0) {
         aci.countSubactionPaths = countSubactionPaths;
@@ -104,8 +100,7 @@ ActionSuggestedBinding(App& app, XrAction action, const char* bindingString) {
 }
 
 XrSpace CreateActionSpace(App& app, XrAction poseAction, XrPath subactionPath) {
-    XrActionSpaceCreateInfo asci = {};
-    asci.type = XR_TYPE_ACTION_SPACE_CREATE_INFO;
+    XrActionSpaceCreateInfo asci = {XR_TYPE_ACTION_SPACE_CREATE_INFO};
     asci.action = poseAction;
     asci.poseInActionSpace.orientation.w = 1.0f;
     asci.subactionPath = subactionPath;
@@ -115,25 +110,21 @@ XrSpace CreateActionSpace(App& app, XrAction poseAction, XrPath subactionPath) {
 }
 
 XrActionStateBoolean GetActionStateBoolean(App& app, XrAction action) {
-    XrActionStateGetInfo getInfo = {};
-    getInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
+    XrActionStateGetInfo getInfo = {XR_TYPE_ACTION_STATE_GET_INFO};
     getInfo.action = action;
 
-    XrActionStateBoolean state = {};
-    state.type = XR_TYPE_ACTION_STATE_BOOLEAN;
+    XrActionStateBoolean state = {XR_TYPE_ACTION_STATE_BOOLEAN};
 
     OXR(xrGetActionStateBoolean(app.Session, &getInfo, &state));
     return state;
 }
 
 bool ActionPoseIsActive(App& app, XrAction action, XrPath subactionPath) {
-    XrActionStateGetInfo getInfo = {};
-    getInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
+    XrActionStateGetInfo getInfo = {XR_TYPE_ACTION_STATE_GET_INFO};
     getInfo.action = action;
     getInfo.subactionPath = subactionPath;
 
-    XrActionStatePose state = {};
-    state.type = XR_TYPE_ACTION_STATE_POSE;
+    XrActionStatePose state = {XR_TYPE_ACTION_STATE_POSE};
     OXR(xrGetActionStatePose(app.Session, &getInfo, &state));
     return state.isActive != XR_FALSE;
 }
@@ -197,16 +188,14 @@ void AppInput_init(App& app) {
         bindings.push_back(
             ActionSuggestedBinding(app, gripPoseAction, "/user/hand/right/input/grip/pose"));
 
-        XrInteractionProfileSuggestedBinding suggestedBindings = {};
-        suggestedBindings.type = XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING;
+        XrInteractionProfileSuggestedBinding suggestedBindings = {XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
         suggestedBindings.interactionProfile = interactionProfilePath;
         suggestedBindings.suggestedBindings = &bindings[0];
         suggestedBindings.countSuggestedBindings = bindings.size();
         OXR(xrSuggestInteractionProfileBindings(app.Instance, &suggestedBindings));
 
         // Attach to session
-        XrSessionActionSetsAttachInfo attachInfo = {};
-        attachInfo.type = XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO;
+        XrSessionActionSetsAttachInfo attachInfo = {XR_TYPE_SESSION_ACTION_SETS_ATTACH_INFO};
         attachInfo.countActionSets = 1;
         attachInfo.actionSets = &runningActionSet;
         OXR(xrAttachSessionActionSets(app.Session, &attachInfo));
@@ -232,17 +221,13 @@ void AppInput_syncActions(App& app) {
     activeActionSet.actionSet = runningActionSet;
     activeActionSet.subactionPath = XR_NULL_PATH;
 
-    XrActionsSyncInfo syncInfo = {};
-    syncInfo.type = XR_TYPE_ACTIONS_SYNC_INFO;
-    syncInfo.next = nullptr;
+    XrActionsSyncInfo syncInfo = {XR_TYPE_ACTIONS_SYNC_INFO};
     syncInfo.countActiveActionSets = 1;
     syncInfo.activeActionSets = &activeActionSet;
     OXR(xrSyncActions(app.Session, &syncInfo));
 
     // query input action states
-    XrActionStateGetInfo getInfo = {};
-    getInfo.type = XR_TYPE_ACTION_STATE_GET_INFO;
-    getInfo.next = nullptr;
+    XrActionStateGetInfo getInfo = {XR_TYPE_ACTION_STATE_GET_INFO};
     getInfo.subactionPath = XR_NULL_PATH;
 
     boolState = GetActionStateBoolean(app, boolAction);

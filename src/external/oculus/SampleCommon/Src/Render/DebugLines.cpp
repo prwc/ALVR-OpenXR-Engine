@@ -69,6 +69,7 @@ class OvrDebugLinesLocal : public OvrDebugLines {
     OvrDebugLinesLocal();
     virtual ~OvrDebugLinesLocal();
 
+    virtual void Init(float lineWidth);
     virtual void Init();
     virtual void Shutdown();
 
@@ -99,9 +100,11 @@ class OvrDebugLinesLocal : public OvrDebugLines {
         const Vector3f& origin,
         const Matrix4f& axes,
         const float size,
-        const Vector4f& color,
         const long long endFrame,
         const bool depthTest);
+
+    virtual void
+    AddAxes(const Posef& pose, const float size, const long long endFrame, const bool depthTest);
 
    private:
     DebugLines_t DepthTested;
@@ -123,9 +126,13 @@ OvrDebugLinesLocal::~OvrDebugLinesLocal() {
     Shutdown();
 }
 
+void OvrDebugLinesLocal::Init() {
+    Init(2.0f);
+}
+
 //==============================
 // OvrDebugLinesLocal::Init
-void OvrDebugLinesLocal::Init() {
+void OvrDebugLinesLocal::Init(float lineWidth) {
     if (Initialized) {
         // JDC: multi-activity test		ASSERT_WITH_TAG( !Initialized, "DebugLines" );
         return;
@@ -153,7 +160,7 @@ void OvrDebugLinesLocal::Init() {
         ovrGraphicsCommand& gc = dl.Surf.graphicsCommand;
         gc.GpuState.blendDst = GL_ONE_MINUS_SRC_ALPHA;
         gc.GpuState.depthEnable = gc.GpuState.depthMaskEnable = i == 1;
-        gc.GpuState.lineWidth = 2.0f;
+        gc.GpuState.lineWidth = lineWidth;
         gc.Program = LineProgram;
     }
 
@@ -267,7 +274,6 @@ void OvrDebugLinesLocal::AddAxes(
     const Vector3f& origin,
     const Matrix4f& axes,
     const float size,
-    const Vector4f& color,
     const long long endFrame,
     const bool depthTest) {
     const float half_size = size * 0.5f;
@@ -292,6 +298,39 @@ void OvrDebugLinesLocal::AddAxes(
     AddLine(
         origin - up,
         origin + up,
+        Vector4f(0.0f, 1.0f, 0.0f, 1.0f),
+        Vector4f(0.0f, 1.0f, 0.0f, 1.0f),
+        endFrame,
+        depthTest);
+}
+
+void OvrDebugLinesLocal::AddAxes(
+    const Posef& pose,
+    const float size,
+    const long long endFrame,
+    const bool depthTest) {
+    const auto origin = pose.Translation;
+    const OVR::Quatf rot(pose.Rotation.x, pose.Rotation.y, pose.Rotation.z, pose.Rotation.w);
+
+    const auto axes = OVR::Matrix4f(rot);
+
+    AddLine(
+        origin,
+        origin + axes.GetXBasis() * size,
+        Vector4f(0.0f, 0.0f, 1.0f, 1.0f),
+        Vector4f(0.0f, 0.0f, 1.0f, 1.0f),
+        endFrame,
+        depthTest);
+    AddLine(
+        origin,
+        origin + axes.GetYBasis() * size,
+        Vector4f(1.0f, 0.0f, 0.0f, 1.0f),
+        Vector4f(1.0f, 0.0f, 0.0f, 1.0f),
+        endFrame,
+        depthTest);
+    AddLine(
+        origin,
+        origin + axes.GetZBasis() * size,
         Vector4f(0.0f, 1.0f, 0.0f, 1.0f),
         Vector4f(0.0f, 1.0f, 0.0f, 1.0f),
         endFrame,

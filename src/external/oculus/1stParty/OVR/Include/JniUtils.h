@@ -299,20 +299,21 @@ inline jclass ovr_GetLocalClassReferenceWithLoader(
     // this function). Whether or not that is actually the case is up to the compiler and
     // optimizations, but C++ doesn't guarantee stack variables only take up space within
     // the code block in which they are declared.
-    auto checkJNIException = [](JNIEnv* jni, const bool warn, const char* fmt, ...) {
-        if (jni->ExceptionOccurred()) {
-            // something else caused a JNI exception before this and didn't clear it
-            if (warn && fmt != nullptr) {
-                char errorMsg[256];
-                va_list argPtr;
-                va_start(argPtr, fmt);
-                vsnprintf(errorMsg, sizeof(errorMsg), fmt, argPtr);
-                va_end(argPtr);
-                OVR_LOG("JNI exception: %s", errorMsg);
+    auto checkJNIException =
+        [](JNIEnv* jniLambdaScope, const bool warnLambdaScope, const char* fmt, ...) {
+            if (jniLambdaScope->ExceptionOccurred()) {
+                // something else caused a JNI exception before this and didn't clear it
+                if (warnLambdaScope && fmt != nullptr) {
+                    char errorMsg[256];
+                    va_list argPtr;
+                    va_start(argPtr, fmt);
+                    vsnprintf(errorMsg, sizeof(errorMsg), fmt, argPtr);
+                    va_end(argPtr);
+                    OVR_LOG("JNI exception: %s", errorMsg);
+                }
+                jniLambdaScope->ExceptionClear();
             }
-            jni->ExceptionClear();
-        }
-    };
+        };
 
     checkJNIException(
         jni,

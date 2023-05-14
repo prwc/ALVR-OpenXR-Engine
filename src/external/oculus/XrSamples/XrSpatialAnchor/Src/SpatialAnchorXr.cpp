@@ -561,9 +561,7 @@ void ovrApp::HandleSessionStateChanges(XrSessionState state) {
 #endif // defined(XR_USE_PLATFORM_ANDROID)
         assert(SessionActive == false);
 
-        XrSessionBeginInfo sessionBeginInfo = {};
-        sessionBeginInfo.type = XR_TYPE_SESSION_BEGIN_INFO;
-        sessionBeginInfo.next = nullptr;
+        XrSessionBeginInfo sessionBeginInfo = {XR_TYPE_SESSION_BEGIN_INFO};
         sessionBeginInfo.primaryViewConfigurationType = ViewportConfig.viewConfigurationType;
 
         XrResult result;
@@ -1271,9 +1269,7 @@ void PlaceAnchor(ovrApp& app, SimpleXrInput* input, const XrFrameState& frameSta
         app.LocalSpace,
         frameState.predictedDisplayTime);
 
-    XrSpatialAnchorCreateInfoFB anchorCreateInfo = {};
-    anchorCreateInfo.type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_FB;
-    anchorCreateInfo.next = NULL;
+    XrSpatialAnchorCreateInfoFB anchorCreateInfo = {XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_FB};
     anchorCreateInfo.space = app.LocalSpace;
     anchorCreateInfo.poseInSpace = ToXrPosef(localFromRightAim);
     anchorCreateInfo.time = frameState.predictedDisplayTime;
@@ -1313,10 +1309,7 @@ int main() {
     xrGetInstanceProcAddr(
         XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
     if (xrInitializeLoaderKHR != NULL) {
-        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
-        memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
-        loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
-        loaderInitializeInfoAndroid.next = NULL;
+        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
         loaderInitializeInfoAndroid.applicationVM = androidApp->activity->vm;
         loaderInitializeInfoAndroid.applicationContext = androidApp->activity->clazz;
         xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
@@ -1337,26 +1330,14 @@ int main() {
             exit(1);
         }
 
-        uint32_t numInputLayers = 0;
-        uint32_t numOutputLayers = 0;
-        OXR(xrEnumerateApiLayerProperties(numInputLayers, &numOutputLayers, NULL));
+        uint32_t layerCount = 0;
+        OXR(xrEnumerateApiLayerProperties(0, &layerCount, NULL));
+        std::vector<XrApiLayerProperties> layerProperties(layerCount, {XR_TYPE_API_LAYER_PROPERTIES});
+        OXR(xrEnumerateApiLayerProperties(layerCount, &layerCount, layerProperties.data()));
 
-        numInputLayers = numOutputLayers;
-
-        auto layerProperties = new XrApiLayerProperties[numOutputLayers];
-
-        for (uint32_t i = 0; i < numOutputLayers; i++) {
-            layerProperties[i].type = XR_TYPE_API_LAYER_PROPERTIES;
-            layerProperties[i].next = NULL;
+        for (const auto& layer : layerProperties) {
+            ALOGV("Found layer %s", layer.layerName);
         }
-
-        OXR(xrEnumerateApiLayerProperties(numInputLayers, &numOutputLayers, layerProperties));
-
-        for (uint32_t i = 0; i < numOutputLayers; i++) {
-            ALOGV("Found layer %s", layerProperties[i].layerName);
-        }
-
-        delete[] layerProperties;
     }
 
     // Check that the extensions required are present.
@@ -1460,9 +1441,7 @@ int main() {
     appInfo.engineVersion = 0;
     appInfo.apiVersion = XR_CURRENT_API_VERSION;
 
-    XrInstanceCreateInfo instanceCreateInfo = {};
-    instanceCreateInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
-    instanceCreateInfo.next = nullptr;
+    XrInstanceCreateInfo instanceCreateInfo = {XR_TYPE_INSTANCE_CREATE_INFO};
     instanceCreateInfo.createFlags = 0;
     instanceCreateInfo.applicationInfo = appInfo;
     instanceCreateInfo.enabledApiLayerCount = 0;
@@ -1477,9 +1456,7 @@ int main() {
         exit(1);
     }
 
-    XrInstanceProperties instanceInfo;
-    instanceInfo.type = XR_TYPE_INSTANCE_PROPERTIES;
-    instanceInfo.next = NULL;
+    XrInstanceProperties instanceInfo = {XR_TYPE_INSTANCE_PROPERTIES};
     OXR(xrGetInstanceProperties(instance, &instanceInfo));
     ALOGV(
         "Runtime %s: Version : %u.%u.%u",
@@ -1488,9 +1465,7 @@ int main() {
         XR_VERSION_MINOR(instanceInfo.runtimeVersion),
         XR_VERSION_PATCH(instanceInfo.runtimeVersion));
 
-    XrSystemGetInfo systemGetInfo = {};
-    systemGetInfo.type = XR_TYPE_SYSTEM_GET_INFO;
-    systemGetInfo.next = NULL;
+    XrSystemGetInfo systemGetInfo = {XR_TYPE_SYSTEM_GET_INFO};
     systemGetInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
 
     XrSystemId systemId;
@@ -1500,8 +1475,7 @@ int main() {
         exit(1);
     }
 
-    XrSystemProperties systemProperties = {};
-    systemProperties.type = XR_TYPE_SYSTEM_PROPERTIES;
+    XrSystemProperties systemProperties = {XR_TYPE_SYSTEM_PROPERTIES};
     OXR(xrGetSystemProperties(instance, systemId, &systemProperties));
 
     ALOGV(
@@ -1541,8 +1515,7 @@ int main() {
         "xrGetOpenGLESGraphicsRequirementsKHR",
         (PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
 
-    XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
-    graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
+    XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR};
     OXR(pfnGetOpenGLESGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements));
 #elif defined(XR_USE_GRAPHICS_API_OPENGL)
     // Get the graphics requirements.
@@ -1552,8 +1525,7 @@ int main() {
         "xrGetOpenGLGraphicsRequirementsKHR",
         (PFN_xrVoidFunction*)(&pfnGetOpenGLGraphicsRequirementsKHR)));
 
-    XrGraphicsRequirementsOpenGLKHR graphicsRequirements = {};
-    graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR;
+    XrGraphicsRequirementsOpenGLKHR graphicsRequirements = {XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR};
     OXR(pfnGetOpenGLGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements));
 #endif
 
@@ -1584,22 +1556,17 @@ int main() {
 
     // Create the OpenXR Session.
 #if defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-    XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding = {};
-    graphicsBinding.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
-    graphicsBinding.next = NULL;
+    XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding = {XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
     graphicsBinding.display = app.Egl.Display;
     graphicsBinding.config = app.Egl.Config;
     graphicsBinding.context = app.Egl.Context;
 #elif defined(XR_USE_GRAPHICS_API_OPENGL)
-    XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {};
-    graphicsBinding.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
-    graphicsBinding.next = NULL;
+    XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR};
     graphicsBinding.hDC = app.Egl.hDC;
     graphicsBinding.hGLRC = app.Egl.hGLRC;
 #endif //
 
-    XrSessionCreateInfo sessionCreateInfo = {};
-    sessionCreateInfo.type = XR_TYPE_SESSION_CREATE_INFO;
+    XrSessionCreateInfo sessionCreateInfo = {XR_TYPE_SESSION_CREATE_INFO};
     sessionCreateInfo.next = &graphicsBinding;
     sessionCreateInfo.createFlags = 0;
     sessionCreateInfo.systemId = app.SystemId;
@@ -1721,8 +1688,7 @@ int main() {
     delete[] referenceSpaces;
 
     // Create a space to the first path
-    XrReferenceSpaceCreateInfo spaceCreateInfo = {};
-    spaceCreateInfo.type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO;
+    XrReferenceSpaceCreateInfo spaceCreateInfo = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
     spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
     spaceCreateInfo.poseInReferenceSpace.orientation.w = 1.0f;
     OXR(xrCreateReferenceSpace(app.Session, &spaceCreateInfo, &app.HeadSpace));
@@ -1746,8 +1712,7 @@ int main() {
     int width = app.ViewConfigurationView[0].recommendedImageRectWidth;
     int height = app.ViewConfigurationView[0].recommendedImageRectHeight;
 
-    XrSwapchainCreateInfo swapChainCreateInfo = {};
-    swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+    XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
     swapChainCreateInfo.usageFlags =
         XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
     swapChainCreateInfo.format = format;
@@ -2015,13 +1980,9 @@ int main() {
 
         // NOTE: OpenXR does not use the concept of frame indices. Instead,
         // XrWaitFrame returns the predicted display time.
-        XrFrameWaitInfo waitFrameInfo = {};
-        waitFrameInfo.type = XR_TYPE_FRAME_WAIT_INFO;
-        waitFrameInfo.next = NULL;
+        XrFrameWaitInfo waitFrameInfo = {XR_TYPE_FRAME_WAIT_INFO};
 
-        XrFrameState frameState = {};
-        frameState.type = XR_TYPE_FRAME_STATE;
-        frameState.next = NULL;
+        XrFrameState frameState = {XR_TYPE_FRAME_STATE};
 
         OXR(xrWaitFrame(app.Session, &waitFrameInfo, &frameState));
 
@@ -2029,20 +1990,16 @@ int main() {
         // the new eye images will be displayed. The number of frames predicted ahead
         // depends on the pipeline depth of the engine and the synthesis rate.
         // The better the prediction, the less black will be pulled in at the edges.
-        XrFrameBeginInfo beginFrameDesc = {};
-        beginFrameDesc.type = XR_TYPE_FRAME_BEGIN_INFO;
-        beginFrameDesc.next = NULL;
+        XrFrameBeginInfo beginFrameDesc = {XR_TYPE_FRAME_BEGIN_INFO};
         OXR(xrBeginFrame(app.Session, &beginFrameDesc));
 
-        XrSpaceLocation loc = {};
-        loc.type = XR_TYPE_SPACE_LOCATION;
+        XrSpaceLocation loc = {XR_TYPE_SPACE_LOCATION};
         OXR(xrLocateSpace(app.HeadSpace, app.LocalSpace, frameState.predictedDisplayTime, &loc));
         XrPosef xfLocalFromHead = loc.pose;
 
         XrViewState viewState = {XR_TYPE_VIEW_STATE, NULL};
 
-        XrViewLocateInfo projectionInfo = {};
-        projectionInfo.type = XR_TYPE_VIEW_LOCATE_INFO;
+        XrViewLocateInfo projectionInfo = {XR_TYPE_VIEW_LOCATE_INFO};
         projectionInfo.viewConfigurationType = app.ViewportConfig.viewConfigurationType;
         projectionInfo.displayTime = frameState.predictedDisplayTime;
         projectionInfo.space = app.HeadSpace;
@@ -2068,8 +2025,7 @@ int main() {
             for (XrSpace space : scene.SpaceList) {
                 // If anchor was placed, just update the anchor location
                 // Updating it regularly will prevent drift
-                XrSpaceLocation persistedAnchorLoc = {};
-                persistedAnchorLoc.type = XR_TYPE_SPACE_LOCATION;
+                XrSpaceLocation persistedAnchorLoc = {XR_TYPE_SPACE_LOCATION};
                 XrResult res = XR_SUCCESS;
                 OXR(res = xrLocateSpace(
                         space,
@@ -2149,8 +2105,7 @@ int main() {
         }
 
         if (app.StageSpace != XR_NULL_HANDLE) {
-            loc = {};
-            loc.type = XR_TYPE_SPACE_LOCATION;
+            loc = {XR_TYPE_SPACE_LOCATION};
             OXR(xrLocateSpace(
                 app.StageSpace, app.LocalSpace, frameState.predictedDisplayTime, &loc));
             XrPosef xfLocalFromStage = loc.pose;
@@ -2162,9 +2117,7 @@ int main() {
             frameIn.HasStage = false;
         }
 
-        XrSwapchainImageWaitInfo waitInfo;
-        waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
-        waitInfo.next = NULL;
+        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         waitInfo.timeout = 1000000000; /* timeout in nanoseconds */
         XrResult res = xrWaitSwapchainImage(app.ColorSwapChain, &waitInfo);
         int retry = 0;
@@ -2193,16 +2146,14 @@ int main() {
 
         // passthrough layer is backmost layer (if available)
         if (reconPassthroughLayer != XR_NULL_HANDLE) {
-            XrCompositionLayerPassthroughFB passthrough_layer = {};
-            passthrough_layer.type = XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB;
+            XrCompositionLayerPassthroughFB passthrough_layer = {XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB};
             passthrough_layer.layerHandle = reconPassthroughLayer;
             passthrough_layer.flags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
             passthrough_layer.space = XR_NULL_HANDLE;
             app.Layers[app.LayerCount++].Passthrough = passthrough_layer;
         }
 
-        XrCompositionLayerProjection proj_layer = {};
-        proj_layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
+        XrCompositionLayerProjection proj_layer = {XR_TYPE_COMPOSITION_LAYER_PROJECTION};
         proj_layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
         proj_layer.layerFlags |= XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT;
         proj_layer.space = app.LocalSpace;
@@ -2211,8 +2162,7 @@ int main() {
 
         for (int eye = 0; eye < NUM_EYES; eye++) {
             XrCompositionLayerProjectionView& proj_view = proj_views[eye];
-            proj_view = {};
-            proj_view.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+            proj_view = {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
             proj_view.pose = xfLocalFromEye[eye];
             proj_view.fov = projections[eye].fov;
 
@@ -2232,8 +2182,7 @@ int main() {
             layers[i] = (const XrCompositionLayerBaseHeader*)&app.Layers[i];
         }
 
-        XrFrameEndInfo endFrameInfo = {};
-        endFrameInfo.type = XR_TYPE_FRAME_END_INFO;
+        XrFrameEndInfo endFrameInfo = {XR_TYPE_FRAME_END_INFO};
         endFrameInfo.displayTime = frameState.predictedDisplayTime;
         endFrameInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
         endFrameInfo.layerCount = app.LayerCount;

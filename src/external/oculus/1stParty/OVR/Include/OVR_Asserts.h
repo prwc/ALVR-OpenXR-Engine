@@ -98,9 +98,9 @@
         OVR_ASM("int $3\n\t"); \
     } while (0)
 #else
-#define OVR_DEBUG_BREAK \
-    do {                \
-        *((int*)0) = 1; \
+#define OVR_DEBUG_BREAK          \
+    do {                         \
+        *((volatile int*)0) = 1; \
     } while (0)
 #endif
 

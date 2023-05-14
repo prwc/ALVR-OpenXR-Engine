@@ -26,6 +26,7 @@ class OvrDebugLines {
     static OvrDebugLines* Create();
     static void Free(OvrDebugLines*& debugLines);
 
+    virtual void Init(float lineWidth) = 0;
     virtual void Init() = 0;
     virtual void Shutdown() = 0;
 
@@ -59,7 +60,13 @@ class OvrDebugLines {
         const OVR::Vector3f& origin,
         const OVR::Matrix4f& axes,
         const float size,
-        const OVR::Vector4f& color,
+        const long long endFrame,
+        const bool depthTest) = 0;
+
+    // Add axes at pose location, aligned the x, y, z of the axes to the pose orientation
+    virtual void AddAxes(
+        const OVR::Posef& pose,
+        const float size,
         const long long endFrame,
         const bool depthTest) = 0;
 

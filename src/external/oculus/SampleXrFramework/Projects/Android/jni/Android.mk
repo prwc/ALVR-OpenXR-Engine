@@ -22,6 +22,7 @@ LOCAL_C_INCLUDES := \
   $(LOCAL_PATH)/../../../../3rdParty/khronos/openxr/OpenXR-SDK/src/common \
   $(LOCAL_PATH)/../../../../OpenXR/Include \
 
+  # 
 LOCAL_STATIC_LIBRARIES += minizip stb android_native_app_glue samplecommon
 LOCAL_SRC_FILES := \
   ../../../Src/XrApp.cpp \

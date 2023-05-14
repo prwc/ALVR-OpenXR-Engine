@@ -391,6 +391,7 @@ class XrApp {
 
     virtual bool SessionInit();
     virtual void SessionEnd();
+    virtual void SessionStateChanged(XrSessionState state);
     virtual void Update(const ovrApplFrameIn& in);
     virtual void Render(const ovrApplFrameIn& in, ovrRendererOutput& out);
 
@@ -450,7 +451,7 @@ class XrApp {
         return CurrentSpace;
     }
 
-    XrActionSet CreateActionSet(int priority, const char* name, const char* localizedName);
+    XrActionSet CreateActionSet(uint32_t priority, const char* name, const char* localizedName);
     XrAction CreateAction(
         XrActionSet actionSet,
         XrActionType type,

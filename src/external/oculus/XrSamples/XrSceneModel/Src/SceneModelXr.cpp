@@ -528,9 +528,7 @@ void ovrApp::HandleSessionStateChanges(XrSessionState state) {
         assert(Resumed);
         assert(SessionActive == false);
 
-        XrSessionBeginInfo sessionBeginInfo = {};
-        sessionBeginInfo.type = XR_TYPE_SESSION_BEGIN_INFO;
-        sessionBeginInfo.next = nullptr;
+        XrSessionBeginInfo sessionBeginInfo = {XR_TYPE_SESSION_BEGIN_INFO};
         sessionBeginInfo.primaryViewConfigurationType = ViewportConfig.viewConfigurationType;
 
         XrResult result;
@@ -635,7 +633,7 @@ bool ovrApp::IsComponentEnabled(XrSpace space, XrSpaceComponentTypeFB type) {
 void ovrApp::CollectRoomLayoutUuids(XrSpace space, std::unordered_set<std::string>& uuidSet) {
     assert(FunPtrs.xrGetSpaceRoomLayoutFB != nullptr);
 
-    XrRoomLayoutFB roomLayout = {};
+    XrRoomLayoutFB roomLayout = {XR_TYPE_ROOM_LAYOUT_FB};
     std::vector<XrUuidEXT> wallUuids;
 
     // First call
@@ -663,7 +661,7 @@ void ovrApp::CollectRoomLayoutUuids(XrSpace space, std::unordered_set<std::strin
 void ovrApp::CollectSpaceContainerUuids(XrSpace space, std::unordered_set<std::string>& uuidSet) {
     assert(FunPtrs.xrGetSpaceContainerFB != nullptr);
 
-    XrSpaceContainerFB spaceContainer = {};
+    XrSpaceContainerFB spaceContainer = {XR_TYPE_SPACE_CONTAINER_FB};
     // First call
     OXR(FunPtrs.xrGetSpaceContainerFB(Session, space, &spaceContainer));
     if (spaceContainer.uuidCountOutput == 0) {
@@ -886,6 +884,7 @@ void ovrApp::HandleXrEvents() {
                     break;
                 }
 
+                ALOGV("xrPollEvent: num of results received: %d", queryResults.resultCountOutput);
                 for (uint32_t i = 0; i < queryResults.resultCountOutput; ++i) {
                     auto& result = results[i];
 
@@ -1117,8 +1116,7 @@ void UpdateStageBounds(ovrApp& app) {
 void UpdateScenePlanes(ovrApp& app, const XrFrameState& frameState) {
     auto& scene = app.AppRenderer.Scene;
     for (auto& plane : scene.Planes) {
-        XrSpaceLocation spaceLocation = {};
-        spaceLocation.type = XR_TYPE_SPACE_LOCATION;
+        XrSpaceLocation spaceLocation = {XR_TYPE_SPACE_LOCATION};
         XrResult res = XR_SUCCESS;
         OXR(res = xrLocateSpace(
                 plane.Space, app.LocalSpace, frameState.predictedDisplayTime, &spaceLocation));
@@ -1144,8 +1142,7 @@ void UpdateSceneVolumes(ovrApp& app, const XrFrameState& frameState) {
     auto& scene = app.AppRenderer.Scene;
 
     for (auto& volume : scene.Volumes) {
-        XrSpaceLocation spaceLocation = {};
-        spaceLocation.type = XR_TYPE_SPACE_LOCATION;
+        XrSpaceLocation spaceLocation = {XR_TYPE_SPACE_LOCATION};
         XrResult res = XR_SUCCESS;
         OXR(res = xrLocateSpace(
                 volume.Space, app.LocalSpace, frameState.predictedDisplayTime, &spaceLocation));
@@ -1183,10 +1180,8 @@ void android_main(struct android_app* androidApp) {
     xrGetInstanceProcAddr(
         XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
     if (xrInitializeLoaderKHR != NULL) {
-        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
-        memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
-        loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
-        loaderInitializeInfoAndroid.next = NULL;
+        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid = {
+            XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
         loaderInitializeInfoAndroid.applicationVM = androidApp->activity->vm;
         loaderInitializeInfoAndroid.applicationContext = androidApp->activity->clazz;
         xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
@@ -1206,26 +1201,15 @@ void android_main(struct android_app* androidApp) {
             exit(1);
         }
 
-        uint32_t numInputLayers = 0;
-        uint32_t numOutputLayers = 0;
-        OXR(xrEnumerateApiLayerProperties(numInputLayers, &numOutputLayers, NULL));
+        uint32_t layerCount = 0;
+        OXR(xrEnumerateApiLayerProperties(0, &layerCount, NULL));
+        std::vector<XrApiLayerProperties> layerProperties(
+            layerCount, {XR_TYPE_API_LAYER_PROPERTIES});
+        OXR(xrEnumerateApiLayerProperties(layerCount, &layerCount, layerProperties.data()));
 
-        numInputLayers = numOutputLayers;
-
-        auto layerProperties = new XrApiLayerProperties[numOutputLayers];
-
-        for (uint32_t i = 0; i < numOutputLayers; i++) {
-            layerProperties[i].type = XR_TYPE_API_LAYER_PROPERTIES;
-            layerProperties[i].next = NULL;
+        for (const auto& layer : layerProperties) {
+            ALOGV("Found layer %s", layer.layerName);
         }
-
-        OXR(xrEnumerateApiLayerProperties(numInputLayers, &numOutputLayers, layerProperties));
-
-        for (uint32_t i = 0; i < numOutputLayers; i++) {
-            ALOGV("Found layer %s", layerProperties[i].layerName);
-        }
-
-        delete[] layerProperties;
     }
 
     // Check that the extensions required are present.
@@ -1302,9 +1286,7 @@ void android_main(struct android_app* androidApp) {
     appInfo.engineVersion = 0;
     appInfo.apiVersion = XR_CURRENT_API_VERSION;
 
-    XrInstanceCreateInfo instanceCreateInfo = {};
-    instanceCreateInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
-    instanceCreateInfo.next = nullptr;
+    XrInstanceCreateInfo instanceCreateInfo = {XR_TYPE_INSTANCE_CREATE_INFO};
     instanceCreateInfo.createFlags = 0;
     instanceCreateInfo.applicationInfo = appInfo;
     instanceCreateInfo.enabledApiLayerCount = 0;
@@ -1319,9 +1301,7 @@ void android_main(struct android_app* androidApp) {
         exit(1);
     }
 
-    XrInstanceProperties instanceInfo;
-    instanceInfo.type = XR_TYPE_INSTANCE_PROPERTIES;
-    instanceInfo.next = NULL;
+    XrInstanceProperties instanceInfo = {XR_TYPE_INSTANCE_PROPERTIES};
     OXR(xrGetInstanceProperties(instance, &instanceInfo));
     ALOGV(
         "Runtime %s: Version : %u.%u.%u",
@@ -1330,9 +1310,7 @@ void android_main(struct android_app* androidApp) {
         XR_VERSION_MINOR(instanceInfo.runtimeVersion),
         XR_VERSION_PATCH(instanceInfo.runtimeVersion));
 
-    XrSystemGetInfo systemGetInfo = {};
-    systemGetInfo.type = XR_TYPE_SYSTEM_GET_INFO;
-    systemGetInfo.next = NULL;
+    XrSystemGetInfo systemGetInfo = {XR_TYPE_SYSTEM_GET_INFO};
     systemGetInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
 
     XrSystemId systemId;
@@ -1342,8 +1320,7 @@ void android_main(struct android_app* androidApp) {
         exit(1);
     }
 
-    XrSystemProperties systemProperties = {};
-    systemProperties.type = XR_TYPE_SYSTEM_PROPERTIES;
+    XrSystemProperties systemProperties = {XR_TYPE_SYSTEM_PROPERTIES};
     OXR(xrGetSystemProperties(instance, systemId, &systemProperties));
 
     ALOGV(
@@ -1369,8 +1346,8 @@ void android_main(struct android_app* androidApp) {
         "xrGetOpenGLESGraphicsRequirementsKHR",
         (PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
 
-    XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
-    graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
+    XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {
+        XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR};
     OXR(pfnGetOpenGLESGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements));
 
     // Create the EGL Context
@@ -1395,15 +1372,13 @@ void android_main(struct android_app* androidApp) {
     app.SystemId = systemId;
 
     // Create the OpenXR Session.
-    XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingAndroidGLES = {};
-    graphicsBindingAndroidGLES.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
-    graphicsBindingAndroidGLES.next = NULL;
+    XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingAndroidGLES = {
+        XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
     graphicsBindingAndroidGLES.display = app.Egl.Display;
     graphicsBindingAndroidGLES.config = app.Egl.Config;
     graphicsBindingAndroidGLES.context = app.Egl.Context;
 
-    XrSessionCreateInfo sessionCreateInfo = {};
-    sessionCreateInfo.type = XR_TYPE_SESSION_CREATE_INFO;
+    XrSessionCreateInfo sessionCreateInfo = {XR_TYPE_SESSION_CREATE_INFO};
     sessionCreateInfo.next = &graphicsBindingAndroidGLES;
     sessionCreateInfo.createFlags = 0;
     sessionCreateInfo.systemId = app.SystemId;
@@ -1525,8 +1500,7 @@ void android_main(struct android_app* androidApp) {
     delete[] referenceSpaces;
 
     // Create a space to the first path
-    XrReferenceSpaceCreateInfo spaceCreateInfo = {};
-    spaceCreateInfo.type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO;
+    XrReferenceSpaceCreateInfo spaceCreateInfo = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
     spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
     spaceCreateInfo.poseInReferenceSpace.orientation.w = 1.0f;
     OXR(xrCreateReferenceSpace(app.Session, &spaceCreateInfo, &app.HeadSpace));
@@ -1550,8 +1524,7 @@ void android_main(struct android_app* androidApp) {
     int width = app.ViewConfigurationView[0].recommendedImageRectWidth;
     int height = app.ViewConfigurationView[0].recommendedImageRectHeight;
 
-    XrSwapchainCreateInfo swapChainCreateInfo = {};
-    swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+    XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
     swapChainCreateInfo.usageFlags =
         XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
     swapChainCreateInfo.format = format;
@@ -1737,13 +1710,9 @@ void android_main(struct android_app* androidApp) {
 
         // NOTE: OpenXR does not use the concept of frame indices. Instead,
         // XrWaitFrame returns the predicted display time.
-        XrFrameWaitInfo waitFrameInfo = {};
-        waitFrameInfo.type = XR_TYPE_FRAME_WAIT_INFO;
-        waitFrameInfo.next = NULL;
+        XrFrameWaitInfo waitFrameInfo = {XR_TYPE_FRAME_WAIT_INFO};
 
-        XrFrameState frameState = {};
-        frameState.type = XR_TYPE_FRAME_STATE;
-        frameState.next = NULL;
+        XrFrameState frameState = {XR_TYPE_FRAME_STATE};
 
         OXR(xrWaitFrame(app.Session, &waitFrameInfo, &frameState));
 
@@ -1751,20 +1720,16 @@ void android_main(struct android_app* androidApp) {
         // the new eye images will be displayed. The number of frames predicted ahead
         // depends on the pipeline depth of the engine and the synthesis rate.
         // The better the prediction, the less black will be pulled in at the edges.
-        XrFrameBeginInfo beginFrameDesc = {};
-        beginFrameDesc.type = XR_TYPE_FRAME_BEGIN_INFO;
-        beginFrameDesc.next = NULL;
+        XrFrameBeginInfo beginFrameDesc = {XR_TYPE_FRAME_BEGIN_INFO};
         OXR(xrBeginFrame(app.Session, &beginFrameDesc));
 
-        XrSpaceLocation loc = {};
-        loc.type = XR_TYPE_SPACE_LOCATION;
+        XrSpaceLocation loc = {XR_TYPE_SPACE_LOCATION};
         OXR(xrLocateSpace(app.HeadSpace, app.LocalSpace, frameState.predictedDisplayTime, &loc));
         XrPosef xfLocalFromHead = loc.pose;
 
-        XrViewState viewState = {XR_TYPE_VIEW_STATE, NULL};
+        XrViewState viewState = {XR_TYPE_VIEW_STATE};
 
-        XrViewLocateInfo projectionInfo = {};
-        projectionInfo.type = XR_TYPE_VIEW_LOCATE_INFO;
+        XrViewLocateInfo projectionInfo = {XR_TYPE_VIEW_LOCATE_INFO};
         projectionInfo.viewConfigurationType = app.ViewportConfig.viewConfigurationType;
         projectionInfo.displayTime = frameState.predictedDisplayTime;
         projectionInfo.space = app.HeadSpace;
@@ -1824,9 +1789,7 @@ void android_main(struct android_app* androidApp) {
         // Right Index Trigger: Request scene capture.
         if (input->IsTriggerPressed(SimpleXrInput::Side_Right)) {
             XrAsyncRequestIdFB requestId;
-            XrSceneCaptureRequestInfoFB request;
-            request.type = XR_TYPE_SCENE_CAPTURE_REQUEST_INFO_FB;
-            request.next = nullptr;
+            XrSceneCaptureRequestInfoFB request = {XR_TYPE_SCENE_CAPTURE_REQUEST_INFO_FB};
             request.requestByteCount = 0;
             request.request = nullptr;
             OXR(app.FunPtrs.xrRequestSceneCaptureFB(app.Session, &request, &requestId));
@@ -1865,8 +1828,7 @@ void android_main(struct android_app* androidApp) {
         }
 
         if (app.StageSpace != XR_NULL_HANDLE) {
-            loc = {};
-            loc.type = XR_TYPE_SPACE_LOCATION;
+            loc = {XR_TYPE_SPACE_LOCATION};
             OXR(xrLocateSpace(
                 app.StageSpace, app.LocalSpace, frameState.predictedDisplayTime, &loc));
             XrPosef xfLocalFromStage = loc.pose;
@@ -1892,9 +1854,7 @@ void android_main(struct android_app* androidApp) {
             }
         }
 
-        XrSwapchainImageWaitInfo waitInfo;
-        waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
-        waitInfo.next = NULL;
+        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         waitInfo.timeout = 1000000000; /* timeout in nanoseconds */
         XrResult res = xrWaitSwapchainImage(app.ColorSwapChain, &waitInfo);
         int retry = 0;
@@ -1921,8 +1881,7 @@ void android_main(struct android_app* androidApp) {
         app.LayerCount = 0;
         memset(app.Layers, 0, sizeof(ovrCompositorLayer_Union) * ovrMaxLayerCount);
 
-        XrCompositionLayerProjection proj_layer = {};
-        proj_layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
+        XrCompositionLayerProjection proj_layer = {XR_TYPE_COMPOSITION_LAYER_PROJECTION};
         proj_layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
         proj_layer.layerFlags |= XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT;
         proj_layer.space = app.LocalSpace;
@@ -1931,8 +1890,7 @@ void android_main(struct android_app* androidApp) {
 
         for (int eye = 0; eye < NUM_EYES; eye++) {
             XrCompositionLayerProjectionView& proj_view = proj_views[eye];
-            proj_view = {};
-            proj_view.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+            proj_view = {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
             proj_view.pose = xfLocalFromEye[eye];
             proj_view.fov = projections[eye].fov;
 
@@ -1952,8 +1910,7 @@ void android_main(struct android_app* androidApp) {
             layers[i] = (const XrCompositionLayerBaseHeader*)&app.Layers[i];
         }
 
-        XrFrameEndInfo endFrameInfo = {};
-        endFrameInfo.type = XR_TYPE_FRAME_END_INFO;
+        XrFrameEndInfo endFrameInfo = {XR_TYPE_FRAME_END_INFO};
         endFrameInfo.displayTime = frameState.predictedDisplayTime;
         endFrameInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
         endFrameInfo.layerCount = app.LayerCount;

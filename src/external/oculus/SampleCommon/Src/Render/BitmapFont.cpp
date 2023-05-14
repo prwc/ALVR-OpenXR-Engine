@@ -850,7 +850,14 @@ VertexBlockType DrawTextToVertexBlock(
         }
     }
 
+#if defined(_MSC_VER) && _MSC_VER >= 1920 && _MSC_VER < 1929
+    // fatal error C1001: Internal compiler error with vs2019
+    float s = fontInfo.FontHeight * yScale;
+    Vector3f lineInc = {u.x * s, u.y * s, u.z * s};
+#else
     Vector3f lineInc = u * (fontInfo.FontHeight * yScale);
+#endif // defined(_MSC_VER) && _MSC_VER >= 1920  && _MSC_VER < 1929
+
     float const distanceScale = imageWidth / FontInfoType::DEFAULT_SCALE_FACTOR;
     float const imageScaleFactor = 1024.0f / imageWidth;
 
