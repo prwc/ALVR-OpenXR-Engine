@@ -1021,9 +1021,7 @@ static bool ovrFramebuffer_Create(
         ALOGE("Format not supported");
     }
 
-    XrSwapchainCreateInfo swapChainCreateInfo;
-    memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
-    swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+    XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
     swapChainCreateInfo.usageFlags =
         XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
     swapChainCreateInfo.format = selectedFormat;
@@ -1035,9 +1033,7 @@ static bool ovrFramebuffer_Create(
     swapChainCreateInfo.mipCount = 1;
 
     // Enable Foveation on this swapchain
-    XrSwapchainCreateInfoFoveationFB swapChainFoveationCreateInfo;
-    memset(&swapChainFoveationCreateInfo, 0, sizeof(swapChainFoveationCreateInfo));
-    swapChainFoveationCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB;
+    XrSwapchainCreateInfoFoveationFB swapChainFoveationCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO_FOVEATION_FB};
     swapChainCreateInfo.next = &swapChainFoveationCreateInfo;
 
     frameBuffer->ColorSwapChain.Width = swapChainCreateInfo.width;
@@ -1175,13 +1171,11 @@ static void ovrFramebuffer_Resolve(ovrFramebuffer* frameBuffer) {
 
 static void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
     // Acquire the swapchain image
-    XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, NULL};
+    XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
     OXR(xrAcquireSwapchainImage(
         frameBuffer->ColorSwapChain.Handle, &acquireInfo, &frameBuffer->TextureSwapChainIndex));
 
-    XrSwapchainImageWaitInfo waitInfo;
-    waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
-    waitInfo.next = NULL;
+    XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
     waitInfo.timeout = 1000000000; /* timeout in nanoseconds */
     XrResult res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo);
     int i = 0;
@@ -1196,7 +1190,7 @@ static void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 }
 
 static void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
-    XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
+    XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
     OXR(xrReleaseSwapchainImage(frameBuffer->ColorSwapChain.Handle, &releaseInfo));
 }
 
@@ -1620,9 +1614,7 @@ ovrScene_Create(AAssetManager* amgr, XrInstance instance, XrSession session, ovr
         memset(&ktxImageInfo, 0, sizeof(ktxImageInfo_t));
         if (LoadImageDataFromKTXFile(amgr, "cubemap256.ktx", &ktxImageInfo) == true) {
             int swapChainTexId = 0;
-            XrSwapchainCreateInfo swapChainCreateInfo;
-            memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
-            swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+            XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
             swapChainCreateInfo.createFlags = XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT;
             swapChainCreateInfo.usageFlags =
                 XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
@@ -1661,19 +1653,17 @@ ovrScene_Create(AAssetManager* amgr, XrInstance instance, XrSession session, ovr
             }
 
             uint32_t index = 0;
-            XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, NULL};
+            XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
             OXR(xrAcquireSwapchainImage(scene->CubeMapSwapChain.Handle, &acquireInfo, &index));
 
-            XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, NULL, 0};
+            XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
             OXR(xrWaitSwapchainImage(scene->CubeMapSwapChain.Handle, &waitInfo));
 
-            XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
+            XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
             OXR(xrReleaseSwapchainImage(scene->CubeMapSwapChain.Handle, &releaseInfo));
         } else {
             ALOGE("Failed to load KTX image - generating procedural cubemap");
-            XrSwapchainCreateInfo swapChainCreateInfo;
-            memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
-            swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+            XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
             swapChainCreateInfo.createFlags = XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT;
             swapChainCreateInfo.usageFlags =
                 XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
@@ -1761,13 +1751,13 @@ ovrScene_Create(AAssetManager* amgr, XrInstance instance, XrSession session, ovr
             free(img);
 
             uint32_t index = 0;
-            XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, NULL};
+            XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
             OXR(xrAcquireSwapchainImage(scene->CubeMapSwapChain.Handle, &acquireInfo, &index));
 
-            XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, NULL, 0};
+            XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
             OXR(xrWaitSwapchainImage(scene->CubeMapSwapChain.Handle, &waitInfo));
 
-            XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
+            XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
             OXR(xrReleaseSwapchainImage(scene->CubeMapSwapChain.Handle, &releaseInfo));
         }
     }
@@ -1776,9 +1766,7 @@ ovrScene_Create(AAssetManager* amgr, XrInstance instance, XrSession session, ovr
     {
         const int width = 512;
         const int height = 256;
-        XrSwapchainCreateInfo swapChainCreateInfo;
-        memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
-        swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+        XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
         swapChainCreateInfo.createFlags = XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT;
         swapChainCreateInfo.usageFlags =
             XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
@@ -1830,13 +1818,13 @@ ovrScene_Create(AAssetManager* amgr, XrInstance instance, XrSession session, ovr
         free(texData);
 
         uint32_t index = 0;
-        XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, NULL};
+        XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
         OXR(xrAcquireSwapchainImage(scene->EquirectSwapChain.Handle, &acquireInfo, &index));
 
-        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, NULL, 0};
+        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         OXR(xrWaitSwapchainImage(scene->EquirectSwapChain.Handle, &waitInfo));
 
-        XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
+        XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
         OXR(xrReleaseSwapchainImage(scene->EquirectSwapChain.Handle, &releaseInfo));
     }
 
@@ -1845,9 +1833,7 @@ ovrScene_Create(AAssetManager* amgr, XrInstance instance, XrSession session, ovr
         static const int CYLINDER_WIDTH = 512;
         static const int CYLINDER_HEIGHT = 128;
 
-        XrSwapchainCreateInfo swapChainCreateInfo;
-        memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
-        swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+        XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
         swapChainCreateInfo.createFlags = XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT;
         swapChainCreateInfo.usageFlags =
             XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
@@ -1919,13 +1905,13 @@ ovrScene_Create(AAssetManager* amgr, XrInstance instance, XrSession session, ovr
         free(texData);
 
         uint32_t index = 0;
-        XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, NULL};
+        XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
         OXR(xrAcquireSwapchainImage(scene->CylinderSwapChain.Handle, &acquireInfo, &index));
 
-        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, NULL, 0};
+        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         OXR(xrWaitSwapchainImage(scene->CylinderSwapChain.Handle, &waitInfo));
 
-        XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
+        XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
         OXR(xrReleaseSwapchainImage(scene->CylinderSwapChain.Handle, &releaseInfo));
     }
 
@@ -1934,9 +1920,7 @@ ovrScene_Create(AAssetManager* amgr, XrInstance instance, XrSession session, ovr
         static const int QUAD_WIDTH = 256;
         static const int QUAD_HEIGHT = 256;
 
-        XrSwapchainCreateInfo swapChainCreateInfo;
-        memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
-        swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+        XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
         swapChainCreateInfo.createFlags = XR_SWAPCHAIN_CREATE_STATIC_IMAGE_BIT;
         swapChainCreateInfo.usageFlags =
             XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
@@ -1996,13 +1980,13 @@ ovrScene_Create(AAssetManager* amgr, XrInstance instance, XrSession session, ovr
         free(texData);
 
         uint32_t index = 0;
-        XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, NULL};
+        XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
         OXR(xrAcquireSwapchainImage(scene->QuadSwapChain.Handle, &acquireInfo, &index));
 
-        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO, NULL, 0};
+        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         OXR(xrWaitSwapchainImage(scene->QuadSwapChain.Handle, &waitInfo));
 
-        XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
+        XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
         OXR(xrReleaseSwapchainImage(scene->QuadSwapChain.Handle, &releaseInfo));
     }
 
@@ -2181,25 +2165,19 @@ static void ovrRenderer_SetFoveation(
         *instance, "xrUpdateSwapchainFB", (PFN_xrVoidFunction*)(&pfnUpdateSwapchainFB)));
 
     for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
-        XrFoveationLevelProfileCreateInfoFB levelProfileCreateInfo;
-        memset(&levelProfileCreateInfo, 0, sizeof(levelProfileCreateInfo));
-        levelProfileCreateInfo.type = XR_TYPE_FOVEATION_LEVEL_PROFILE_CREATE_INFO_FB;
+        XrFoveationLevelProfileCreateInfoFB levelProfileCreateInfo = {XR_TYPE_FOVEATION_LEVEL_PROFILE_CREATE_INFO_FB};
         levelProfileCreateInfo.level = level;
         levelProfileCreateInfo.verticalOffset = verticalOffset;
         levelProfileCreateInfo.dynamic = dynamic;
 
-        XrFoveationProfileCreateInfoFB profileCreateInfo;
-        memset(&profileCreateInfo, 0, sizeof(profileCreateInfo));
-        profileCreateInfo.type = XR_TYPE_FOVEATION_PROFILE_CREATE_INFO_FB;
+        XrFoveationProfileCreateInfoFB profileCreateInfo = {XR_TYPE_FOVEATION_PROFILE_CREATE_INFO_FB};
         profileCreateInfo.next = &levelProfileCreateInfo;
 
         XrFoveationProfileFB foveationProfile;
 
         pfnCreateFoveationProfileFB(*session, &profileCreateInfo, &foveationProfile);
 
-        XrSwapchainStateFoveationFB foveationUpdateState;
-        memset(&foveationUpdateState, 0, sizeof(foveationUpdateState));
-        foveationUpdateState.type = XR_TYPE_SWAPCHAIN_STATE_FOVEATION_FB;
+        XrSwapchainStateFoveationFB foveationUpdateState = {XR_TYPE_SWAPCHAIN_STATE_FOVEATION_FB};
         foveationUpdateState.profile = foveationProfile;
 
         pfnUpdateSwapchainFB(
@@ -2305,10 +2283,7 @@ static void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) 
         assert(app->NativeWindow != NULL);
         assert(app->SessionActive == false);
 
-        XrSessionBeginInfo sessionBeginInfo;
-        memset(&sessionBeginInfo, 0, sizeof(sessionBeginInfo));
-        sessionBeginInfo.type = XR_TYPE_SESSION_BEGIN_INFO;
-        sessionBeginInfo.next = NULL;
+        XrSessionBeginInfo sessionBeginInfo = {XR_TYPE_SESSION_BEGIN_INFO};
         sessionBeginInfo.primaryViewConfigurationType = app->ViewportConfig.viewConfigurationType;
 
         XrResult result;
@@ -2388,7 +2363,7 @@ static void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) 
 }
 
 static void ovrApp_HandleXrEvents(ovrApp* app) {
-    XrEventDataBuffer eventDataBuffer = {0};
+    XrEventDataBuffer eventDataBuffer = {XR_TYPE_EVENT_DATA_BUFFER};
 
     // Poll for events
     for (;;) {
@@ -2694,10 +2669,7 @@ void android_main(struct android_app* app) {
     xrGetInstanceProcAddr(
         XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
     if (xrInitializeLoaderKHR != NULL) {
-        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
-        memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
-        loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
-        loaderInitializeInfoAndroid.next = NULL;
+        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
         loaderInitializeInfoAndroid.applicationVM = app->activity->vm;
         loaderInitializeInfoAndroid.applicationContext = app->activity->clazz;
         xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
@@ -2819,10 +2791,7 @@ void android_main(struct android_app* app) {
     appInfo.engineVersion = 0;
     appInfo.apiVersion = XR_CURRENT_API_VERSION;
 
-    XrInstanceCreateInfo instanceCreateInfo;
-    memset(&instanceCreateInfo, 0, sizeof(instanceCreateInfo));
-    instanceCreateInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
-    instanceCreateInfo.next = NULL;
+    XrInstanceCreateInfo instanceCreateInfo = {XR_TYPE_INSTANCE_CREATE_INFO};
     instanceCreateInfo.createFlags = 0;
     instanceCreateInfo.applicationInfo = appInfo;
     instanceCreateInfo.enabledApiLayerCount = 0;
@@ -2837,9 +2806,7 @@ void android_main(struct android_app* app) {
         exit(1);
     }
 
-    XrInstanceProperties instanceInfo;
-    instanceInfo.type = XR_TYPE_INSTANCE_PROPERTIES;
-    instanceInfo.next = NULL;
+    XrInstanceProperties instanceInfo = {XR_TYPE_INSTANCE_PROPERTIES};
     OXR(xrGetInstanceProperties(appState.Instance, &instanceInfo));
     ALOGV(
         "Runtime %s: Version : %u.%u.%u",
@@ -2848,10 +2815,7 @@ void android_main(struct android_app* app) {
         XR_VERSION_MINOR(instanceInfo.runtimeVersion),
         XR_VERSION_PATCH(instanceInfo.runtimeVersion));
 
-    XrSystemGetInfo systemGetInfo;
-    memset(&systemGetInfo, 0, sizeof(systemGetInfo));
-    systemGetInfo.type = XR_TYPE_SYSTEM_GET_INFO;
-    systemGetInfo.next = NULL;
+    XrSystemGetInfo systemGetInfo = {XR_TYPE_SYSTEM_GET_INFO};
     systemGetInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
 
     XrSystemId systemId;
@@ -2962,8 +2926,7 @@ void android_main(struct android_app* app) {
             viewportConfigType,
             viewportConfigType == supportedViewConfigType ? "Selected" : "");
 
-        XrViewConfigurationProperties viewportConfig;
-        viewportConfig.type = XR_TYPE_VIEW_CONFIGURATION_PROPERTIES;
+        XrViewConfigurationProperties viewportConfig = {XR_TYPE_VIEW_CONFIGURATION_PROPERTIES};
         OXR(xrGetViewConfigurationProperties(
             appState.Instance, appState.SystemId, viewportConfigType, &viewportConfig));
         ALOGV(
@@ -3547,7 +3510,7 @@ void android_main(struct android_app* app) {
         projectionInfo.displayTime = frameState.predictedDisplayTime;
         projectionInfo.space = appState.HeadSpace;
 
-        XrViewState viewState = {XR_TYPE_VIEW_STATE, NULL};
+        XrViewState viewState = {XR_TYPE_VIEW_STATE};
 
         uint32_t projectionCapacityInput = ovrMaxNumEyes;
         uint32_t projectionCountOutput = projectionCapacityInput;

@@ -84,5 +84,98 @@ inline SpaceLoc GetSpaceLocation
 
     return result;
 }
+
+constexpr inline XrVector3f GetHandJointScale(const XrHandJointEXT jointType) {
+    switch (jointType) {
+    case XR_HAND_JOINT_WRIST_EXT:
+        return { 0.007f,0.007f, 0.007f };
+
+    case XR_HAND_JOINT_PALM_EXT:
+        return { 0.0055f,0.0055f, 0.0055f };
+
+    case XR_HAND_JOINT_THUMB_METACARPAL_EXT:
+    case XR_HAND_JOINT_INDEX_METACARPAL_EXT:
+    case XR_HAND_JOINT_MIDDLE_METACARPAL_EXT:
+    case XR_HAND_JOINT_RING_METACARPAL_EXT:
+    case XR_HAND_JOINT_LITTLE_METACARPAL_EXT:
+        return { 0.0045f,0.0045f, 0.0045f };
+
+    case XR_HAND_JOINT_THUMB_PROXIMAL_EXT:
+    case XR_HAND_JOINT_INDEX_PROXIMAL_EXT:
+    case XR_HAND_JOINT_MIDDLE_PROXIMAL_EXT:
+    case XR_HAND_JOINT_RING_PROXIMAL_EXT:
+    case XR_HAND_JOINT_LITTLE_PROXIMAL_EXT:
+        return { 0.0035f,0.0035f, 0.0035f };
+
+    case XR_HAND_JOINT_INDEX_INTERMEDIATE_EXT:
+    case XR_HAND_JOINT_MIDDLE_INTERMEDIATE_EXT:
+    case XR_HAND_JOINT_RING_INTERMEDIATE_EXT:
+    case XR_HAND_JOINT_LITTLE_INTERMEDIATE_EXT:
+        return { 0.003f,0.003f, 0.003f };
+
+    case XR_HAND_JOINT_INDEX_DISTAL_EXT:
+    case XR_HAND_JOINT_MIDDLE_DISTAL_EXT:
+    case XR_HAND_JOINT_RING_DISTAL_EXT:
+    case XR_HAND_JOINT_LITTLE_DISTAL_EXT:
+        return { 0.0025f,0.0025f, 0.0025f };
+    case XR_HAND_JOINT_THUMB_DISTAL_EXT:
+        return { 0.0035f,0.0035f, 0.0035f };
+
+    case XR_HAND_JOINT_THUMB_TIP_EXT:
+    case XR_HAND_JOINT_INDEX_TIP_EXT:
+    case XR_HAND_JOINT_MIDDLE_TIP_EXT:
+    case XR_HAND_JOINT_RING_TIP_EXT:
+    case XR_HAND_JOINT_LITTLE_TIP_EXT:
+        return { 0.002f,0.002f, 0.002f };
+    default: return { 0.01f, 0.01f,0.01f };
+    }
+}
+
+constexpr inline XrVector3f GetHandJointNonUniformScale(const XrHandJointEXT jointType) {
+    switch (jointType) {
+    case XR_HAND_JOINT_WRIST_EXT:
+        return { 0.007f,0.007f, 0.009f };
+
+    case XR_HAND_JOINT_PALM_EXT:
+        return { 0.0055f,0.0055f, 0.0035f };
+
+    case XR_HAND_JOINT_THUMB_METACARPAL_EXT:
+    case XR_HAND_JOINT_INDEX_METACARPAL_EXT:
+    case XR_HAND_JOINT_MIDDLE_METACARPAL_EXT:
+    case XR_HAND_JOINT_RING_METACARPAL_EXT:
+    case XR_HAND_JOINT_LITTLE_METACARPAL_EXT:
+        return { 0.0045f,0.0045f, 0.0065f };
+
+    case XR_HAND_JOINT_THUMB_PROXIMAL_EXT:
+    case XR_HAND_JOINT_INDEX_PROXIMAL_EXT:
+    case XR_HAND_JOINT_MIDDLE_PROXIMAL_EXT:
+    case XR_HAND_JOINT_RING_PROXIMAL_EXT:
+    case XR_HAND_JOINT_LITTLE_PROXIMAL_EXT:
+        return { 0.0035f,0.0035f, 0.0045f };
+
+    case XR_HAND_JOINT_INDEX_INTERMEDIATE_EXT:
+    case XR_HAND_JOINT_MIDDLE_INTERMEDIATE_EXT:
+    case XR_HAND_JOINT_RING_INTERMEDIATE_EXT:
+    case XR_HAND_JOINT_LITTLE_INTERMEDIATE_EXT:
+        return { 0.003f,0.003f, 0.004f };
+
+    case XR_HAND_JOINT_INDEX_DISTAL_EXT:
+    case XR_HAND_JOINT_MIDDLE_DISTAL_EXT:
+    case XR_HAND_JOINT_RING_DISTAL_EXT:
+    case XR_HAND_JOINT_LITTLE_DISTAL_EXT:
+        return { 0.0025f,0.0025f, 0.0035f };
+    case XR_HAND_JOINT_THUMB_DISTAL_EXT:
+        return { 0.0035f,0.0035f, 0.004f };
+
+    case XR_HAND_JOINT_THUMB_TIP_EXT:
+    case XR_HAND_JOINT_INDEX_TIP_EXT:
+    case XR_HAND_JOINT_MIDDLE_TIP_EXT:
+    case XR_HAND_JOINT_RING_TIP_EXT:
+    case XR_HAND_JOINT_LITTLE_TIP_EXT:
+        return { 0.002f,0.002f, 0.0025f };
+    default: return { 0.01f, 0.01f,0.01f };
+    }
+}
+
 }
 #endif

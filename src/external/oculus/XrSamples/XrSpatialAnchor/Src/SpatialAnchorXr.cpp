@@ -77,7 +77,7 @@ using namespace OVR;
     printf(__VA_ARGS__); \
     printf("\n")
 #define ALOGW(...)       \
-    printf("WARN: "); \
+    printf("WARN: ");    \
     printf(__VA_ARGS__); \
     printf("\n")
 #define ALOGV(...)       \
@@ -496,7 +496,8 @@ struct ovrApp {
     bool ShouldQueryAnchors;
     bool ShouldShareAnchors;
 
-    std::unique_ptr<SpatialAnchorExternalDataHandler> ExternalDataHandler = std::make_unique<SpatialAnchorFileHandler>();
+    std::unique_ptr<SpatialAnchorExternalDataHandler> ExternalDataHandler =
+        std::make_unique<SpatialAnchorFileHandler>();
 
     // List of users to share Spatial Anchors with, if populated.
     std::vector<XrSpaceUserIdFB> ShareUserList;
@@ -504,7 +505,10 @@ struct ovrApp {
     std::vector<XrUuidEXT> InboundSpatialAnchorList;
 
     std::unordered_map<XrAsyncRequestIdFB, std::vector<XrSpace>> SaveSpaceListCloudEventMap;
-    std::unordered_map<XrAsyncRequestIdFB, std::pair<std::vector<XrSpace>, std::vector<XrSpaceUserFB>>> ShareSpacesEventMap;
+    std::unordered_map<
+        XrAsyncRequestIdFB,
+        std::pair<std::vector<XrSpace>, std::vector<XrSpaceUserFB>>>
+        ShareSpacesEventMap;
 
     XrSwapchain ColorSwapChain;
     uint32_t SwapChainLength;
@@ -557,9 +561,7 @@ void ovrApp::HandleSessionStateChanges(XrSessionState state) {
 #endif // defined(XR_USE_PLATFORM_ANDROID)
         assert(SessionActive == false);
 
-        XrSessionBeginInfo sessionBeginInfo = {};
-        sessionBeginInfo.type = XR_TYPE_SESSION_BEGIN_INFO;
-        sessionBeginInfo.next = nullptr;
+        XrSessionBeginInfo sessionBeginInfo = {XR_TYPE_SESSION_BEGIN_INFO};
         sessionBeginInfo.primaryViewConfigurationType = ViewportConfig.viewConfigurationType;
 
         XrResult result;
@@ -894,12 +896,15 @@ void ovrApp::HandleXrEvents() {
                     (XrEventDataSpaceListSaveCompleteFB*)(baseEventHeader);
 
                 if (saveResult->result != XR_SUCCESS) {
-                    ALOGV("xrPollEvent: XR_TYPE_EVENT_DATA_SPACE_LIST_SAVE_COMPLETE_FB came with error result: %d", saveResult->result);
+                    ALOGV(
+                        "xrPollEvent: XR_TYPE_EVENT_DATA_SPACE_LIST_SAVE_COMPLETE_FB came with error result: %d",
+                        saveResult->result);
                 } else {
                     auto requestId = saveResult->requestId;
                     auto itr = SaveSpaceListCloudEventMap.find(requestId);
                     if (itr == SaveSpaceListCloudEventMap.end()) {
-                        ALOGV("xrPollEvent: no requestId found in map for XR_TYPE_EVENT_DATA_SPACE_LIST_SAVE_COMPLETE_FB");
+                        ALOGV(
+                            "xrPollEvent: no requestId found in map for XR_TYPE_EVENT_DATA_SPACE_LIST_SAVE_COMPLETE_FB");
                     } else {
                         if (IsLocalMultiplayerSupported) {
                             auto spaceList = std::move(itr->second);
@@ -915,7 +920,9 @@ void ovrApp::HandleXrEvents() {
                                 for (std::size_t k = 0; k < ShareUserList.size(); k++) {
                                     XrSpaceUserFB user;
                                     XrSpaceUserCreateInfoFB createInfo = {
-                                        XR_TYPE_SPACE_USER_CREATE_INFO_FB, nullptr, ShareUserList[k]};
+                                        XR_TYPE_SPACE_USER_CREATE_INFO_FB,
+                                        nullptr,
+                                        ShareUserList[k]};
                                     OXR(FunPtrs.xrCreateSpaceUserFB(Session, &createInfo, &user));
                                     users.push_back(user);
                                 }
@@ -929,10 +936,12 @@ void ovrApp::HandleXrEvents() {
                                     users.data()};
                                 XrAsyncRequestIdFB shareRequestId;
                                 OXR(FunPtrs.xrShareSpacesFB(Session, &shareInfo, &shareRequestId));
-                                ShareSpacesEventMap[shareRequestId] = std::make_pair(spaceList, users);
+                                ShareSpacesEventMap[shareRequestId] =
+                                    std::make_pair(spaceList, users);
                             }
                         } else {
-                            ALOGW("xrPollEvent: Local multiplayer is not supported. Skipped sharing anchors.");
+                            ALOGW(
+                                "xrPollEvent: Local multiplayer is not supported. Skipped sharing anchors.");
                         }
                     }
                 }
@@ -976,7 +985,10 @@ void ovrApp::HandleXrEvents() {
                 const XrEventDataSpaceShareCompleteFB* shareResult =
                     (XrEventDataSpaceShareCompleteFB*)(baseEventHeader);
 
-                ALOGV("xrPollEvent: xrShareSpacesFB request %" PRIu64 " completed with result (%d)", shareResult->requestId, shareResult->result);
+                ALOGV(
+                    "xrPollEvent: xrShareSpacesFB request %" PRIu64 " completed with result (%d)",
+                    shareResult->requestId,
+                    shareResult->result);
                 auto itr = ShareSpacesEventMap.find(shareResult->requestId);
                 if (itr != ShareSpacesEventMap.end()) {
                     auto spaces = std::move(itr->second.first);
@@ -999,7 +1011,8 @@ void ovrApp::HandleXrEvents() {
                             sharedUserIds.emplace_back(userId);
                         }
 
-                        ExternalDataHandler->WriteSharedSpatialAnchorList(sharedSpatialAnchors, sharedUserIds);
+                        ExternalDataHandler->WriteSharedSpatialAnchorList(
+                            sharedSpatialAnchors, sharedUserIds);
                     }
                     // We're done with the user handles at this point, so destroy them.
                     for (std::size_t k = 0; k < users.size(); k++) {
@@ -1007,7 +1020,9 @@ void ovrApp::HandleXrEvents() {
                         ALOGV("xrPollEvent: Destroyed user handle %" PRIu64, (uint64_t)users[k]);
                     }
                 } else {
-                    ALOGE("Failed to match xrShareSpacesFB request data to requestId %" PRIu64, shareResult->requestId);
+                    ALOGE(
+                        "Failed to match xrShareSpacesFB request data to requestId %" PRIu64,
+                        shareResult->requestId);
                 }
             } break;
             default:
@@ -1141,16 +1156,12 @@ static void DownloadAnchors(ovrApp& app) {
     }
 
     XrSpaceStorageLocationFilterInfoFB locationFilterInfo = {
-        XR_TYPE_SPACE_STORAGE_LOCATION_FILTER_INFO_FB,
-        nullptr,
-        XR_SPACE_STORAGE_LOCATION_CLOUD_FB
-    };
+        XR_TYPE_SPACE_STORAGE_LOCATION_FILTER_INFO_FB, nullptr, XR_SPACE_STORAGE_LOCATION_CLOUD_FB};
     XrSpaceUuidFilterInfoFB uuidFilterInfo = {
         XR_TYPE_SPACE_UUID_FILTER_INFO_FB,
         &locationFilterInfo,
         (uint32_t)app.InboundSpatialAnchorList.size(),
-        app.InboundSpatialAnchorList.data()
-    };
+        app.InboundSpatialAnchorList.data()};
     XrSpaceQueryInfoFB queryInfo = {
         XR_TYPE_SPACE_QUERY_INFO_FB,
         nullptr,
@@ -1172,20 +1183,33 @@ static void UploadAndShareAnchors(ovrApp& app) {
         return;
     }
 
+    std::vector<XrSpace> spaceList;
+    for (XrSpace space : app.AppRenderer.Scene.SpaceList) {
+        // We will only upload Anchors that are Storable and Sharable.
+        XrSpaceComponentStatusFB storableStatus;
+        XrSpaceComponentStatusFB sharableStatus;
+        OXR(app.FunPtrs.xrGetSpaceComponentStatusFB(
+            space, XR_SPACE_COMPONENT_TYPE_STORABLE_FB, &storableStatus));
+        OXR(app.FunPtrs.xrGetSpaceComponentStatusFB(
+            space, XR_SPACE_COMPONENT_TYPE_SHARABLE_FB, &sharableStatus));
+        if (storableStatus.enabled && sharableStatus.enabled) {
+            spaceList.push_back(space);
+        }
+    }
+
     XrAsyncRequestIdFB saveRequest;
     XrSpaceListSaveInfoFB saveInfo = {
         XR_TYPE_SPACE_LIST_SAVE_INFO_FB,
         nullptr,
-        static_cast<uint32_t>(app.AppRenderer.Scene.SpaceList.size()),
-        app.AppRenderer.Scene.SpaceList.data(),
-        XR_SPACE_STORAGE_LOCATION_CLOUD_FB
-    };
+        static_cast<uint32_t>(spaceList.size()),
+        spaceList.data(),
+        XR_SPACE_STORAGE_LOCATION_CLOUD_FB};
     OXR(app.FunPtrs.xrSaveSpaceListFB(app.Session, &saveInfo, &saveRequest));
 
     // The rest will continue on the completion of xrSaveSpaceListFB.
-    // Add the current spaces to the map. This step needs to be a copy here because we're taking a snapshot
-    // of the Spatial Anchors in the app state.
-    app.SaveSpaceListCloudEventMap[saveRequest] = app.AppRenderer.Scene.SpaceList;
+    // Add the current spaces to the map. This step needs to be a copy here because we're taking a
+    // snapshot of the Spatial Anchors in the app state.
+    app.SaveSpaceListCloudEventMap[saveRequest] = spaceList;
 }
 
 void UpdateStageBounds(ovrApp& app) {
@@ -1245,9 +1269,7 @@ void PlaceAnchor(ovrApp& app, SimpleXrInput* input, const XrFrameState& frameSta
         app.LocalSpace,
         frameState.predictedDisplayTime);
 
-    XrSpatialAnchorCreateInfoFB anchorCreateInfo = {};
-    anchorCreateInfo.type = XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_FB;
-    anchorCreateInfo.next = NULL;
+    XrSpatialAnchorCreateInfoFB anchorCreateInfo = {XR_TYPE_SPATIAL_ANCHOR_CREATE_INFO_FB};
     anchorCreateInfo.space = app.LocalSpace;
     anchorCreateInfo.poseInSpace = ToXrPosef(localFromRightAim);
     anchorCreateInfo.time = frameState.predictedDisplayTime;
@@ -1287,10 +1309,7 @@ int main() {
     xrGetInstanceProcAddr(
         XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
     if (xrInitializeLoaderKHR != NULL) {
-        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid;
-        memset(&loaderInitializeInfoAndroid, 0, sizeof(loaderInitializeInfoAndroid));
-        loaderInitializeInfoAndroid.type = XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR;
-        loaderInitializeInfoAndroid.next = NULL;
+        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
         loaderInitializeInfoAndroid.applicationVM = androidApp->activity->vm;
         loaderInitializeInfoAndroid.applicationContext = androidApp->activity->clazz;
         xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
@@ -1311,30 +1330,18 @@ int main() {
             exit(1);
         }
 
-        uint32_t numInputLayers = 0;
-        uint32_t numOutputLayers = 0;
-        OXR(xrEnumerateApiLayerProperties(numInputLayers, &numOutputLayers, NULL));
+        uint32_t layerCount = 0;
+        OXR(xrEnumerateApiLayerProperties(0, &layerCount, NULL));
+        std::vector<XrApiLayerProperties> layerProperties(layerCount, {XR_TYPE_API_LAYER_PROPERTIES});
+        OXR(xrEnumerateApiLayerProperties(layerCount, &layerCount, layerProperties.data()));
 
-        numInputLayers = numOutputLayers;
-
-        auto layerProperties = new XrApiLayerProperties[numOutputLayers];
-
-        for (uint32_t i = 0; i < numOutputLayers; i++) {
-            layerProperties[i].type = XR_TYPE_API_LAYER_PROPERTIES;
-            layerProperties[i].next = NULL;
+        for (const auto& layer : layerProperties) {
+            ALOGV("Found layer %s", layer.layerName);
         }
-
-        OXR(xrEnumerateApiLayerProperties(numInputLayers, &numOutputLayers, layerProperties));
-
-        for (uint32_t i = 0; i < numOutputLayers; i++) {
-            ALOGV("Found layer %s", layerProperties[i].layerName);
-        }
-
-        delete[] layerProperties;
     }
 
     // Check that the extensions required are present.
-    const char* const requiredExtensionNames[] = {
+    std::vector<const char*> requiredExtensionNames {
 #if defined(XR_USE_GRAPHICS_API_OPENGL_ES)
         XR_KHR_OPENGL_ES_ENABLE_EXTENSION_NAME,
 #elif defined(XR_USE_GRAPHICS_API_OPENGL)
@@ -1348,12 +1355,18 @@ int main() {
         XR_FB_SPATIAL_ENTITY_EXTENSION_NAME,
         XR_FB_SPATIAL_ENTITY_QUERY_EXTENSION_NAME,
         XR_FB_SPATIAL_ENTITY_STORAGE_BATCH_EXTENSION_NAME,
+        XR_FB_SPATIAL_ENTITY_STORAGE_EXTENSION_NAME
+    };
+    const uint32_t numRequiredExtensions = requiredExtensionNames.size();
+
+    std::vector<const char*> localMultiplayerExtensionNames {
         XR_FB_SPATIAL_ENTITY_SHARING_EXTENSION_NAME,
-        XR_FB_SPATIAL_ENTITY_STORAGE_EXTENSION_NAME,
         XR_FB_SPATIAL_ENTITY_USER_EXTENSION_NAME
     };
-    const uint32_t numRequiredExtensions =
-        sizeof(requiredExtensionNames) / sizeof(requiredExtensionNames[0]);
+    const uint32_t numLocalMultiplayerExtensions = localMultiplayerExtensionNames.size();
+
+    std::vector<const char*> requestedExtensionNames(
+        requiredExtensionNames.begin(), requiredExtensionNames.end());
 
     // Check the list of required extensions against what is supported by the runtime.
     {
@@ -1390,17 +1403,30 @@ int main() {
         }
 
         for (uint32_t i = 0; i < numRequiredExtensions; i++) {
-            bool found = false;
-            for (uint32_t j = 0; j < numOutputExtensions; j++) {
-                if (!strcmp(requiredExtensionNames[i], extensionProperties[j].extensionName)) {
-                    ALOGV("Found required extension %s", requiredExtensionNames[i]);
-                    found = true;
-                    break;
-                }
-            }
-            if (!found) {
+            if (!isExtensionEnumerated(
+                    requiredExtensionNames[i],
+                    extensionProperties,
+                    numOutputExtensions)) {
                 ALOGE("Failed to find required extension %s", requiredExtensionNames[i]);
                 exit(1);
+            } else {
+                ALOGV("Found required extension %s", requiredExtensionNames[i]);
+            }
+        }
+
+        app.IsLocalMultiplayerSupported = true;
+        for (uint32_t i = 0; i < numLocalMultiplayerExtensions; i++) {
+            if (!isExtensionEnumerated(
+                    localMultiplayerExtensionNames[i],
+                    extensionProperties,
+                    numOutputExtensions)) {
+                ALOGW(
+                    "Failed to find local multiplayer extension %s - feature is not supported on this device",
+                    localMultiplayerExtensionNames[i]);
+                app.IsLocalMultiplayerSupported = false;
+            } else {
+                ALOGV("Found local multiplayer extension %s", localMultiplayerExtensionNames[i]);
+                requestedExtensionNames.push_back(localMultiplayerExtensionNames[i]);
             }
         }
 
@@ -1415,15 +1441,13 @@ int main() {
     appInfo.engineVersion = 0;
     appInfo.apiVersion = XR_CURRENT_API_VERSION;
 
-    XrInstanceCreateInfo instanceCreateInfo = {};
-    instanceCreateInfo.type = XR_TYPE_INSTANCE_CREATE_INFO;
-    instanceCreateInfo.next = nullptr;
+    XrInstanceCreateInfo instanceCreateInfo = {XR_TYPE_INSTANCE_CREATE_INFO};
     instanceCreateInfo.createFlags = 0;
     instanceCreateInfo.applicationInfo = appInfo;
     instanceCreateInfo.enabledApiLayerCount = 0;
     instanceCreateInfo.enabledApiLayerNames = NULL;
-    instanceCreateInfo.enabledExtensionCount = numRequiredExtensions;
-    instanceCreateInfo.enabledExtensionNames = requiredExtensionNames;
+    instanceCreateInfo.enabledExtensionCount = requestedExtensionNames.size();
+    instanceCreateInfo.enabledExtensionNames = requestedExtensionNames.data();
 
     XrResult initResult;
     OXR(initResult = xrCreateInstance(&instanceCreateInfo, &instance));
@@ -1432,9 +1456,7 @@ int main() {
         exit(1);
     }
 
-    XrInstanceProperties instanceInfo;
-    instanceInfo.type = XR_TYPE_INSTANCE_PROPERTIES;
-    instanceInfo.next = NULL;
+    XrInstanceProperties instanceInfo = {XR_TYPE_INSTANCE_PROPERTIES};
     OXR(xrGetInstanceProperties(instance, &instanceInfo));
     ALOGV(
         "Runtime %s: Version : %u.%u.%u",
@@ -1443,9 +1465,7 @@ int main() {
         XR_VERSION_MINOR(instanceInfo.runtimeVersion),
         XR_VERSION_PATCH(instanceInfo.runtimeVersion));
 
-    XrSystemGetInfo systemGetInfo = {};
-    systemGetInfo.type = XR_TYPE_SYSTEM_GET_INFO;
-    systemGetInfo.next = NULL;
+    XrSystemGetInfo systemGetInfo = {XR_TYPE_SYSTEM_GET_INFO};
     systemGetInfo.formFactor = XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY;
 
     XrSystemId systemId;
@@ -1455,8 +1475,7 @@ int main() {
         exit(1);
     }
 
-    XrSystemProperties systemProperties = {};
-    systemProperties.type = XR_TYPE_SYSTEM_PROPERTIES;
+    XrSystemProperties systemProperties = {XR_TYPE_SYSTEM_PROPERTIES};
     OXR(xrGetSystemProperties(instance, systemId, &systemProperties));
 
     ALOGV(
@@ -1475,12 +1494,13 @@ int main() {
 
     {
         const char* deviceQuestProName = "Meta Quest Pro";
-        if (strcmp(systemProperties.systemName, deviceQuestProName) == 0) {
+        const char* deviceQuest2Name = "Oculus Quest2";
+        if (strcmp(systemProperties.systemName, deviceQuestProName) == 0 || strcmp(systemProperties.systemName, deviceQuest2Name) == 0) {
             ALOGV("Local multiplayer is supported on this device");
             app.IsLocalMultiplayerSupported = true;
         } else {
             ALOGW(
-                "Local multiplayer is currently only supported on Meta Quest Pro. Local multiplayer features in this app are not available on Quest 1 or 2.");
+                "Local multiplayer is currently only supported on Meta Quest 2 or above. Local multiplayer features in this app are not available on Quest 1.");
             app.IsLocalMultiplayerSupported = false;
         }
     }
@@ -1495,8 +1515,7 @@ int main() {
         "xrGetOpenGLESGraphicsRequirementsKHR",
         (PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
 
-    XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {};
-    graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR;
+    XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR};
     OXR(pfnGetOpenGLESGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements));
 #elif defined(XR_USE_GRAPHICS_API_OPENGL)
     // Get the graphics requirements.
@@ -1506,8 +1525,7 @@ int main() {
         "xrGetOpenGLGraphicsRequirementsKHR",
         (PFN_xrVoidFunction*)(&pfnGetOpenGLGraphicsRequirementsKHR)));
 
-    XrGraphicsRequirementsOpenGLKHR graphicsRequirements = {};
-    graphicsRequirements.type = XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR;
+    XrGraphicsRequirementsOpenGLKHR graphicsRequirements = {XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_KHR};
     OXR(pfnGetOpenGLGraphicsRequirementsKHR(instance, systemId, &graphicsRequirements));
 #endif
 
@@ -1538,22 +1556,17 @@ int main() {
 
     // Create the OpenXR Session.
 #if defined(XR_USE_GRAPHICS_API_OPENGL_ES)
-    XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding = {};
-    graphicsBinding.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR;
-    graphicsBinding.next = NULL;
+    XrGraphicsBindingOpenGLESAndroidKHR graphicsBinding = {XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
     graphicsBinding.display = app.Egl.Display;
     graphicsBinding.config = app.Egl.Config;
     graphicsBinding.context = app.Egl.Context;
 #elif defined(XR_USE_GRAPHICS_API_OPENGL)
-    XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {};
-    graphicsBinding.type = XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR;
-    graphicsBinding.next = NULL;
+    XrGraphicsBindingOpenGLWin32KHR graphicsBinding = {XR_TYPE_GRAPHICS_BINDING_OPENGL_WIN32_KHR};
     graphicsBinding.hDC = app.Egl.hDC;
     graphicsBinding.hGLRC = app.Egl.hGLRC;
 #endif //
 
-    XrSessionCreateInfo sessionCreateInfo = {};
-    sessionCreateInfo.type = XR_TYPE_SESSION_CREATE_INFO;
+    XrSessionCreateInfo sessionCreateInfo = {XR_TYPE_SESSION_CREATE_INFO};
     sessionCreateInfo.next = &graphicsBinding;
     sessionCreateInfo.createFlags = 0;
     sessionCreateInfo.systemId = app.SystemId;
@@ -1591,8 +1604,7 @@ int main() {
             viewportConfigType,
             viewportConfigType == supportedViewConfigType ? "Selected" : "");
 
-        XrViewConfigurationProperties viewportConfig;
-        viewportConfig.type = XR_TYPE_VIEW_CONFIGURATION_PROPERTIES;
+        XrViewConfigurationProperties viewportConfig = {XR_TYPE_VIEW_CONFIGURATION_PROPERTIES};
         OXR(xrGetViewConfigurationProperties(
             instance, app.SystemId, viewportConfigType, &viewportConfig));
         ALOGV(
@@ -1676,8 +1688,7 @@ int main() {
     delete[] referenceSpaces;
 
     // Create a space to the first path
-    XrReferenceSpaceCreateInfo spaceCreateInfo = {};
-    spaceCreateInfo.type = XR_TYPE_REFERENCE_SPACE_CREATE_INFO;
+    XrReferenceSpaceCreateInfo spaceCreateInfo = {XR_TYPE_REFERENCE_SPACE_CREATE_INFO};
     spaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
     spaceCreateInfo.poseInReferenceSpace.orientation.w = 1.0f;
     OXR(xrCreateReferenceSpace(app.Session, &spaceCreateInfo, &app.HeadSpace));
@@ -1701,8 +1712,7 @@ int main() {
     int width = app.ViewConfigurationView[0].recommendedImageRectWidth;
     int height = app.ViewConfigurationView[0].recommendedImageRectHeight;
 
-    XrSwapchainCreateInfo swapChainCreateInfo = {};
-    swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+    XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
     swapChainCreateInfo.usageFlags =
         XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
     swapChainCreateInfo.format = format;
@@ -1805,9 +1815,7 @@ int main() {
         "xrCreateSpatialAnchorFB",
         (PFN_xrVoidFunction*)(&app.FunPtrs.xrCreateSpatialAnchorFB)));
     OXR(xrGetInstanceProcAddr(
-        instance,
-        "xrGetSpaceUuidFB",
-        (PFN_xrVoidFunction*)(&app.FunPtrs.xrGetSpaceUuidFB)));
+        instance, "xrGetSpaceUuidFB", (PFN_xrVoidFunction*)(&app.FunPtrs.xrGetSpaceUuidFB)));
     OXR(xrGetInstanceProcAddr(
         instance,
         "xrEnumerateSpaceSupportedComponentsFB",
@@ -1831,25 +1839,17 @@ int main() {
     OXR(xrGetInstanceProcAddr(
         instance, "xrEraseSpaceFB", (PFN_xrVoidFunction*)(&app.FunPtrs.xrEraseSpaceFB)));
     OXR(xrGetInstanceProcAddr(
-        instance,
-        "xrSaveSpaceListFB",
-        (PFN_xrVoidFunction*)(&app.FunPtrs.xrSaveSpaceListFB)));
+        instance, "xrSaveSpaceListFB", (PFN_xrVoidFunction*)(&app.FunPtrs.xrSaveSpaceListFB)));
     OXR(xrGetInstanceProcAddr(
-        instance,
-        "xrCreateSpaceUserFB",
-        (PFN_xrVoidFunction*)(&app.FunPtrs.xrCreateSpaceUserFB)));
+        instance, "xrCreateSpaceUserFB", (PFN_xrVoidFunction*)(&app.FunPtrs.xrCreateSpaceUserFB)));
     OXR(xrGetInstanceProcAddr(
-        instance,
-        "xrGetSpaceUserIdFB",
-        (PFN_xrVoidFunction*)(&app.FunPtrs.xrGetSpaceUserIdFB)));
+        instance, "xrGetSpaceUserIdFB", (PFN_xrVoidFunction*)(&app.FunPtrs.xrGetSpaceUserIdFB)));
     OXR(xrGetInstanceProcAddr(
         instance,
         "xrDestroySpaceUserFB",
         (PFN_xrVoidFunction*)(&app.FunPtrs.xrDestroySpaceUserFB)));
     OXR(xrGetInstanceProcAddr(
-        instance,
-        "xrShareSpacesFB",
-        (PFN_xrVoidFunction*)(&app.FunPtrs.xrShareSpacesFB)));
+        instance, "xrShareSpacesFB", (PFN_xrVoidFunction*)(&app.FunPtrs.xrShareSpacesFB)));
 
     // Create and start passthrough
     XrPassthroughFB passthrough = XR_NULL_HANDLE;
@@ -1980,13 +1980,9 @@ int main() {
 
         // NOTE: OpenXR does not use the concept of frame indices. Instead,
         // XrWaitFrame returns the predicted display time.
-        XrFrameWaitInfo waitFrameInfo = {};
-        waitFrameInfo.type = XR_TYPE_FRAME_WAIT_INFO;
-        waitFrameInfo.next = NULL;
+        XrFrameWaitInfo waitFrameInfo = {XR_TYPE_FRAME_WAIT_INFO};
 
-        XrFrameState frameState = {};
-        frameState.type = XR_TYPE_FRAME_STATE;
-        frameState.next = NULL;
+        XrFrameState frameState = {XR_TYPE_FRAME_STATE};
 
         OXR(xrWaitFrame(app.Session, &waitFrameInfo, &frameState));
 
@@ -1994,20 +1990,16 @@ int main() {
         // the new eye images will be displayed. The number of frames predicted ahead
         // depends on the pipeline depth of the engine and the synthesis rate.
         // The better the prediction, the less black will be pulled in at the edges.
-        XrFrameBeginInfo beginFrameDesc = {};
-        beginFrameDesc.type = XR_TYPE_FRAME_BEGIN_INFO;
-        beginFrameDesc.next = NULL;
+        XrFrameBeginInfo beginFrameDesc = {XR_TYPE_FRAME_BEGIN_INFO};
         OXR(xrBeginFrame(app.Session, &beginFrameDesc));
 
-        XrSpaceLocation loc = {};
-        loc.type = XR_TYPE_SPACE_LOCATION;
+        XrSpaceLocation loc = {XR_TYPE_SPACE_LOCATION};
         OXR(xrLocateSpace(app.HeadSpace, app.LocalSpace, frameState.predictedDisplayTime, &loc));
         XrPosef xfLocalFromHead = loc.pose;
 
         XrViewState viewState = {XR_TYPE_VIEW_STATE, NULL};
 
-        XrViewLocateInfo projectionInfo = {};
-        projectionInfo.type = XR_TYPE_VIEW_LOCATE_INFO;
+        XrViewLocateInfo projectionInfo = {XR_TYPE_VIEW_LOCATE_INFO};
         projectionInfo.viewConfigurationType = app.ViewportConfig.viewConfigurationType;
         projectionInfo.displayTime = frameState.predictedDisplayTime;
         projectionInfo.space = app.HeadSpace;
@@ -2033,8 +2025,7 @@ int main() {
             for (XrSpace space : scene.SpaceList) {
                 // If anchor was placed, just update the anchor location
                 // Updating it regularly will prevent drift
-                XrSpaceLocation persistedAnchorLoc = {};
-                persistedAnchorLoc.type = XR_TYPE_SPACE_LOCATION;
+                XrSpaceLocation persistedAnchorLoc = {XR_TYPE_SPACE_LOCATION};
                 XrResult res = XR_SUCCESS;
                 OXR(res = xrLocateSpace(
                         space,
@@ -2114,8 +2105,7 @@ int main() {
         }
 
         if (app.StageSpace != XR_NULL_HANDLE) {
-            loc = {};
-            loc.type = XR_TYPE_SPACE_LOCATION;
+            loc = {XR_TYPE_SPACE_LOCATION};
             OXR(xrLocateSpace(
                 app.StageSpace, app.LocalSpace, frameState.predictedDisplayTime, &loc));
             XrPosef xfLocalFromStage = loc.pose;
@@ -2127,9 +2117,7 @@ int main() {
             frameIn.HasStage = false;
         }
 
-        XrSwapchainImageWaitInfo waitInfo;
-        waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
-        waitInfo.next = NULL;
+        XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
         waitInfo.timeout = 1000000000; /* timeout in nanoseconds */
         XrResult res = xrWaitSwapchainImage(app.ColorSwapChain, &waitInfo);
         int retry = 0;
@@ -2158,16 +2146,14 @@ int main() {
 
         // passthrough layer is backmost layer (if available)
         if (reconPassthroughLayer != XR_NULL_HANDLE) {
-            XrCompositionLayerPassthroughFB passthrough_layer = {};
-            passthrough_layer.type = XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB;
+            XrCompositionLayerPassthroughFB passthrough_layer = {XR_TYPE_COMPOSITION_LAYER_PASSTHROUGH_FB};
             passthrough_layer.layerHandle = reconPassthroughLayer;
             passthrough_layer.flags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
             passthrough_layer.space = XR_NULL_HANDLE;
             app.Layers[app.LayerCount++].Passthrough = passthrough_layer;
         }
 
-        XrCompositionLayerProjection proj_layer = {};
-        proj_layer.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION;
+        XrCompositionLayerProjection proj_layer = {XR_TYPE_COMPOSITION_LAYER_PROJECTION};
         proj_layer.layerFlags = XR_COMPOSITION_LAYER_BLEND_TEXTURE_SOURCE_ALPHA_BIT;
         proj_layer.layerFlags |= XR_COMPOSITION_LAYER_CORRECT_CHROMATIC_ABERRATION_BIT;
         proj_layer.space = app.LocalSpace;
@@ -2176,8 +2162,7 @@ int main() {
 
         for (int eye = 0; eye < NUM_EYES; eye++) {
             XrCompositionLayerProjectionView& proj_view = proj_views[eye];
-            proj_view = {};
-            proj_view.type = XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW;
+            proj_view = {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW};
             proj_view.pose = xfLocalFromEye[eye];
             proj_view.fov = projections[eye].fov;
 
@@ -2197,8 +2182,7 @@ int main() {
             layers[i] = (const XrCompositionLayerBaseHeader*)&app.Layers[i];
         }
 
-        XrFrameEndInfo endFrameInfo = {};
-        endFrameInfo.type = XR_TYPE_FRAME_END_INFO;
+        XrFrameEndInfo endFrameInfo = {XR_TYPE_FRAME_END_INFO};
         endFrameInfo.displayTime = frameState.predictedDisplayTime;
         endFrameInfo.environmentBlendMode = XR_ENVIRONMENT_BLEND_MODE_OPAQUE;
         endFrameInfo.layerCount = app.LayerCount;

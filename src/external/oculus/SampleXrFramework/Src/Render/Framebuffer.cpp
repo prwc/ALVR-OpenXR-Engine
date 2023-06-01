@@ -79,9 +79,7 @@ bool ovrFramebuffer_Create(
         ALOGE("Format not supported");
     }
 
-    XrSwapchainCreateInfo swapChainCreateInfo;
-    memset(&swapChainCreateInfo, 0, sizeof(swapChainCreateInfo));
-    swapChainCreateInfo.type = XR_TYPE_SWAPCHAIN_CREATE_INFO;
+    XrSwapchainCreateInfo swapChainCreateInfo = {XR_TYPE_SWAPCHAIN_CREATE_INFO};
     swapChainCreateInfo.usageFlags =
         XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_COLOR_ATTACHMENT_BIT;
     swapChainCreateInfo.format = selectedFormat;
@@ -234,13 +232,11 @@ void ovrFramebuffer_Resolve(ovrFramebuffer* frameBuffer) {
 
 void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
     // Acquire the swapchain image
-    XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO, NULL};
+    XrSwapchainImageAcquireInfo acquireInfo = {XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO};
     OXR(xrAcquireSwapchainImage(
         frameBuffer->ColorSwapChain.Handle, &acquireInfo, &frameBuffer->TextureSwapChainIndex));
 
-    XrSwapchainImageWaitInfo waitInfo;
-    waitInfo.type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO;
-    waitInfo.next = NULL;
+    XrSwapchainImageWaitInfo waitInfo = {XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO};
     waitInfo.timeout = 1000000000; /* timeout in nanoseconds */
     XrResult res;
     OXR(res = xrWaitSwapchainImage(frameBuffer->ColorSwapChain.Handle, &waitInfo));
@@ -256,6 +252,6 @@ void ovrFramebuffer_Acquire(ovrFramebuffer* frameBuffer) {
 }
 
 void ovrFramebuffer_Release(ovrFramebuffer* frameBuffer) {
-    XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO, NULL};
+    XrSwapchainImageReleaseInfo releaseInfo = {XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO};
     OXR(xrReleaseSwapchainImage(frameBuffer->ColorSwapChain.Handle, &releaseInfo));
 }

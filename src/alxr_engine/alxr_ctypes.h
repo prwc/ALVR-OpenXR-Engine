@@ -55,6 +55,7 @@ enum ALXRColorSpace {
     Quest = 5,
     P3 = 6,
     AdobeRgb = 7,
+    Default = Quest,
     MaxEnum = 0x7fffffff
 };
 
@@ -74,6 +75,12 @@ struct ALXREyeInfo
     float ipd;
 };
 
+struct ALXRVersion {
+    unsigned int major;
+    unsigned int minor;
+    unsigned int patch;
+};
+
 struct ALXRRustCtx
 {
     void (*inputSend)(const TrackingInfo* data);
@@ -85,6 +92,7 @@ struct ALXRRustCtx
     void (*setWaitingNextIDR)(const bool);
     void (*requestIDR)();
 
+    ALXRVersion     firmwareVersion;
     ALXRGraphicsApi graphicsApi;
     ALXRDecoderType decoderType;
     ALXRColorSpace  displayColorSpace;
@@ -95,6 +103,8 @@ struct ALXRRustCtx
     bool noServerFramerateLock;
     bool noFrameSkip;
     bool disableLocalDimming;
+    bool headlessSession;
+
 #ifdef XR_USE_PLATFORM_ANDROID
     void* applicationVM;
     void* applicationActivity;

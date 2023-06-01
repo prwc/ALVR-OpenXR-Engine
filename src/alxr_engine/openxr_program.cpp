@@ -171,7 +171,7 @@ constexpr inline auto ToTrackingSpaceName(const ALXRTrackingSpace ts)
 {
     switch (ts)
     {
-    case ALXRTrackingSpace::LocalRefSpace: return "Local";
+    case ALXRTrackingSpace::LocalRefSpace: return "ALXRLocal";
     case ALXRTrackingSpace::ViewRefSpace: return "View";
     }
     return "Stage";
@@ -179,7 +179,9 @@ constexpr inline auto ToTrackingSpaceName(const ALXRTrackingSpace ts)
 
 /*constexpr*/ inline ALXRTrackingSpace ToTrackingSpace(const std::string_view& tsname)
 {
-    if (EqualsIgnoreCase(tsname, "Local"))
+    if (EqualsIgnoreCase(tsname, "Local") || 
+        EqualsIgnoreCase(tsname, "LocalFloor") ||
+        EqualsIgnoreCase(tsname, "ALXRLocal"))
         return ALXRTrackingSpace::LocalRefSpace;
     if (EqualsIgnoreCase(tsname, "View"))
         return ALXRTrackingSpace::ViewRefSpace;
@@ -214,9 +216,14 @@ inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const std::strin
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
     } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "ViewFront")) {
         // Render head-locked 2m in front of device.
-        referenceSpaceCreateInfo.poseInReferenceSpace = Math::Pose::Translation({0.f, 0.f, -2.f}),
+        referenceSpaceCreateInfo.poseInReferenceSpace = Math::Pose::Translation({ 0.f, 0.f, -2.f });
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_VIEW;
+    } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "LocalFloor")) {
+        referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT;
     } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "Local")) {
+        referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
+    } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "ALXRLocal")) {
+        referenceSpaceCreateInfo.poseInReferenceSpace = Math::Pose::Translation({ 0.f, -1.4f,0.f });
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_LOCAL;
     } else if (EqualsIgnoreCase(referenceSpaceTypeStr, "Stage")) {
         referenceSpaceCreateInfo.referenceSpaceType = XR_REFERENCE_SPACE_TYPE_STAGE;
@@ -321,36 +328,33 @@ constexpr inline XrHandJointEXT ToXRHandJointType(const ALVR_HAND h)
     }
 }
 
-#ifdef XR_USE_OXR_OCULUS
 constexpr inline auto make_local_dimming_info(const bool enabled) {
     return XrLocalDimmingFrameEndInfoMETA{
-        .type = XR_TYPE_FRAME_END_INFO_LOCAL_DIMMING_META,
+        .type = XR_TYPE_LOCAL_DIMMING_FRAME_END_INFO_META,
         .next = nullptr,
         .localDimmingMode = enabled ? XR_LOCAL_DIMMING_MODE_ON_META : XR_LOCAL_DIMMING_MODE_OFF_META
     };
 }
-#endif
 
 struct OpenXrProgram final : IOpenXrProgram {
     OpenXrProgram(const std::shared_ptr<Options>& options, const std::shared_ptr<IPlatformPlugin>& platformPlugin,
         const std::shared_ptr<IGraphicsPlugin>& graphicsPlugin)
         : m_options(options), m_platformPlugin(platformPlugin), m_graphicsPlugin(graphicsPlugin)
-#ifdef XR_USE_OXR_OCULUS
         , xrLocalDimmingFrameEndInfoMETA(make_local_dimming_info(!options->DisableLocalDimming))
-#endif
     {
         LogLayersAndExtensions();
     }
 
     OpenXrProgram(const std::shared_ptr<Options>& options, const std::shared_ptr<IPlatformPlugin>& platformPlugin)
         : m_options(options), m_platformPlugin(platformPlugin), m_graphicsPlugin{ nullptr }
-#ifdef XR_USE_OXR_OCULUS
         , xrLocalDimmingFrameEndInfoMETA(make_local_dimming_info(!options->DisableLocalDimming))
-#endif
     {
         LogLayersAndExtensions();
+        
+        const bool headlessRequested = m_options && m_options->HeadlessSession;
         auto& graphicsApi = options->GraphicsPlugin;
-        if (graphicsApi.empty() || graphicsApi == "auto")
+        if (graphicsApi.empty() || graphicsApi == "auto" || 
+            (headlessRequested && !IsExtEnabled(XR_MND_HEADLESS_EXTENSION_NAME)))
         {
             Log::Write(Log::Level::Info, "Running auto graphics api selection.");
             constexpr const auto to_graphics_api_str = [](const ALXRGraphicsApi gapi) -> std::tuple<std::string_view, std::string_view>
@@ -376,7 +380,13 @@ struct OpenXrProgram final : IOpenXrProgram {
             }
         }
         m_graphicsPlugin = CreateGraphicsPlugin(options, platformPlugin);
-        Log::Write(Log::Level::Info, Fmt("Selected Graphics API: %s", graphicsApi.c_str()));
+        
+        if (headlessRequested && IsExtEnabled(XR_MND_HEADLESS_EXTENSION_NAME)) {
+            assert(graphicsApi == "Headless");
+            Log::Write(Log::Level::Info, "Headless session selected, no graphics API has been setup.");
+        } else {
+            Log::Write(Log::Level::Info, Fmt("Selected Graphics API: %s", graphicsApi.c_str()));
+        }
     }
 
     virtual ~OpenXrProgram() override {
@@ -484,6 +494,7 @@ struct OpenXrProgram final : IOpenXrProgram {
         { XR_KHR_ANDROID_THREAD_SETTINGS_EXTENSION_NAME, false },
 #endif
         { XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME, false },
+        { XR_EXT_LOCAL_FLOOR_EXTENSION_NAME, false },
         { XR_MSFT_UNBOUNDED_REFERENCE_SPACE_EXTENSION_NAME, false },
 #ifndef XR_USE_OXR_OCULUS
         // Quest v46 firmware update added support for this extension which breaks the suggested grip button bindings for touch (pro) profiles...
@@ -510,7 +521,6 @@ struct OpenXrProgram final : IOpenXrProgram {
         { XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME, false },
         { XR_FB_COLOR_SPACE_EXTENSION_NAME, false },
         { XR_FB_PASSTHROUGH_EXTENSION_NAME, false },
-#ifdef XR_USE_OXR_OCULUS
         { XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME, false },
         //{ XR_FB_TOUCH_CONTROLLER_EXTRAS_EXTENSION_NAME, false },
         // TODO: Uncomment these to enable using FB facial & social eye tracking extensions
@@ -519,7 +529,8 @@ struct OpenXrProgram final : IOpenXrProgram {
         // { XR_FB_EYE_TRACKING_SOCIAL_EXTENSION_NAME, false },
         // { XR_FB_FACE_TRACKING_EXTENSION_NAME, false },
         { XR_META_LOCAL_DIMMING_EXTENSION_NAME, false },
-#endif
+
+        { XR_MND_HEADLESS_EXTENSION_NAME, false },
 #ifdef XR_USE_OXR_PICO_V4
 #pragma message ("Pico 4.7.x OXR Extensions Enabled.")
         { XR_PICO_PERFORMANCE_SETTINGS_EXTENSION_NAME, false },
@@ -613,6 +624,16 @@ struct OpenXrProgram final : IOpenXrProgram {
         return rtType == m_runtimeType;
     }
 
+    inline bool IsPrePicoPUIv5_4() const {
+#ifdef XR_USE_OXR_PICO_ANY_VERSION
+        assert(IsRuntime(OxrRuntimeType::Pico));
+        static constexpr const FirmwareVersion PicoPUIv5_4{ 5,4,0 };
+        return m_options->firmwareVersion < PicoPUIv5_4;
+#else
+        return false;
+#endif
+    }
+
     void LogInstanceInfo() {
         CHECK(m_instance != XR_NULL_HANDLE && m_graphicsPlugin != nullptr);
 
@@ -626,12 +647,16 @@ struct OpenXrProgram final : IOpenXrProgram {
             GetXrVersionString(instanceProperties.runtimeVersion).c_str()));
 
         m_runtimeType = FromString(instanceProperties.runtimeName);
+
+        const bool enableSRGBLinearization = [this]() {
+            if (IsPrePicoPUIv5_4())
+                return false;
+            return !m_options->DisableLinearizeSrgb;// || IsRuntime(OxrRuntimeType::HTCWave));
+        }();
+        m_graphicsPlugin->SetEnableLinearizeRGB(enableSRGBLinearization);
 #ifdef XR_USE_OXR_PICO_ANY_VERSION
-        m_graphicsPlugin->SetEnableLinearizeRGB(false);
         m_graphicsPlugin->SetMaskModeParams({ 0.11f, 0.11f, 0.11f });
         m_graphicsPlugin->SetBlendModeParams(0.62f);
-#else
-        m_graphicsPlugin->SetEnableLinearizeRGB(!(m_options->DisableLinearizeSrgb || IsRuntime(OxrRuntimeType::HTCWave)));
 #endif
         m_graphicsPlugin->SetCmdBufferWaitNextFrame(!IsRuntime(OxrRuntimeType::MagicLeap));
     }
@@ -651,6 +676,10 @@ struct OpenXrProgram final : IOpenXrProgram {
             [](const std::string& ext) { return ext.c_str(); });
 
         for (const auto& [extName, extAvaileble] : m_availableSupportedExtMap) {
+            if (m_options && !m_options->HeadlessSession && extName == XR_MND_HEADLESS_EXTENSION_NAME) {
+                Log::Write(Log::Level::Info, Fmt("Headless-session option not set, %s will not be enabled.", XR_MND_HEADLESS_EXTENSION_NAME));
+                continue;
+            }
             if (extAvaileble) {
                 extensions.push_back(extName.data());
             }
@@ -828,7 +857,8 @@ struct OpenXrProgram final : IOpenXrProgram {
             constexpr const auto refSpaceName = [](const XrReferenceSpaceType refType) {
                 switch (refType) {
                 case XR_REFERENCE_SPACE_TYPE_VIEW: return "View";
-                case XR_REFERENCE_SPACE_TYPE_LOCAL: return "Local";
+                case XR_REFERENCE_SPACE_TYPE_LOCAL: return "ALXRLocal";
+                case XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT: return "LocalFloor";
                 case XR_REFERENCE_SPACE_TYPE_STAGE: return "Stage";
                 case XR_REFERENCE_SPACE_TYPE_UNBOUNDED_MSFT: return "UboundedMSFT";
                 //case XR_REFERENCE_SPACE_TYPE_COMBINED_EYE_VARJO:
@@ -841,6 +871,7 @@ struct OpenXrProgram final : IOpenXrProgram {
             // iterate through order of preference/priority, STAGE is the most preferred if available.
             for (const auto spaceType : {   XR_REFERENCE_SPACE_TYPE_STAGE,
                                             XR_REFERENCE_SPACE_TYPE_UNBOUNDED_MSFT,
+                                            XR_REFERENCE_SPACE_TYPE_LOCAL_FLOOR_EXT,
                                             XR_REFERENCE_SPACE_TYPE_LOCAL,
                                             XR_REFERENCE_SPACE_TYPE_VIEW })
             {
@@ -904,22 +935,21 @@ struct OpenXrProgram final : IOpenXrProgram {
         struct timespec ts;
         if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
             return { -1, std::uint64_t(-1) };
-#ifdef XR_USE_OXR_PICO_ANY_VERSION
-#pragma message("Using Pico runtime bug workaround for time conversion.")
-        // 
-        // As of writing, there are bugs in Pico's OXR runtime with either/both:
-        //      * xrLocateSpace for controller action spaces not working with any other times beyond XrFrameState::predicateDisplayTime (and zero, in a non-conforming way).
-        //      * xrConvertTimeToTimespecTimeKHR appears to return values in microseconds instead of nanoseconds and values seem to be completely off from what
-        //        XrFrameState::predicateDisplayTime values are.   
-        //
-        static_assert(sizeof(XrTime) == sizeof(std::int64_t) && std::is_signed< XrTime>::value);
-        constexpr const auto NSecPerSec = 1000000000L;
-        const XrTime xrTimeNow = (static_cast<XrTime>(ts.tv_sec) * NSecPerSec) + ts.tv_nsec;
-#else
+
         XrTime xrTimeNow;
-        if (m_pfnConvertTimespecTimeToTimeKHR(m_instance, &ts, &xrTimeNow) == XR_ERROR_TIME_INVALID)
+        if (IsPrePicoPUIv5_4()) {
+            // 
+            // As of writing, there are bugs in Pico's OXR runtime with either/both:
+            //      * xrLocateSpace for controller action spaces not working with any other times beyond XrFrameState::predicateDisplayTime (and zero, in a non-conforming way).
+            //      * xrConvertTimeToTimespecTimeKHR appears to return values in microseconds instead of nanoseconds and values seem to be completely off from what
+            //        XrFrameState::predicateDisplayTime values are.   
+            //
+            static_assert(sizeof(XrTime) == sizeof(std::int64_t) && std::is_signed< XrTime>::value);
+            constexpr const auto NSecPerSec = 1000000000L;
+            xrTimeNow = (static_cast<XrTime>(ts.tv_sec) * NSecPerSec) + ts.tv_nsec;
+        }
+        else if (m_pfnConvertTimespecTimeToTimeKHR(m_instance, &ts, &xrTimeNow) == XR_ERROR_TIME_INVALID)
             return { -1, std::uint64_t(-1) };
-#endif
         return { xrTimeNow, ToTimeUs(ts) };
 #endif
     }
@@ -1110,7 +1140,7 @@ struct OpenXrProgram final : IOpenXrProgram {
         //CHECK_XRCMD(m_pfnEnumerateColorSpacesFB(m_session, colorSpaceCount, &colorSpaceCount, colorSpaceTypes.data()));
 
         const XrColorSpaceFB selectedColorSpace = m_options ?
-            m_options->DisplayColorSpace : XR_COLOR_SPACE_REC2020_FB;
+            m_options->DisplayColorSpace : static_cast<XrColorSpaceFB>(ALXRColorSpace::Default);
         const auto colorSpaceName = to_string(selectedColorSpace);
 
         if (m_pfnSetColorSpaceFB(m_session, selectedColorSpace) != XR_SUCCESS) {
@@ -1601,7 +1631,7 @@ struct OpenXrProgram final : IOpenXrProgram {
         }
         CHECK(m_swapchainImages.empty());
         CHECK(m_swapchains.empty());
-        CHECK(m_configViews.empty());
+        //CHECK(m_configViews.empty());
 
         // Read graphics properties for preferred swapchain length and logging.
         XrSystemProperties systemProperties{
@@ -1648,6 +1678,9 @@ struct OpenXrProgram final : IOpenXrProgram {
         // Create and cache view buffer for xrLocateViews later.
         m_views.resize(viewCount, IdentityView);
         if (viewCount < 2)
+            return;
+
+        if (IsHeadlessSession())
             return;
 
         // Create the swapchain and get the images.
@@ -1920,15 +1953,20 @@ struct OpenXrProgram final : IOpenXrProgram {
     bool IsSessionRunning() const override { return m_sessionRunning; }
     bool IsSessionFocused() const override { return m_sessionState == XR_SESSION_STATE_FOCUSED; }
 
+    bool IsHeadlessSession() const override {
+        return m_options && m_options->HeadlessSession && IsExtEnabled(XR_MND_HEADLESS_EXTENSION_NAME);
+    }
+
     template < typename ControllerInfoArray >
     void PollHandTrackers(const XrTime time, ControllerInfoArray& controllerInfo)
     {
         if (m_pfnLocateHandJointsEXT == nullptr || time == 0)
             return;
 
-        const bool isHandOnControllerPose = IsRuntime(OxrRuntimeType::HTCWave) ||
+        const bool isHandOnControllerPose = //IsRuntime(OxrRuntimeType::HTCWave) ||
                                             IsRuntime(OxrRuntimeType::SteamVR) ||
-                                            IsRuntime(OxrRuntimeType::WMR);
+                                            IsRuntime(OxrRuntimeType::WMR) ||
+                                            IsRuntime(OxrRuntimeType::MagicLeap);
         std::array<XrMatrix4x4f, XR_HAND_JOINT_COUNT_EXT> oculusOrientedJointPoses;
         for (const auto hand : { Side::LEFT,Side::RIGHT })
         {
@@ -2153,12 +2191,10 @@ struct OpenXrProgram final : IOpenXrProgram {
 #endif
         const XrFrameEndInfo frameEndInfo{
             .type = XR_TYPE_FRAME_END_INFO,
-#ifdef XR_USE_OXR_OCULUS
-            .next = &xrLocalDimmingFrameEndInfoMETA,
-#elif defined(XR_USE_OXR_PICO_V4)
+#ifdef XR_USE_OXR_PICO_V4
             .next = &xrFrameEndInfoEXT,
 #else
-            .next = nullptr,
+            .next = &xrLocalDimmingFrameEndInfoMETA,
 #endif
             // TODO: Figure out why steamvr doesn't like using custom predicated display times!!!
             .displayTime = UseNetworkPredicatedDisplayTime() ?
@@ -2258,8 +2294,8 @@ struct OpenXrProgram final : IOpenXrProgram {
                 const auto& jointLoc = jointLocations[jointIdx];
                 const auto& newPose = Math::Pose::IsPoseValid(jointLoc) ?
                     jointLoc.pose : ALXR::IdentityPose;
-                constexpr const float scale = 0.01f;
-                handCubes.push_back(Cube{ newPose, {scale, scale, scale} });
+                const auto scale = ALXR::GetHandJointScale(static_cast<XrHandJointEXT>(jointIdx));
+                handCubes.push_back(Cube{ newPose, scale });
             }
         }
         return handCubes;
@@ -2800,7 +2836,7 @@ struct OpenXrProgram final : IOpenXrProgram {
                 const auto oldTrackingSpaceName = ToTrackingSpaceName(m_streamConfig.trackingSpaceType);
                 const auto newTrackingSpaceName = ToTrackingSpaceName(newConfig.trackingSpaceType);
                 Log::Write(Log::Level::Info, Fmt("Changing tracking space from %s to %s", oldTrackingSpaceName, newTrackingSpaceName));
-                XrReferenceSpaceCreateInfo referenceSpaceCreateInfo = GetXrReferenceSpaceCreateInfo(newTrackingSpaceName);
+                const auto referenceSpaceCreateInfo = GetXrReferenceSpaceCreateInfo(newTrackingSpaceName);
                 CHECK_XRCMD(xrCreateReferenceSpace(m_session, &referenceSpaceCreateInfo, &m_appSpace));
 
                 m_streamConfig.trackingSpaceType = newConfig.trackingSpaceType;
@@ -3058,9 +3094,8 @@ struct OpenXrProgram final : IOpenXrProgram {
 #ifdef XR_USE_OXR_PICO_ANY_VERSION
     PFN_xrInvokeFunctionsPICO m_pfnInvokeFunctionsPICO = nullptr;
 #endif
-#ifdef XR_USE_OXR_OCULUS
+
     const XrLocalDimmingFrameEndInfoMETA xrLocalDimmingFrameEndInfoMETA;
-#endif
 
     std::atomic<XrTime>      m_lastPredicatedDisplayTime{ 0 };
 

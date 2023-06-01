@@ -11,6 +11,7 @@ Authors     :   Federico Schliemann
 
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include "Input/Skeleton.h"

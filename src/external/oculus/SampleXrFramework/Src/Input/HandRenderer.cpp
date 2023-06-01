@@ -93,6 +93,7 @@ static const char* FragmentShaderSrc = R"glsl(
   uniform lowp vec3 AmbientLightColor;
   uniform lowp vec3 GlowColor;
   uniform float Confidence;
+  uniform float Solidity;
 
   varying lowp vec3 oEye;
   varying lowp vec3 oNormal;
@@ -143,13 +144,13 @@ static const char* FragmentShaderSrc = R"glsl(
       lowp float vDotN = dot( eyeDir, Normal );
       lowp float fresnel = clamp( pow5( 1.0 - vDotN ), 0.0, 1.0 );
       lowp vec3 fresnelValue = GlowColor * fresnel;
-      lowp vec3 controllerColor = diffuseValue
+      lowp vec3 handColor = diffuseValue
                                 + ambientValue
                                 + specularValue
                                 + fresnelValue
                                 ;
-      gl_FragColor.xyz = controllerColor;
-      gl_FragColor.w = ( clamp( fresnel, 0.0, 0.7 ) + 0.3 ) * Confidence;
+      gl_FragColor.xyz = handColor;
+      gl_FragColor.w = (Solidity + (1.0f - Solidity) * ( clamp( fresnel, 0.0, 0.7 ) + 0.3 ) * Confidence);
   }
 )glsl";
 /// clang-format on
@@ -166,6 +167,7 @@ bool HandRenderer::Init(const XrHandTrackingMeshFB* mesh, bool leftHand) {
         {"JointMatrices", ovrProgramParmType::BUFFER_UNIFORM},
         {"GlowColor", ovrProgramParmType::FLOAT_VECTOR3},
         {"Confidence", ovrProgramParmType::FLOAT},
+        {"Solidity", ovrProgramParmType::FLOAT},
     };
     ProgHand = GlProgram::Build(
         "",
@@ -238,6 +240,7 @@ bool HandRenderer::Init(const XrHandTrackingMeshFB* mesh, bool leftHand) {
     gc.UniformData[4].Data = &SkinUniformBuffer;
     gc.UniformData[5].Data = &GlowColor;
     gc.UniformData[6].Data = &Confidence;
+    gc.UniformData[7].Data = &Solidity;
     /// gpu state needs alpha blending
     gc.GpuState.depthEnable = gc.GpuState.depthMaskEnable = true;
     gc.GpuState.blendEnable = ovrGpuState::BLEND_ENABLE;
@@ -254,6 +257,7 @@ bool HandRenderer::Init(const XrHandTrackingMeshFB* mesh, bool leftHand) {
     AmbientLightColor = Vector3f(1.0f, 1.0f, 1.0f) * 0.15f;
     GlowColor = OVR::Vector3f(0.75f);
     Confidence = 1.0f;
+    Solidity = 0.0f;
 
     /// Set hand
     isLeftHand = leftHand;

@@ -25,6 +25,15 @@ class XrAppBaseApp : public OVRFW::XrApp {
         BackgroundColor = OVR::Vector4f(1.0f, 0.65f, 0.1f, 1.0f);
     }
 
+    // Return a list of OpenXR extensions needed for this app
+    virtual std::vector<const char*> GetExtensions() override {
+        std::vector<const char*> extensions = XrApp::GetExtensions();
+
+        // Add required extensions here:
+        // extensions.push_back(XR_META_EXTENSION_NAME);
+        return extensions;
+    }
+
     // Must return true if the application initializes successfully.
     virtual bool AppInit(const xrJava* context) override {
         if (false == ui_.Init(context, GetFileSys())) {

@@ -348,6 +348,14 @@ class LocklessDataHelper {
         SetDataEnd(writer, data, size);
     }
 
+    LocklessDataHelper& operator=(const LocklessDataHelper& other) {
+        Count = other.Count.load();
+        for (int32_t i = 0; i < 2; i++) {
+            DataSizes[i] = other.DataSizes[i].load();
+        }
+        return *this;
+    }
+
     std::atomic<int32_t> Count;
     std::atomic<int32_t> DataSizes[2];
 #ifdef LOCKLESS_DATA_HELPER_CHECK_HASH

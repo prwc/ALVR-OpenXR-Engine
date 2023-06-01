@@ -33,48 +33,11 @@ enum {
 };
 
 #if defined(OVR_OS_ANDROID)
-#include <unistd.h>
-#include <pthread.h>
-#include "OVR_Std.h"
-
 // JVM's AttachCurrentThread() resets the thread name if the thread name is not passed as an
 // argument. Use these wrappers to attach the current thread to a JVM without resetting the current
 // thread name. These will fatal error when unsuccesful.
-inline jint ovr_AttachCurrentThread(JavaVM* vm, JNIEnv** jni, void* args) {
-    // First read current thread name.
-    char threadName[16] = {0}; // max thread name length is 15.
-    char commpath[64] = {0};
-    OVR::OVR_sprintf(commpath, sizeof(commpath), "/proc/%d/task/%d/comm", getpid(), gettid());
-    FILE* f = fopen(commpath, "r");
-    if (f != NULL) {
-        fread(threadName, 1, sizeof(threadName) - 1, f);
-        fclose(f);
-        // Remove any trailing new-line characters.
-        for (int len = strlen(threadName) - 1;
-             len >= 0 && (threadName[len] == '\n' || threadName[len] == '\r');
-             len--) {
-            threadName[len] = '\0';
-        }
-    }
-    // Attach the thread to the JVM.
-    const jint rtn = vm->AttachCurrentThread(jni, args);
-    if (rtn != JNI_OK) {
-        OVR_FAIL("AttachCurrentThread returned %i", rtn);
-    }
-    // Restore the thread name after AttachCurrentThread() overwrites it.
-    if (threadName[0] != '\0') {
-        pthread_setname_np(pthread_self(), threadName);
-    }
-    return rtn;
-}
-inline jint ovr_DetachCurrentThread(JavaVM* vm) {
-    const jint rtn = vm->DetachCurrentThread();
-    if (rtn != JNI_OK) {
-        OVR_FAIL("DetachCurrentThread() returned %i", rtn);
-    }
-    return rtn;
-}
-
+jint ovr_AttachCurrentThread(JavaVM* vm, JNIEnv** jni, void* args);
+jint ovr_DetachCurrentThread(JavaVM* vm);
 #else
 inline jint ovr_AttachCurrentThread(JavaVM* vm, JNIEnv** jni, void* args) {
     OVR_UNUSED(vm);
@@ -97,36 +60,20 @@ inline jint ovr_DetachCurrentThread(JavaVM* vm) {
 //==============================================================
 class TempJniEnv {
    public:
-    TempJniEnv(JavaVM* vm_, const char* /*file*/ = "<unspecified>", int /*line*/ = -1)
-        : Vm(vm_), Jni(NULL), PrivateEnv(false) {
-        if (JNI_OK != Vm->GetEnv(reinterpret_cast<void**>(&Jni), JNI_VERSION_1_6)) {
-            OVR_LOG(
-                "Creating temporary JNIEnv. This is a heavy operation and should be infrequent. To optimize, use JNI AttachCurrentThread on calling thread");
-            // OVR_LOG( "Temporary JNIEnv created at %s:%d", file, line );
-            ovr_AttachCurrentThread(Vm, &Jni, NULL);
-            PrivateEnv = true;
-        } else {
-            // Current thread is attached to the VM.
-            // OVR_LOG( "Using caller's JNIEnv" );
-        }
-    }
-    ~TempJniEnv() {
-        if (PrivateEnv) {
-            ovr_DetachCurrentThread(Vm);
-        }
-    }
+    explicit TempJniEnv(JavaVM* vm, const char* /*file*/ = "<unspecified>", int /*line*/ = -1);
+    ~TempJniEnv();
 
     operator JNIEnv*() {
-        return Jni;
+        return jni_;
     }
     JNIEnv* operator->() {
-        return Jni;
+        return jni_;
     }
 
    private:
-    JavaVM* Vm;
-    JNIEnv* Jni;
-    bool PrivateEnv;
+    JavaVM* vm_;
+    JNIEnv* jni_;
+    bool privateEnv_;
 };
 
 #define JNI_TMP_ENV(envVar, vm) TempJniEnv envVar(vm, __FILE__, __LINE__)
@@ -352,20 +299,21 @@ inline jclass ovr_GetLocalClassReferenceWithLoader(
     // this function). Whether or not that is actually the case is up to the compiler and
     // optimizations, but C++ doesn't guarantee stack variables only take up space within
     // the code block in which they are declared.
-    auto checkJNIException = [](JNIEnv* jni, const bool warn, const char* fmt, ...) {
-        if (jni->ExceptionOccurred()) {
-            // something else caused a JNI exception before this and didn't clear it
-            if (warn && fmt != nullptr) {
-                char errorMsg[256];
-                va_list argPtr;
-                va_start(argPtr, fmt);
-                vsnprintf(errorMsg, sizeof(errorMsg), fmt, argPtr);
-                va_end(argPtr);
-                OVR_LOG("JNI exception: %s", errorMsg);
+    auto checkJNIException =
+        [](JNIEnv* jniLambdaScope, const bool warnLambdaScope, const char* fmt, ...) {
+            if (jniLambdaScope->ExceptionOccurred()) {
+                // something else caused a JNI exception before this and didn't clear it
+                if (warnLambdaScope && fmt != nullptr) {
+                    char errorMsg[256];
+                    va_list argPtr;
+                    va_start(argPtr, fmt);
+                    vsnprintf(errorMsg, sizeof(errorMsg), fmt, argPtr);
+                    va_end(argPtr);
+                    OVR_LOG("JNI exception: %s", errorMsg);
+                }
+                jniLambdaScope->ExceptionClear();
             }
-            jni->ExceptionClear();
-        }
-    };
+        };
 
     checkJNIException(
         jni,
@@ -770,5 +718,9 @@ inline bool ovr_IsCurrentPackage(JNIEnv* jni, jobject activityObject, const char
     return false;
 }
 #endif
+
+#if defined(OVR_OS_ANDROID)
+#include "JniUtils-inl.h"
+#endif // defined(OVR_OS_ANDROID)
 
 #endif // OVR_JniUtils_h

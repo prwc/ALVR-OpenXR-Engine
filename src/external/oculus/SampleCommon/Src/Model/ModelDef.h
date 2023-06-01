@@ -11,8 +11,9 @@ Authors     :   John Carmack, J.M.P. van Waveren
 
 #pragma once
 
-#include <vector>
+#include <functional>
 #include <string>
+#include <vector>
 
 #include "Render/GlProgram.h" // GlProgram
 #include "Render/GlTexture.h"
@@ -38,6 +39,7 @@ struct MaterialParms {
     bool EnableEmissiveLodClamp; // enable LOD clamp on the emissive texture to avoid light bleeding
     bool Transparent; // surfaces with this material flag need to render in a transparent pass
     bool PolygonOffset; // render with polygon offset enabled
+    std::function<bool(ModelFile&, const std::string&)> ImageUriHandler; // custom image URI handler
 };
 
 enum ModelJointAnimation {
@@ -216,6 +218,8 @@ struct ModelSurface {
 
     const ModelMaterial* material; // material used to render this surface
     ovrSurfaceDef surfaceDef;
+    VertexAttribs attribs; // Only populated if morph targets are used
+    std::vector<VertexAttribs> targets;
 };
 
 struct Model {
@@ -282,6 +286,7 @@ class ModelNode {
     OVR::Quatf rotation;
     OVR::Vector3f translation;
     OVR::Vector3f scale;
+    std::vector<float> weights;
 
     std::vector<int> children;
     int parentIndex;
@@ -326,9 +331,14 @@ typedef enum {
 } ModelAnimationPath;
 
 struct ModelAnimationChannel {
-    ModelAnimationChannel() : nodeIndex(-1), sampler(nullptr), path(MODEL_ANIMATION_PATH_UNKNOWN) {}
+    ModelAnimationChannel()
+        : nodeIndex(-1),
+          additiveWeightIndex(-1),
+          sampler(nullptr),
+          path(MODEL_ANIMATION_PATH_UNKNOWN) {}
 
     int nodeIndex;
+    int additiveWeightIndex;
     const ModelAnimationSampler* sampler;
     ModelAnimationPath path;
 };
@@ -411,6 +421,7 @@ class ModelNodeState {
     OVR::Quatf rotation;
     OVR::Vector3f translation;
     OVR::Vector3f scale;
+    std::vector<float> weights;
 
    private:
     OVR::Matrix4f localTransform;

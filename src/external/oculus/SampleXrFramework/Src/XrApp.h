@@ -391,6 +391,7 @@ class XrApp {
 
     virtual bool SessionInit();
     virtual void SessionEnd();
+    virtual void SessionStateChanged(XrSessionState state);
     virtual void Update(const ovrApplFrameIn& in);
     virtual void Render(const ovrApplFrameIn& in, ovrRendererOutput& out);
 
@@ -450,7 +451,7 @@ class XrApp {
         return CurrentSpace;
     }
 
-    XrActionSet CreateActionSet(int priority, const char* name, const char* localizedName);
+    XrActionSet CreateActionSet(uint32_t priority, const char* name, const char* localizedName);
     XrAction CreateAction(
         XrActionSet actionSet,
         XrActionType type,
@@ -542,7 +543,7 @@ class XrApp {
 
     XrInstance Instance = XR_NULL_HANDLE;
     XrSession Session = XR_NULL_HANDLE;
-    XrViewConfigurationProperties ViewportConfig;
+    XrViewConfigurationProperties ViewportConfig{XR_TYPE_VIEW_CONFIGURATION_PROPERTIES};
     XrViewConfigurationView ViewConfigurationView[MAX_NUM_EYES];
     XrView Projections[MAX_NUM_EYES];
     XrSystemId SystemId = XR_NULL_SYSTEM_ID;
