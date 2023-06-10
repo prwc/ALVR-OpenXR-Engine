@@ -24,11 +24,11 @@ XR_DEFINE_HANDLE(XrFaceTrackerFB)
 #define XR_FB_face_tracking_SPEC_VERSION  1
 #define XR_FB_FACE_TRACKING_EXTENSION_NAME "XR_FB_face_tracking"
 // XrFaceTrackerFB
-#define XR_OBJECT_TYPE_FACE_TRACKER_FB    ((XrObjectType) 1000201000U)
-#define XR_TYPE_SYSTEM_FACE_TRACKING_PROPERTIES_FB ((XrStructureType) 1000201004U)
-#define XR_TYPE_FACE_TRACKER_CREATE_INFO_FB ((XrStructureType) 1000201005U)
-#define XR_TYPE_FACE_EXPRESSION_INFO_FB   ((XrStructureType) 1000201002U)
-#define XR_TYPE_FACE_EXPRESSION_WEIGHTS_FB ((XrStructureType) 1000201006U)
+static const XrObjectType XR_OBJECT_TYPE_FACE_TRACKER_FB = (XrObjectType) 1000201000;
+static const XrStructureType XR_TYPE_SYSTEM_FACE_TRACKING_PROPERTIES_FB = (XrStructureType) 1000201004;
+static const XrStructureType XR_TYPE_FACE_TRACKER_CREATE_INFO_FB = (XrStructureType) 1000201005;
+static const XrStructureType XR_TYPE_FACE_EXPRESSION_INFO_FB = (XrStructureType) 1000201002;
+static const XrStructureType XR_TYPE_FACE_EXPRESSION_WEIGHTS_FB = (XrStructureType) 1000201006;
 
 typedef enum XrFaceExpressionFB {
     XR_FACE_EXPRESSION_BROW_LOWERER_L_FB = 0,

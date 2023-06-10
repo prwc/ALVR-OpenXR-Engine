@@ -139,7 +139,7 @@ bool isValid(const XrUuidEXT& uuid) {
 }
 
 static const std::map<std::string, XrColor4f> SemanticLabelToColorMap = {
-    {"DESK", {1.0f, 0.0f, 0.0f, 0.2f}},
+    {"TABLE", {1.0f, 0.0f, 0.0f, 0.2f}},
     {"COUCH", {0.0f, 1.0f, 0.0f, 0.2f}},
     {"FLOOR", {0.2f, 0.2f, 0.8f, 1.0f}},
     {"CEILING", {0.3f, 0.3f, 0.3f, 1.0f}},
@@ -681,11 +681,11 @@ void ovrApp::CollectSpaceContainerUuids(XrSpace space, std::unordered_set<std::s
 
 std::string GetSemanticLabels(ovrApp& app, const XrSpace space) {
     static const std::string recognizedLabels =
-        "DESK,COUCH,FLOOR,CEILING,WALL_FACE,WINDOW_FRAME,DOOR_FRAME,STORAGE,BED,SCREEN,LAMP,PLANT,OTHER";
+        "TABLE,COUCH,FLOOR,CEILING,WALL_FACE,WINDOW_FRAME,DOOR_FRAME,STORAGE,BED,SCREEN,LAMP,PLANT,OTHER";
     const XrSemanticLabelsSupportInfoFB semanticLabelsSupportInfo = {
         XR_TYPE_SEMANTIC_LABELS_SUPPORT_INFO_FB,
         nullptr,
-        XR_SCENE_SUPPORT_MULTIPLE_SEMANTIC_LABELS_FB,
+        XR_SEMANTIC_LABELS_SUPPORT_MULTIPLE_SEMANTIC_LABELS_BIT_FB | XR_SEMANTIC_LABELS_SUPPORT_ACCEPT_DESK_TO_TABLE_MIGRATION_BIT_FB,
         recognizedLabels.c_str()};
 
     XrSemanticLabelsFB labels = {XR_TYPE_SEMANTIC_LABELS_FB, &semanticLabelsSupportInfo, 0};
@@ -1813,11 +1813,12 @@ void android_main(struct android_app* androidApp) {
         for (int eye = 0; eye < NUM_EYES; eye++) {
             // LOG_POSE( "viewTransform", &projectionInfo.projections[eye].viewTransform );
             XrPosef xfHeadFromEye = projections[eye].pose;
-            xfLocalFromEye[eye] = XrPosef_Multiply(xfLocalFromHead, xfHeadFromEye);
+            XrPosef_Multiply(&xfLocalFromEye[eye], &xfLocalFromHead, &xfHeadFromEye);
 
             XrPosef xfEyeFromLocal = XrPosef_Inverse(xfLocalFromEye[eye]);
 
-            XrMatrix4x4f viewMat = XrMatrix4x4f_CreateFromRigidTransform(&xfEyeFromLocal);
+            XrMatrix4x4f viewMat{};
+            XrMatrix4x4f_CreateFromRigidTransform(&viewMat, &xfEyeFromLocal);
 
             const XrFovf fov = projections[eye].fov;
             XrMatrix4x4f projMat;

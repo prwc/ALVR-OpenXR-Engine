@@ -92,7 +92,7 @@ void ovrAxisRenderer::Update(const std::vector<OVR::Posef>& points) {
 }
 
 void ovrAxisRenderer::Update(const OVR::Posef* points, size_t count) {
-    if (count > Count) {
+    if (count != Count) {
         Count = count;
         TransformMatrices.resize(Count, OVR::Matrix4f::Identity());
         InstancedBoneUniformBuffer.Destroy();
@@ -114,7 +114,9 @@ void ovrAxisRenderer::Render(
     OVRFW::ovrRendererOutput& out) {
     AxisSurfaceDef.numInstances = Count;
     AxisSurface.modelMatrix = worldMatrix;
-    out.Surfaces.push_back(AxisSurface);
+    if (Count > 0) {
+        out.Surfaces.push_back(AxisSurface);
+    }
 }
 
 } // namespace OVRFW

@@ -1414,11 +1414,12 @@ int main() {
 
         for (int eye = 0; eye < NUM_EYES; eye++) {
             XrPosef xfHeadFromEye = projections[eye].pose;
-            xfLocalFromEye[eye] = XrPosef_Multiply(xfLocalFromHead, xfHeadFromEye);
+            XrPosef_Multiply(&xfLocalFromEye[eye], &xfLocalFromHead, &xfHeadFromEye);
 
             XrPosef xfEyeFromLocal = XrPosef_Inverse(xfLocalFromEye[eye]);
 
-            XrMatrix4x4f viewMat = XrMatrix4x4f_CreateFromRigidTransform(&xfEyeFromLocal);
+            XrMatrix4x4f viewMat{};
+            XrMatrix4x4f_CreateFromRigidTransform(&viewMat, &xfEyeFromLocal);
 
             const XrFovf fov = projections[eye].fov;
             XrMatrix4x4f projMat;

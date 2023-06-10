@@ -1011,7 +1011,7 @@ class XrInputSampleApp : public OVRFW::XrApp {
 
             XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT};
             locateInfo.baseSpace = mainReferenceSpace_;
-            locateInfo.time = predictedDisplayTime;
+            locateInfo.time = ToXrTime(predictedDisplayTime);
 
             OXR(xrLocateHandJointsEXT_(handTracker, &locateInfo, &locations));
 

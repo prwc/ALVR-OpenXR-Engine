@@ -96,20 +96,6 @@ static inline XrVector3f XrQuaternionf_Rotate(const XrQuaternionf a, const XrVec
     return r;
 }
 
-static inline XrQuaternionf XrQuaternionf_Normalize(const XrQuaternionf q) {
-    float n = sqrtf(q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w);
-    if (n != 0.0f) {
-        n = 1.0f / n;
-    }
-    XrQuaternionf c;
-    c.x = q.x * n;
-    c.y = q.y * n;
-    c.z = q.z * n;
-    c.w = q.w * n;
-
-    return c;
-}
-
 static inline XrPosef XrPosef_Identity() {
     XrPosef r;
     r.orientation = XrQuaternionf_Identity();
@@ -131,13 +117,6 @@ static inline XrVector3f XrPosef_Transform(const XrPosef a, const XrVector3f v) 
     return result;
 }
 
-static inline XrPosef XrPosef_Multiply(const XrPosef a, const XrPosef b) {
-    XrPosef c;
-    XrQuaternionf_Multiply(&c.orientation, &b.orientation, &a.orientation);
-    c.position = XrPosef_Transform(a, b.position);
-    return c;
-}
-
 static inline XrPosef XrPosef_Inverse(const XrPosef a) {
     XrPosef b;
     b.orientation = XrQuaternionf_Inverse(a.orientation);
@@ -145,16 +124,77 @@ static inline XrPosef XrPosef_Inverse(const XrPosef a) {
     return b;
 }
 
-static inline XrMatrix4x4f XrMatrix4x4f_CreateFromRigidTransform(const XrPosef* s) {
-    XrMatrix4x4f rotationMatrix;
-    XrMatrix4x4f_CreateFromQuaternion(&rotationMatrix, &s->orientation);
+// These functions were added to xr_linear.h in 1.0.27
+// Note that they are named the same, but use parameters
+// slightly differently. So if your compiler sent you here
+// update usage to match xr_linear.h.
+#if XR_CURRENT_API_VERSION < XR_MAKE_VERSION(1, 0, 27)
 
-    XrMatrix4x4f translationMatrix;
-    XrMatrix4x4f_CreateTranslation(&translationMatrix, s->position.x, s->position.y, s->position.z);
+inline static void XrMatrix4x4f_CreateFromRigidTransform(XrMatrix4x4f* result, const XrPosef* s) {
+    const XrVector3f identityScale = {1.0f, 1.0f, 1.0f};
+    XrMatrix4x4f_CreateTranslationRotationScale(
+        result, &s->position, &s->orientation, &identityScale);
+}
 
-    XrMatrix4x4f r;
-    XrMatrix4x4f_Multiply(&r, &translationMatrix, &rotationMatrix);
-    return r;
+inline static void XrQuaternionf_CreateIdentity(XrQuaternionf* q) {
+    q->x = 0.0f;
+    q->y = 0.0f;
+    q->z = 0.0f;
+    q->w = 1.0f;
+}
+
+inline static void XrQuaternionf_Invert(XrQuaternionf* result, const XrQuaternionf* q) {
+    result->x = -q->x;
+    result->y = -q->y;
+    result->z = -q->z;
+    result->w = q->w;
+}
+
+inline static void XrQuaternionf_Normalize(XrQuaternionf* q) {
+    const float lengthRcp = XrRcpSqrt(q->x * q->x + q->y * q->y + q->z * q->z + q->w * q->w);
+    q->x *= lengthRcp;
+    q->y *= lengthRcp;
+    q->z *= lengthRcp;
+    q->w *= lengthRcp;
+}
+
+inline static void
+XrQuaternionf_RotateVector3f(XrVector3f* result, const XrQuaternionf* a, const XrVector3f* v) {
+    XrQuaternionf q = {v->x, v->y, v->z, 0.0f};
+    XrQuaternionf aq;
+    XrQuaternionf_Multiply(&aq, &q, a);
+    XrQuaternionf aInv;
+    XrQuaternionf_Invert(&aInv, a);
+    XrQuaternionf aqaInv;
+    XrQuaternionf_Multiply(&aqaInv, &aInv, &aq);
+
+    result->x = aqaInv.x;
+    result->y = aqaInv.y;
+    result->z = aqaInv.z;
+}
+
+inline static void XrPosef_CreateIdentity(XrPosef* result) {
+    XrQuaternionf_CreateIdentity(&result->orientation);
+    XrVector3f_Set(&result->position, 0);
+}
+
+inline static void
+XrPosef_TransformVector3f(XrVector3f* result, const XrPosef* a, const XrVector3f* v) {
+    XrVector3f r0;
+    XrQuaternionf_RotateVector3f(&r0, &a->orientation, v);
+    XrVector3f_Add(result, &r0, &a->position);
+}
+
+inline static void XrPosef_Multiply(XrPosef* result, const XrPosef* a, const XrPosef* b) {
+    XrQuaternionf_Multiply(&result->orientation, &b->orientation, &a->orientation);
+    XrPosef_TransformVector3f(&result->position, a, &b->position);
+}
+
+inline static void XrPosef_Invert(XrPosef* result, const XrPosef* a) {
+    XrQuaternionf_Invert(&result->orientation, &a->orientation);
+    XrVector3f aPosNeg;
+    XrVector3f_Scale(&aPosNeg, &a->position, -1.0f);
+    XrQuaternionf_RotateVector3f(&result->position, &result->orientation, &aPosNeg);
 }
 
 // Creates a rotation matrix.
@@ -228,5 +268,7 @@ static inline void XrMatrix4x4f_CreateRotationRadians(
     XrMatrix4x4f_Multiply(&rotationXY, &rotationY, &rotationX);
     XrMatrix4x4f_Multiply(result, &rotationZ, &rotationXY);
 }
+
+#endif // XR_CURRENT_API_VERSION < XR_MAKE_VERSION(1, 0, 27)
 
 #endif // OPENXR_OCULUS_HELPERS_H
