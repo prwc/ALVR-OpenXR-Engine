@@ -11,42 +11,63 @@
 #include <string_view>
 #include <sstream>
 
-#if defined(ANDROID)
-#define ALOGE(...) __android_log_print(ANDROID_LOG_ERROR, "alxr-client", __VA_ARGS__)
-#define ALOGV(...) __android_log_print(ANDROID_LOG_VERBOSE, "alxr-client", __VA_ARGS__)
-#endif
-
+namespace Log {
 namespace {;
 
-inline void defaultOuput(Log::Level severity, const char* output, unsigned int len) {
-    assert(output != nullptr);
-    
-    const std::string_view out{ output, len };
+#if defined(ANDROID)
+inline constexpr const std::array<const android_LogPriority,4> LogPriorityMap = {
+    ANDROID_LOG_VERBOSE,
+    ANDROID_LOG_INFO,
+    ANDROID_LOG_WARN,
+    ANDROID_LOG_ERROR
+};
+#endif
 
-    ((severity == Log::Level::Error) ? std::clog : std::cout) << out;
+namespace LvlColor {
+inline constexpr const std::array<const std::string_view, 4> Begin {
+    "",
+    "",
+    "\033[1;93m",
+    "\033[1;91m"
+};
+
+inline constexpr const std::array<const std::string_view, 4> End {
+    "",
+    "",
+    "\033[0m",
+    "\033[0m"
+};
+}
+
+std::atomic<unsigned int> g_logOptions{ Log::LogOptions::Timestamp | Log::LogOptions::LevelTag };
+Log::Level g_minSeverity{ Log::Level::Info };
+std::mutex g_logLock{};
+
+inline void defaultOuput(Log::Level severity, const char* output, std::uint32_t len) {
+    if (output == nullptr || len == 0)
+        return;
+    std::scoped_lock<std::mutex> lock(g_logLock);  // Ensure output is serialized    
+#if defined(ANDROID)
+    __android_log_print(LogPriorityMap[static_cast<std::size_t>(severity)], "alxr-client", "%s", output);
+#else
+    auto& logOut = (severity == Log::Level::Error) ? std::clog : std::cout;
+    logOut << LvlColor::Begin[static_cast<std::size_t>(severity)]
+           << output
+           << LvlColor::End[static_cast<std::size_t>(severity)];
 #if defined(_WIN32)
     OutputDebugStringA(output);
 #endif
-#if defined(ANDROID)
-    if (severity == Level::Error)
-        ALOGE("%s", out.str().c_str());
-    else
-        ALOGV("%s", out.str().c_str());
 #endif
 }
 
 std::atomic<Log::OutputFn> g_outputFn{ defaultOuput };
-std::atomic<unsigned int>  g_logOptions { Log::LogOptions::Timestamp | Log::LogOptions::LevelTag };
-Log::Level g_minSeverity{Log::Level::Info};
-std::mutex g_logLock;
 
 }  // namespace
 
-namespace Log {
 void SetLevel(Level minSeverity) { g_minSeverity = minSeverity; }
 
 void Write(Level severity, const std::string& msg) {
-    if (severity < g_minSeverity) {
+    if (msg.length() == 0 || severity < g_minSeverity) {
         return;
     }
 
@@ -63,16 +84,14 @@ void Write(Level severity, const std::string& msg) {
     const int64_t milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(secondRemainder).count();
 
     // { Verbose, Info, Warning, Error };
-    static constexpr const std::array<std::string_view, 4> severityName {
+    static constexpr const std::array<const std::string_view, 4> severityName {
         "Verbose", "Info", "Warning", "Error"
     };
 
-    const auto logOpts = g_logOptions.load();
     const auto outputFn = g_outputFn.load();
     assert(outputFn != nullptr);
-
+    const auto logOpts = g_logOptions.load();
     if (logOpts == 0) {
-        std::scoped_lock<std::mutex> lock(g_logLock);  // Ensure output is serialized    
         outputFn(severity, msg.c_str(), static_cast<unsigned int>(msg.length()));
         return;
     }
@@ -87,9 +106,9 @@ void Write(Level severity, const std::string& msg) {
         out << "[" << severityName[static_cast<std::size_t>(severity)] << "] ";
     }
     out << msg << std::endl;
-
-    std::scoped_lock<std::mutex> lock(g_logLock);  // Ensure output is serialized    
     const auto& result = out.str();
+    if (result.length() == 0)
+        return;
     outputFn(severity, result.c_str(), static_cast<unsigned int>(result.length()));
 }
 
@@ -99,6 +118,7 @@ void SetLogCustomOutput(const LogOptions options, OutputFn outputFn) {
         outputFn = defaultOuput;
     assert(outputFn != nullptr);
     g_outputFn.store(outputFn);
+    assert(g_outputFn != nullptr);
 }
 
 }  // namespace Log
