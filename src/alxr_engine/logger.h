@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <string>
 
+#undef None
+
 namespace Log {
 enum class Level : std::uint32_t { Verbose, Info, Warning, Error };
 
