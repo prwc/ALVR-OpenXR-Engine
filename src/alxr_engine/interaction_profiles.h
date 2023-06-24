@@ -587,7 +587,14 @@ constexpr inline const std::array<const InteractionProfile, ProfileMapSize> Inte
     },
     InteractionProfile{
         .boolMap {
-            LeftMap { MapEnd },
+            LeftMap { ButtonMap
+                {ALVR_INPUT_SYSTEM_CLICK,   MenuClick},
+                {ALVR_INPUT_GRIP_CLICK,     ShoulderClick},
+                {ALVR_INPUT_TRIGGER_CLICK,  TriggerClick},
+                {ALVR_INPUT_TRACKPAD_CLICK, TrackpadClick},
+                {ALVR_INPUT_TRACKPAD_TOUCH, TrackpadTouch},
+                MapEnd
+            },
             RightMap { ButtonMap
                 {ALVR_INPUT_SYSTEM_CLICK,   MenuClick},
                 {ALVR_INPUT_GRIP_CLICK,     ShoulderClick},
@@ -598,7 +605,12 @@ constexpr inline const std::array<const InteractionProfile, ProfileMapSize> Inte
             },
         },
         .scalarMap {
-            LeftMap{ MapEnd },
+            LeftMap { ButtonMap
+                {ALVR_INPUT_TRIGGER_VALUE, TriggerValue},
+                {ALVR_INPUT_TRACKPAD_X,    TrackpadX},
+                {ALVR_INPUT_TRACKPAD_Y,    TrackpadY},
+                MapEnd
+            },
             RightMap { ButtonMap
                 {ALVR_INPUT_TRIGGER_VALUE, TriggerValue},
                 {ALVR_INPUT_TRACKPAD_X,    TrackpadX},
