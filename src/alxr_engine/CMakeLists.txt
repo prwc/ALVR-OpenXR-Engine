@@ -119,13 +119,10 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH ON)
 
     pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
-        libavutil#>=56.70.100
-        #libswresample
-        #libavdevice
-        libavcodec#>=58.134.100
-        #libavformat#>=58.76.100
-        libavfilter#>=7.110.100
-        libswscale#>=5.9.100
+        libavutil
+        libavcodec
+        libavfilter
+        libswscale
     )
 
     set(FFMPEG_LIBS PkgConfig::LIBAV)
@@ -155,13 +152,13 @@ elseif (WIN32)
 	        INTERFACE_INCLUDE_DIRECTORIES ${FFMPEG_DIR}/include)
     endfunction()  
 
-    add_ffmpeg_shared_lib("libavutil" "avutil.lib" "avutil-57.dll")
-    add_ffmpeg_shared_lib("libavdevice" "avdevice.lib" "avdevice-59.dll")
+    add_ffmpeg_shared_lib("libavutil" "avutil.lib" "avutil-58.dll")
+    add_ffmpeg_shared_lib("libavdevice" "avdevice.lib" "avdevice-60.dll")
     add_ffmpeg_shared_lib("libswresample" "swresample.lib" "swresample-4.dll")
-    add_ffmpeg_shared_lib("libavcodec" "avcodec.lib" "avcodec-59.dll")
-    add_ffmpeg_shared_lib("libavformat" "avformat.lib" "avformat-59.dll")
-    add_ffmpeg_shared_lib("libavfilter" "avfilter.lib" "avfilter-8.dll")
-    add_ffmpeg_shared_lib("libswscale" "swscale.lib" "swscale-6.dll")
+    add_ffmpeg_shared_lib("libavcodec" "avcodec.lib" "avcodec-60.dll")
+    add_ffmpeg_shared_lib("libavformat" "avformat.lib" "avformat-60.dll")
+    add_ffmpeg_shared_lib("libavfilter" "avfilter.lib" "avfilter-9.dll")
+    add_ffmpeg_shared_lib("libswscale" "swscale.lib" "swscale-7.dll")
     
     # avutil, avresample, avcodec, avformat 
     set(FFMPEG_LIBS libavutil libswresample libavdevice libavcodec libavformat libavfilter libswscale)

@@ -1445,9 +1445,22 @@ This is not the same as the <samp>-framerate</samp> option used for some input f
 like image2 or v4l2 (it used to be the same in older versions of FFmpeg).
 If in doubt use <samp>-framerate</samp> instead of the input option <samp>-r</samp>.
 </p>
-<p>As an output option, duplicate or drop input frames to achieve constant output
+<p>As an output option:
+</p><dl compact="compact">
+<dt><span><samp>video encoding</samp></span></dt>
+<dd><p>Duplicate or drop frames right before encoding them to achieve constant output
 frame rate <var>fps</var>.
 </p>
+</dd>
+<dt><span><samp>video streamcopy</samp></span></dt>
+<dd><p>Indicate to the muxer that <var>fps</var> is the stream frame rate. No data is
+dropped or duplicated in this case. This may produce invalid files if <var>fps</var>
+does not match the actual stream frame rate as determined by packet timestamps.
+See also the <code>setts</code> bitstream filter.
+</p>
+</dd>
+</dl>
+
 </dd>
 <dt><span><samp>-fpsmax[:<var>stream_specifier</var>] <var>fps</var> (<em>output,per-stream</em>)</samp></span></dt>
 <dd><p>Set maximum frame rate (Hz value, fraction or abbreviation).
@@ -1482,6 +1495,35 @@ numerator and denominator of the aspect ratio. For example &quot;4:3&quot;,
 <p>If used together with <samp>-vcodec copy</samp>, it will affect the aspect ratio
 stored at container level, but not the aspect ratio stored in encoded
 frames, if it exists.
+</p>
+</dd>
+<dt><span><samp>-display_rotation[:<var>stream_specifier</var>] <var>rotation</var> (<em>input,per-stream</em>)</samp></span></dt>
+<dd><p>Set video rotation metadata.
+</p>
+<p><var>rotation</var> is a decimal number specifying the amount in degree by
+which the video should be rotated counter-clockwise before being
+displayed.
+</p>
+<p>This option overrides the rotation/display transform metadata stored in
+the file, if any. When the video is being transcoded (rather than
+copied) and <code>-autorotate</code> is enabled, the video will be rotated at
+the filtering stage. Otherwise, the metadata will be written into the
+output file if the muxer supports it.
+</p>
+<p>If the <code>-display_hflip</code> and/or <code>-display_vflip</code> options are
+given, they are applied after the rotation specified by this option.
+</p>
+</dd>
+<dt><span><samp>-display_hflip[:<var>stream_specifier</var>] (<em>input,per-stream</em>)</samp></span></dt>
+<dd><p>Set whether on display the image should be horizontally flipped.
+</p>
+<p>See the <code>-display_rotation</code> option for more details.
+</p>
+</dd>
+<dt><span><samp>-display_vflip[:<var>stream_specifier</var>] (<em>input,per-stream</em>)</samp></span></dt>
+<dd><p>Set whether on display the image should be vertically flipped.
+</p>
+<p>See the <code>-display_rotation</code> option for more details.
 </p>
 </dd>
 <dt><span><samp>-vn (<em>input/output</em>)</samp></span></dt>
@@ -1568,15 +1610,9 @@ end frame numbers, last one is quantizer to use if positive, or quality
 factor if negative.
 </p>
 </dd>
-<dt><span><samp>-ilme</samp></span></dt>
-<dd><p>Force interlacing support in encoder (MPEG-2 and MPEG-4 only).
-Use this option if your input file is interlaced and you want
-to keep the interlaced format for minimum losses.
-The alternative is to deinterlace the input stream by use of a filter
-such as <code>yadif</code> or <code>bwdif</code>, but deinterlacing introduces losses.
-</p></dd>
 <dt><span><samp>-psnr</samp></span></dt>
-<dd><p>Calculate PSNR of compressed frames.
+<dd><p>Calculate PSNR of compressed frames. This option is deprecated, pass the
+PSNR flag to the encoder instead, using <code>-flags +psnr</code>.
 </p></dd>
 <dt><span><samp>-vstats</samp></span></dt>
 <dd><p>Dump video coding statistics to <samp>vstats_HHMMSS.log</samp>.
@@ -1597,9 +1633,6 @@ such as <code>yadif</code> or <code>bwdif</code>, but deinterlacing introduces l
 </p></dd>
 <dt><span><samp>-top[:<var>stream_specifier</var>] <var>n</var> (<em>output,per-stream</em>)</samp></span></dt>
 <dd><p>top=1/bottom=0/auto=-1 field first
-</p></dd>
-<dt><span><samp>-dc <var>precision</var></samp></span></dt>
-<dd><p>Intra_dc_precision.
 </p></dd>
 <dt><span><samp>-vtag <var>fourcc/tag</var> (<em>output</em>)</samp></span></dt>
 <dd><p>Force video tag/fourcc. This is an alias for <code>-tag:v</code>.
@@ -1951,6 +1984,23 @@ Actual runtime availability depends on the hardware and its suitable driver
 being installed.
 </p>
 </dd>
+<dt><span><samp>-fix_sub_duration_heartbeat[:<var>stream_specifier</var>]</samp></span></dt>
+<dd><p>Set a specific output video stream as the heartbeat stream according to which
+to split and push through currently in-progress subtitle upon receipt of a
+random access packet.
+</p>
+<p>This lowers the latency of subtitles for which the end packet or the following
+subtitle has not yet been received. As a drawback, this will most likely lead
+to duplication of subtitle events in order to cover the full duration, so
+when dealing with use cases where latency of when the subtitle event is passed
+on to output is not relevant this option should not be utilized.
+</p>
+<p>Requires <samp>-fix_sub_duration</samp> to be set for the relevant input subtitle
+stream for this to have any effect, as well as for the input subtitle stream
+having to be directly mapped to the same output in which the heartbeat stream
+resides.
+</p>
+</dd>
 </dl>
 
 <a name="Audio-Options"></a>
@@ -2069,18 +2119,18 @@ lot.
 <h3 class="section">5.11 Advanced options<span class="pull-right"><a class="anchor hidden-xs" href="#Advanced-options" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Advanced-options" aria-hidden="true">TOC</a></span></h3>
 
 <dl compact="compact">
-<dt><span><samp>-map [-]<var>input_file_id</var>[:<var>stream_specifier</var>][?][,<var>sync_file_id</var>[:<var>stream_specifier</var>]] | <var>[linklabel]</var> (<em>output</em>)</samp></span></dt>
+<dt><span><samp>-map [-]<var>input_file_id</var>[:<var>stream_specifier</var>][?] | <var>[linklabel]</var> (<em>output</em>)</samp></span></dt>
 <dd>
-<p>Designate one or more input streams as a source for the output file. Each input
-stream is identified by the input file index <var>input_file_id</var> and
-the input stream index <var>input_stream_id</var> within the input
-file. Both indices start at 0. If specified,
-<var>sync_file_id</var>:<var>stream_specifier</var> sets which input stream
-is used as a presentation sync reference.
+<p>Create one or more streams in the output file. This option has two forms for
+specifying the data source(s): the first selects one or more streams from some
+input file (specified with <code>-i</code>), the second takes an output from some
+complex filtergraph (specified with <code>-filter_complex</code> or
+<code>-filter_complex_script</code>).
 </p>
-<p>The first <code>-map</code> option on the command line specifies the
-source for output stream 0, the second <code>-map</code> option specifies
-the source for output stream 1, etc.
+<p>In the first form, an output stream is created for every stream from the input
+file with the index <var>input_file_id</var>. If <var>stream_specifier</var> is given,
+only those streams that match the specifier are used (see the
+<a href="#Stream-specifiers">Stream specifiers</a> section for the <var>stream_specifier</var> syntax).
 </p>
 <p>A <code>-</code> character before the stream identifier creates a &quot;negative&quot; mapping.
 It disables matching streams from already created mappings.
@@ -2094,53 +2144,77 @@ is used; such as if the map refers to a non-existent input.
 graphs (see the <samp>-filter_complex</samp> option) to the output file.
 <var>linklabel</var> must correspond to a defined output link label in the graph.
 </p>
-<p>For example, to map ALL streams from the first input file to output
+<p>This option may be specified multiple times, each adding more streams to the
+output file. Any given input stream may also be mapped any number of times as a
+source for different output streams, e.g. in order to use different encoding
+options and/or filters. The streams are created in the output in the same order
+in which the <code>-map</code> options are given on the commandline.
+</p>
+<p>Using this option disables the default mappings for this output file.
+</p>
+<p>Examples:
+</p>
+<dl compact="compact">
+<dt><span><em>map everything</em></span></dt>
+<dd><p>To map ALL streams from the first input file to output
 </p><div class="example">
 <pre class="example">ffmpeg -i INPUT -map 0 output
 </pre></div>
 
-<p>For example, if you have two audio streams in the first input file,
-these streams are identified by &quot;0:0&quot; and &quot;0:1&quot;. You can use
-<code>-map</code> to select which streams to place in an output file. For
-example:
+</dd>
+<dt><span><em>select specific stream</em></span></dt>
+<dd><p>If you have two audio streams in the first input file, these streams are
+identified by <var>0:0</var> and <var>0:1</var>. You can use <code>-map</code> to select which
+streams to place in an output file. For example:
 </p><div class="example">
 <pre class="example">ffmpeg -i INPUT -map 0:1 out.wav
 </pre></div>
-<p>will map the input stream in <samp>INPUT</samp> identified by &quot;0:1&quot; to
-the (single) output stream in <samp>out.wav</samp>.
+<p>will map the second input stream in <samp>INPUT</samp> to the (single) output stream
+in <samp>out.wav</samp>.
 </p>
-<p>For example, to select the stream with index 2 from input file
-<samp>a.mov</samp> (specified by the identifier &quot;0:2&quot;), and stream with
-index 6 from input <samp>b.mov</samp> (specified by the identifier &quot;1:6&quot;),
-and copy them to the output file <samp>out.mov</samp>:
+</dd>
+<dt><span><em>create multiple streams</em></span></dt>
+<dd><p>To select the stream with index 2 from input file <samp>a.mov</samp> (specified by the
+identifier <var>0:2</var>), and stream with index 6 from input <samp>b.mov</samp>
+(specified by the identifier <var>1:6</var>), and copy them to the output file
+<samp>out.mov</samp>:
 </p><div class="example">
 <pre class="example">ffmpeg -i a.mov -i b.mov -c copy -map 0:2 -map 1:6 out.mov
 </pre></div>
 
-<p>To select all video and the third audio stream from an input file:
+</dd>
+<dt><span><em>create multiple streams 2</em></span></dt>
+<dd><p>To select all video and the third audio stream from an input file:
 </p><div class="example">
 <pre class="example">ffmpeg -i INPUT -map 0:v -map 0:a:2 OUTPUT
 </pre></div>
 
-<p>To map all the streams except the second audio, use negative mappings
+</dd>
+<dt><span><em>negative map</em></span></dt>
+<dd><p>To map all the streams except the second audio, use negative mappings
 </p><div class="example">
 <pre class="example">ffmpeg -i INPUT -map 0 -map -0:a:1 OUTPUT
 </pre></div>
 
-<p>To map the video and audio streams from the first input, and using the
+</dd>
+<dt><span><em>optional map</em></span></dt>
+<dd><p>To map the video and audio streams from the first input, and using the
 trailing <code>?</code>, ignore the audio mapping if no audio streams exist in
 the first input:
 </p><div class="example">
 <pre class="example">ffmpeg -i INPUT -map 0:v -map 0:a? OUTPUT
 </pre></div>
 
-<p>To pick the English audio stream:
+</dd>
+<dt><span><em>map by language</em></span></dt>
+<dd><p>To pick the English audio stream:
 </p><div class="example">
 <pre class="example">ffmpeg -i INPUT -map 0:m:language:eng OUTPUT
 </pre></div>
 
-<p>Note that using this option disables the default mappings for this output file.
-</p>
+</dd>
+</dl>
+
 </dd>
 <dt><span><samp>-ignore_unknown</samp></span></dt>
 <dd><p>Ignore input streams with unknown type instead of failing if copying
@@ -2153,7 +2227,11 @@ such streams is attempted.
 </p>
 </dd>
 <dt><span><samp>-map_channel [<var>input_file_id</var>.<var>stream_specifier</var>.<var>channel_id</var>|-1][?][:<var>output_file_id</var>.<var>stream_specifier</var>]</samp></span></dt>
-<dd><p>Map an audio channel from a given input to an output. If
+<dd><p>This option is deprecated and will be removed. It can be replaced by the
+<var>pan</var> filter. In some cases it may be easier to use some combination of the
+<var>channelsplit</var>, <var>channelmap</var>, or <var>amerge</var> filters.
+</p>
+<p>Map an audio channel from a given input to an output. If
 <var>output_file_id</var>.<var>stream_specifier</var> is not set, the audio channel will
 be mapped on all the audio streams.
 </p>
@@ -2357,19 +2435,6 @@ of noisy timestamps or to increase frame drop precision in case of exact
 timestamps.
 </p>
 </dd>
-<dt><span><samp>-async <var>samples_per_second</var></samp></span></dt>
-<dd><p>Audio sync method. &quot;Stretches/squeezes&quot; the audio stream to match the timestamps,
-the parameter is the maximum samples per second by which the audio is changed.
--async 1 is a special case where only the start of the audio stream is corrected
-without any later correction.
-</p>
-<p>Note that the timestamps may be further modified by the muxer, after this.
-For example, in the case that the format option <samp>avoid_negative_ts</samp>
-is enabled.
-</p>
-<p>This option has been deprecated. Use the <code>aresample</code> audio filter instead.
-</p>
-</dd>
 <dt><span><samp>-adrift_threshold <var>time</var></samp></span></dt>
 <dd><p>Set the minimum difference between timestamps and audio data (in seconds) to trigger
 adding/dropping samples to make it match the timestamps. This option effectively is
@@ -2462,7 +2527,24 @@ or as a floating point number (e.g. 0.04166, 2.0833e-5)
 </p></dd>
 <dt><span><samp>-shortest (<em>output</em>)</samp></span></dt>
 <dd><p>Finish encoding when the shortest output stream ends.
-</p></dd>
+</p>
+<p>Note that this option may require buffering frames, which introduces extra
+latency. The maximum amount of this latency may be controlled with the
+<code>-shortest_buf_duration</code> option.
+</p>
+</dd>
+<dt><span><samp>-shortest_buf_duration <var>duration</var> (<em>output</em>)</samp></span></dt>
+<dd><p>The <code>-shortest</code> option may require buffering potentially large amounts
+of data when at least one of the streams is &quot;sparse&quot; (i.e. has large gaps
+between frames – this is typically the case for subtitles).
+</p>
+<p>This option controls the maximum duration of buffered frames in seconds.
+Larger values may allow the <code>-shortest</code> option to produce more accurate
+results, but increase memory use and latency.
+</p>
+<p>The default value is 10 seconds.
+</p>
+</dd>
 <dt><span><samp>-dts_delta_threshold</samp></span></dt>
 <dd><p>Timestamp discontinuity delta threshold.
 </p></dd>
@@ -2610,12 +2692,15 @@ offset by the start time of the file. This matters only for files which do
 not start from timestamp 0, such as transport streams.
 </p>
 </dd>
-<dt><span><samp>-thread_queue_size <var>size</var> (<em>input</em>)</samp></span></dt>
-<dd><p>This option sets the maximum number of queued packets when reading from the
-file or device. With low latency / high rate live streams, packets may be
-discarded if they are not read in a timely manner; setting this value can
+<dt><span><samp>-thread_queue_size <var>size</var> (<em>input/output</em>)</samp></span></dt>
+<dd><p>For input, this option sets the maximum number of queued packets when reading
+from the file or device. With low latency / high rate live streams, packets may
+be discarded if they are not read in a timely manner; setting this value can
 force ffmpeg to use a separate input thread and read packets as soon as they
 arrive. By default ffmpeg only does this if multiple inputs are specified.
+</p>
+<p>For output, this option specified the maximum number of packets that may be
+queued to each muxing thread.
 </p>
 </dd>
 <dt><span><samp>-sdp_file <var>file</var> (<em>global</em>)</samp></span></dt>
@@ -2713,6 +2798,137 @@ On by default, to explicitly disable it you need to specify
 encoder/muxer, it does not change the stream to conform to this value. Setting
 values that do not match the stream properties may result in encoding failures
 or invalid output files.
+</p>
+</dd>
+<dt><span><samp>-stats_enc_pre[:<var>stream_specifier</var>] <var>path</var> (<em>output,per-stream</em>)</samp></span></dt>
+<dt><span><samp>-stats_enc_post[:<var>stream_specifier</var>] <var>path</var> (<em>output,per-stream</em>)</samp></span></dt>
+<dt><span><samp>-stats_mux_pre[:<var>stream_specifier</var>] <var>path</var> (<em>output,per-stream</em>)</samp></span></dt>
+<dd><p>Write per-frame encoding information about the matching streams into the file
+given by <var>path</var>.
+</p>
+<p><samp>-stats_enc_pre</samp> writes information about raw video or audio frames right
+before they are sent for encoding, while <samp>-stats_enc_post</samp> writes
+information about encoded packets as they are received from the encoder.
+<samp>-stats_mux_pre</samp> writes information about packets just as they are about to
+be sent to the muxer. Every frame or packet produces one line in the specified
+file. The format of this line is controlled by <samp>-stats_enc_pre_fmt</samp> /
+<samp>-stats_enc_post_fmt</samp> / <samp>-stats_mux_pre_fmt</samp>.
+</p>
+<p>When stats for multiple streams are written into a single file, the lines
+corresponding to different streams will be interleaved. The precise order of
+this interleaving is not specified and not guaranteed to remain stable between
+different invocations of the program, even with the same options.
+</p>
+</dd>
+<dt><span><samp>-stats_enc_pre_fmt[:<var>stream_specifier</var>] <var>format_spec</var> (<em>output,per-stream</em>)</samp></span></dt>
+<dt><span><samp>-stats_enc_post_fmt[:<var>stream_specifier</var>] <var>format_spec</var> (<em>output,per-stream</em>)</samp></span></dt>
+<dt><span><samp>-stats_mux_pre_fmt[:<var>stream_specifier</var>] <var>format_spec</var> (<em>output,per-stream</em>)</samp></span></dt>
+<dd><p>Specify the format for the lines written with <samp>-stats_enc_pre</samp> /
+<samp>-stats_enc_post</samp> / <samp>-stats_mux_pre</samp>.
+</p>
+<p><var>format_spec</var> is a string that may contain directives of the form
+<var>{fmt}</var>. <var>format_spec</var> is backslash-escaped &mdash; use \{, \}, and \\
+to write a literal {, }, or \, respectively, into the output.
+</p>
+<p>The directives given with <var>fmt</var> may be one of the following:
+</p><dl compact="compact">
+<dt><span><samp>fidx</samp></span></dt>
+<dd><p>Index of the output file.
+</p>
+</dd>
+<dt><span><samp>sidx</samp></span></dt>
+<dd><p>Index of the output stream in the file.
+</p>
+</dd>
+<dt><span><samp>n</samp></span></dt>
+<dd><p>Frame number. Pre-encoding: number of frames sent to the encoder so far.
+Post-encoding: number of packets received from the encoder so far.
+Muxing: number of packets submitted to the muxer for this stream so far.
+</p>
+</dd>
+<dt><span><samp>ni</samp></span></dt>
+<dd><p>Input frame number. Index of the input frame (i.e. output by a decoder) that
+corresponds to this output frame or packet. -1 if unavailable.
+</p>
+</dd>
+<dt><span><samp>tb</samp></span></dt>
+<dd><p>Encoder timebase, as a rational number <var>num/den</var>. Note that this may be
+different from the timebase used by the muxer.
+</p>
+</dd>
+<dt><span><samp>tbi</samp></span></dt>
+<dd><p>Timebase for <var>ptsi</var>, as a rational number <var>num/den</var>. Available when
+<var>ptsi</var> is available, <var>0/1</var> otherwise.
+</p>
+</dd>
+<dt><span><samp>pts</samp></span></dt>
+<dd><p>Presentation timestamp of the frame or packet, as an integer. Should be
+multiplied by the timebase to compute presentation time.
+</p>
+</dd>
+<dt><span><samp>ptsi</samp></span></dt>
+<dd><p>Presentation timestamp of the input frame (see <var>ni</var>), as an integer. Should
+be multiplied by <var>tbi</var> to compute presentation time. Printed as
+(2^63 - 1 = 9223372036854775807) when not available.
+</p>
+</dd>
+<dt><span><samp>t</samp></span></dt>
+<dd><p>Presentation time of the frame or packet, as a decimal number. Equal to
+<var>pts</var> multiplied by <var>tb</var>.
+</p>
+</dd>
+<dt><span><samp>ti</samp></span></dt>
+<dd><p>Presentation time of the input frame (see <var>ni</var>), as a decimal number. Equal
+to <var>ptsi</var> multiplied by <var>tbi</var>. Printed as inf when not available.
+</p>
+</dd>
+<dt><span><samp>dts</samp></span></dt>
+<dd><p>Decoding timestamp of the packet, as an integer. Should be multiplied by the
+timebase to compute presentation time. Post-encoding only.
+</p>
+</dd>
+<dt><span><samp>dt</samp></span></dt>
+<dd><p>Decoding time of the frame or packet, as a decimal number. Equal to
+<var>dts</var> multiplied by <var>tb</var>.
+</p>
+</dd>
+<dt><span><samp>sn</samp></span></dt>
+<dd><p>Number of audio samples sent to the encoder so far. Audio and pre-encoding only.
+</p>
+</dd>
+<dt><span><samp>samp</samp></span></dt>
+<dd><p>Number of audio samples in the frame. Audio and pre-encoding only.
+</p>
+</dd>
+<dt><span><samp>size</samp></span></dt>
+<dd><p>Size of the encoded packet in bytes. Post-encoding only.
+</p>
+</dd>
+<dt><span><samp>br</samp></span></dt>
+<dd><p>Current bitrate in bits per second. Post-encoding only.
+</p>
+</dd>
+<dt><span><samp>abr</samp></span></dt>
+<dd><p>Average bitrate for the whole stream so far, in bits per second, -1 if it cannot
+be determined at this point. Post-encoding only.
+</p></dd>
+</dl>
+
+<p>The default format strings are:
+</p><dl compact="compact">
+<dt><span><samp>pre-encoding</samp></span></dt>
+<dd><p>{fidx} {sidx} {n} {t}
+</p></dd>
+<dt><span><samp>post-encoding</samp></span></dt>
+<dd><p>{fidx} {sidx} {n} {t}
+</p></dd>
+</dl>
+<p>In the future, new items may be added to the end of the default formatting
+strings. Users who depend on the format staying exactly the same, should
+prescribe it manually.
+</p>
+<p>Note that stats for different streams written into the same file may have
+different formats.
 </p>
 </dd>
 </dl>

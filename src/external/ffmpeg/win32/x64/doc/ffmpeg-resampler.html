@@ -56,20 +56,8 @@ by setting the value explicitly in the
 programmatic use.
 </p>
 <dl compact="compact">
-<dt><span><samp>ich, in_channel_count</samp></span></dt>
-<dd><p>Set the number of input channels. Default value is 0. Setting this
-value is not mandatory if the corresponding channel layout
-<samp>in_channel_layout</samp> is set.
-</p>
-</dd>
-<dt><span><samp>och, out_channel_count</samp></span></dt>
-<dd><p>Set the number of output channels. Default value is 0. Setting this
-value is not mandatory if the corresponding channel layout
-<samp>out_channel_layout</samp> is set.
-</p>
-</dd>
-<dt><span><samp>uch, used_channel_count</samp></span></dt>
-<dd><p>Set the number of used input channels. Default value is 0. This option is
+<dt><span><samp>uchl, used_chlayout</samp></span></dt>
+<dd><p>Set used input channel layout. Default is unset. This option is
 only used for special remapping.
 </p>
 </dd>
@@ -94,8 +82,8 @@ only used for special remapping.
 This will automatically be chosen when it is not explicitly set.
 </p>
 </dd>
-<dt><span><samp>icl, in_channel_layout</samp></span></dt>
-<dt><span><samp>ocl, out_channel_layout</samp></span></dt>
+<dt><span><samp>ichl, in_chlayout</samp></span></dt>
+<dt><span><samp>ochl, out_chlayout</samp></span></dt>
 <dd><p>Set the input/output channel layout.
 </p>
 <p>See <a data-manual="ffmpeg-utils" href="ffmpeg-utils.html#channel-layout-syntax">(ffmpeg-utils)the Channel Layout section in the ffmpeg-utils(1) manual</a>

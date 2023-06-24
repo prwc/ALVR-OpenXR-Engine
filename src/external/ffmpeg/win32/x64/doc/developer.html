@@ -27,82 +27,116 @@
 <div class="contents">
 
 <ul class="no-bullet">
-  <li><a id="toc-Notes-for-external-developers" href="#Notes-for-external-developers">1 Notes for external developers</a></li>
-  <li><a id="toc-Contributing" href="#Contributing">2 Contributing</a></li>
-  <li><a id="toc-Coding-Rules-1" href="#Coding-Rules-1">3 Coding Rules</a>
+  <li><a id="toc-Introduction" href="#Introduction">1 Introduction</a>
   <ul class="no-bullet">
-    <li><a id="toc-Code-formatting-conventions" href="#Code-formatting-conventions">3.1 Code formatting conventions</a></li>
-    <li><a id="toc-Comments" href="#Comments">3.2 Comments</a></li>
-    <li><a id="toc-C-language-features" href="#C-language-features">3.3 C language features</a></li>
-    <li><a id="toc-Naming-conventions" href="#Naming-conventions">3.4 Naming conventions</a></li>
-    <li><a id="toc-Miscellaneous-conventions" href="#Miscellaneous-conventions">3.5 Miscellaneous conventions</a></li>
-    <li><a id="toc-Editor-configuration" href="#Editor-configuration">3.6 Editor configuration</a></li>
+    <li><a id="toc-Contributing-code" href="#Contributing-code">1.1 Contributing code</a></li>
   </ul></li>
-  <li><a id="toc-Development-Policy" href="#Development-Policy">4 Development Policy</a>
+  <li><a id="toc-Coding-Rules-1" href="#Coding-Rules-1">2 Coding Rules</a>
   <ul class="no-bullet">
-    <li><a id="toc-Patches_002fCommitting" href="#Patches_002fCommitting">4.1 Patches/Committing</a></li>
-    <li><a id="toc-Code" href="#Code">4.2 Code</a></li>
-    <li><a id="toc-Documentation_002fOther" href="#Documentation_002fOther">4.3 Documentation/Other</a></li>
+    <li><a id="toc-C-language-features" href="#C-language-features">2.1 C language features</a></li>
+    <li><a id="toc-Code-formatting-conventions" href="#Code-formatting-conventions">2.2 Code formatting conventions</a>
+    <ul class="no-bullet">
+      <li><a id="toc-Vim-configuration" href="#Vim-configuration">2.2.1 Vim configuration</a></li>
+      <li><a id="toc-Emacs-configuration" href="#Emacs-configuration">2.2.2 Emacs configuration</a></li>
+    </ul></li>
+    <li><a id="toc-Comments" href="#Comments">2.3 Comments</a></li>
+    <li><a id="toc-Naming-conventions" href="#Naming-conventions">2.4 Naming conventions</a></li>
+    <li><a id="toc-Miscellaneous-conventions" href="#Miscellaneous-conventions">2.5 Miscellaneous conventions</a></li>
   </ul></li>
-  <li><a id="toc-Code-of-conduct" href="#Code-of-conduct">5 Code of conduct</a></li>
-  <li><a id="toc-Submitting-patches-1" href="#Submitting-patches-1">6 Submitting patches</a></li>
-  <li><a id="toc-New-codecs-or-formats-checklist" href="#New-codecs-or-formats-checklist">7 New codecs or formats checklist</a></li>
-  <li><a id="toc-Patch-submission-checklist" href="#Patch-submission-checklist">8 Patch submission checklist</a></li>
-  <li><a id="toc-Patch-review-process" href="#Patch-review-process">9 Patch review process</a></li>
-  <li><a id="toc-Regression-tests-1" href="#Regression-tests-1">10 Regression tests</a>
+  <li><a id="toc-Development-Policy-1" href="#Development-Policy-1">3 Development Policy</a>
   <ul class="no-bullet">
-    <li><a id="toc-Adding-files-to-the-fate_002dsuite-dataset" href="#Adding-files-to-the-fate_002dsuite-dataset">10.1 Adding files to the fate-suite dataset</a></li>
-    <li><a id="toc-Visualizing-Test-Coverage" href="#Visualizing-Test-Coverage">10.2 Visualizing Test Coverage</a></li>
-    <li><a id="toc-Using-Valgrind" href="#Using-Valgrind">10.3 Using Valgrind</a></li>
+    <li><a id="toc-Patches_002fCommitting" href="#Patches_002fCommitting">3.1 Patches/Committing</a></li>
+    <li><a id="toc-Code" href="#Code">3.2 Code</a></li>
+    <li><a id="toc-Documentation_002fOther" href="#Documentation_002fOther">3.3 Documentation/Other</a></li>
   </ul></li>
-  <li><a id="toc-Release-process-1" href="#Release-process-1">11 Release process</a>
+  <li><a id="toc-Code-of-conduct" href="#Code-of-conduct">4 Code of conduct</a></li>
+  <li><a id="toc-Submitting-patches-1" href="#Submitting-patches-1">5 Submitting patches</a></li>
+  <li><a id="toc-New-codecs-or-formats-checklist" href="#New-codecs-or-formats-checklist">6 New codecs or formats checklist</a></li>
+  <li><a id="toc-Patch-submission-checklist" href="#Patch-submission-checklist">7 Patch submission checklist</a></li>
+  <li><a id="toc-Patch-review-process" href="#Patch-review-process">8 Patch review process</a></li>
+  <li><a id="toc-Regression-tests-1" href="#Regression-tests-1">9 Regression tests</a>
   <ul class="no-bullet">
-    <li><a id="toc-Criteria-for-Point-Releases-1" href="#Criteria-for-Point-Releases-1">11.1 Criteria for Point Releases</a></li>
-    <li><a id="toc-Release-Checklist" href="#Release-Checklist">11.2 Release Checklist</a></li>
+    <li><a id="toc-Adding-files-to-the-fate_002dsuite-dataset" href="#Adding-files-to-the-fate_002dsuite-dataset">9.1 Adding files to the fate-suite dataset</a></li>
+    <li><a id="toc-Visualizing-Test-Coverage" href="#Visualizing-Test-Coverage">9.2 Visualizing Test Coverage</a></li>
+    <li><a id="toc-Using-Valgrind" href="#Using-Valgrind">9.3 Using Valgrind</a></li>
+  </ul></li>
+  <li><a id="toc-Release-process-1" href="#Release-process-1">10 Release process</a>
+  <ul class="no-bullet">
+    <li><a id="toc-Criteria-for-Point-Releases-1" href="#Criteria-for-Point-Releases-1">10.1 Criteria for Point Releases</a></li>
+    <li><a id="toc-Release-Checklist" href="#Release-Checklist">10.2 Release Checklist</a></li>
   </ul></li>
 </ul>
 </div>
 </div>
 
-<a name="Notes-for-external-developers"></a>
-<h2 class="chapter">1 Notes for external developers<span class="pull-right"><a class="anchor hidden-xs" href="#Notes-for-external-developers" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Notes-for-external-developers" aria-hidden="true">TOC</a></span></h2>
+<a name="Introduction"></a>
+<h2 class="chapter">1 Introduction<span class="pull-right"><a class="anchor hidden-xs" href="#Introduction" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Introduction" aria-hidden="true">TOC</a></span></h2>
 
-<p>This document is mostly useful for internal FFmpeg developers.
-External developers who need to use the API in their application should
-refer to the API doxygen documentation in the public headers, and
-check the examples in <samp>doc/examples</samp> and in the source code to
-see how the public API is employed.
-</p>
-<p>You can use the FFmpeg libraries in your commercial program, but you
-are encouraged to <em>publish any patch you make</em>. In this case the
-best way to proceed is to send your patches to the ffmpeg-devel
-mailing list following the guidelines illustrated in the remainder of
-this document.
-</p>
+<p>This text is concerned with the development <em>of</em> FFmpeg itself. Information
+on using the FFmpeg libraries in other programs can be found elsewhere, e.g. in:
+</p><ul>
+<li> the installed header files
+</li><li> <a href="http://ffmpeg.org/doxygen/trunk/index.html">the Doxygen documentation</a>
+generated from the headers
+</li><li> the examples under <samp>doc/examples</samp>
+</li></ul>
+
+<p>If you modify FFmpeg code for your own use case, you are highly encouraged to
+<em>submit your changes back to us</em>, using this document as a guide. There are
+both pragmatic and ideological reasons to do so:
+</p><ul>
+<li> Maintaining external changes to keep up with upstream development is
+time-consuming and error-prone. With your code in the main tree, it will be
+maintained by FFmpeg developers.
+</li><li> FFmpeg developers include leading experts in the field who can find bugs or
+design flaws in your code.
+</li><li> By supporting the project you find useful you ensure it continues to be
+maintained and developed.
+</li></ul>
+
 <p>For more detailed legal information about the use of FFmpeg in
 external programs read the <samp>LICENSE</samp> file in the source tree and
 consult <a href="https://ffmpeg.org/legal.html">https://ffmpeg.org/legal.html</a>.
 </p>
-<a name="Contributing"></a>
-<h2 class="chapter">2 Contributing<span class="pull-right"><a class="anchor hidden-xs" href="#Contributing" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Contributing" aria-hidden="true">TOC</a></span></h2>
+<a name="Contributing-code"></a>
+<h3 class="section">1.1 Contributing code<span class="pull-right"><a class="anchor hidden-xs" href="#Contributing-code" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Contributing-code" aria-hidden="true">TOC</a></span></h3>
 
-<p>There are 2 ways by which code gets into FFmpeg:
-</p><ul>
-<li> Submitting patches to the ffmpeg-devel mailing list.
-      See <a href="#Submitting-patches">Submitting patches</a> for details.
-</li><li> Directly committing changes to the main tree.
-</li></ul>
-
-<p>Whichever way, changes should be reviewed by the maintainer of the code
-before they are committed. And they should follow the <a href="#Coding-Rules">Coding Rules</a>.
+<p>All proposed code changes should be submitted for review to
+<a href="mailto:ffmpeg-devel@ffmpeg.org">the development mailing list</a>, as
+described in more detail in the <a href="#Submitting-patches">Submitting patches</a> chapter. The code
+should comply with the <a href="#Development-Policy">Development Policy</a> and follow the <a href="#Coding-Rules">Coding Rules</a>.
 The developer making the commit and the author are responsible for their changes
 and should try to fix issues their commit causes.
 </p>
 <span id="Coding-Rules"></span><a name="Coding-Rules-1"></a>
-<h2 class="chapter">3 Coding Rules<span class="pull-right"><a class="anchor hidden-xs" href="#Coding-Rules-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Coding-Rules-1" aria-hidden="true">TOC</a></span></h2>
+<h2 class="chapter">2 Coding Rules<span class="pull-right"><a class="anchor hidden-xs" href="#Coding-Rules-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Coding-Rules-1" aria-hidden="true">TOC</a></span></h2>
+
+<a name="C-language-features"></a>
+<h3 class="section">2.1 C language features<span class="pull-right"><a class="anchor hidden-xs" href="#C-language-features" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-C-language-features" aria-hidden="true">TOC</a></span></h3>
+
+<p>FFmpeg is programmed in the ISO C99 language, extended with:
+</p><ul>
+<li> Atomic operations from C11 <samp>stdatomic.h</samp>. They are emulated on
+architectures/compilers that do not support them, so all FFmpeg-internal code
+may use atomics without any extra checks. However, <samp>stdatomic.h</samp> must not
+be included in public headers, so they stay C99-compatible.
+</li></ul>
+
+<p>Compiler-specific extensions may be used with good reason, but must not be
+depended on, i.e. the code must still compile and work with compilers lacking
+the extension.
+</p>
+<p>The following C99 features must not be used anywhere in the codebase:
+</p><ul>
+<li> variable-length arrays;
+
+</li><li> complex numbers;
+
+</li><li> mixed statements and declarations.
+</li></ul>
 
 <a name="Code-formatting-conventions"></a>
-<h3 class="section">3.1 Code formatting conventions<span class="pull-right"><a class="anchor hidden-xs" href="#Code-formatting-conventions" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Code-formatting-conventions" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">2.2 Code formatting conventions<span class="pull-right"><a class="anchor hidden-xs" href="#Code-formatting-conventions" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Code-formatting-conventions" aria-hidden="true">TOC</a></span></h3>
 
 <p>There are the following guidelines regarding the indentation in files:
 </p>
@@ -120,11 +154,44 @@ and only if this improves readability.
 </li></ul>
 <p>The presentation is one inspired by &rsquo;indent -i4 -kr -nut&rsquo;.
 </p>
-<p>The main priority in FFmpeg is simplicity and small code size in order to
-minimize the bug count.
-</p>
+<a name="Vim-configuration"></a>
+<h4 class="subsection">2.2.1 Vim configuration<span class="pull-right"><a class="anchor hidden-xs" href="#Vim-configuration" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Vim-configuration" aria-hidden="true">TOC</a></span></h4>
+<p>In order to configure Vim to follow FFmpeg formatting conventions, paste
+the following snippet into your <samp>.vimrc</samp>:
+</p><div class="example">
+<pre class="example">&quot; indentation rules for FFmpeg: 4 spaces, no tabs
+set expandtab
+set shiftwidth=4
+set softtabstop=4
+set cindent
+set cinoptions=(0
+&quot; Allow tabs in Makefiles.
+autocmd FileType make,automake set noexpandtab shiftwidth=8 softtabstop=8
+&quot; Trailing whitespace and tabs are forbidden, so highlight them.
+highlight ForbiddenWhitespace ctermbg=red guibg=red
+match ForbiddenWhitespace /\s\+$\|\t/
+&quot; Do not highlight spaces at the end of line while typing on that line.
+autocmd InsertEnter * match ForbiddenWhitespace /\t\|\s\+\%#\@&lt;!$/
+</pre></div>
+
+<a name="Emacs-configuration"></a>
+<h4 class="subsection">2.2.2 Emacs configuration<span class="pull-right"><a class="anchor hidden-xs" href="#Emacs-configuration" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Emacs-configuration" aria-hidden="true">TOC</a></span></h4>
+<p>For Emacs, add these roughly equivalent lines to your <samp>.emacs.d/init.el</samp>:
+</p><div class="example lisp">
+<pre class="lisp">(c-add-style &quot;ffmpeg&quot;
+             '(&quot;k&amp;r&quot;
+               (c-basic-offset . 4)
+               (indent-tabs-mode . nil)
+               (show-trailing-whitespace . t)
+               (c-offsets-alist
+                (statement-cont . (c-lineup-assignments +)))
+               )
+             )
+(setq c-default-style &quot;ffmpeg&quot;)
+</pre></div>
+
 <a name="Comments"></a>
-<h3 class="section">3.2 Comments<span class="pull-right"><a class="anchor hidden-xs" href="#Comments" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Comments" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">2.3 Comments<span class="pull-right"><a class="anchor hidden-xs" href="#Comments" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Comments" aria-hidden="true">TOC</a></span></h3>
 <p>Use the JavaDoc/Doxygen  format (see examples below) so that code documentation
 can be generated automatically. All nontrivial functions should have a comment
 above them explaining what the function does, even if it is just one sentence.
@@ -164,78 +231,46 @@ int myfunc(int my_parameter)
 ...
 </pre></div>
 
-<a name="C-language-features"></a>
-<h3 class="section">3.3 C language features<span class="pull-right"><a class="anchor hidden-xs" href="#C-language-features" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-C-language-features" aria-hidden="true">TOC</a></span></h3>
-
-<p>FFmpeg is programmed in the ISO C90 language with a few additional
-features from ISO C99, namely:
-</p>
-<ul>
-<li> the &lsquo;<samp>inline</samp>&rsquo; keyword;
-
-</li><li> &lsquo;<samp>//</samp>&rsquo; comments;
-
-</li><li> designated struct initializers (&lsquo;<samp>struct s x = { .i = 17 };</samp>&rsquo;);
-
-</li><li> compound literals (&lsquo;<samp>x = (struct s) { 17, 23 };</samp>&rsquo;).
-
-</li><li> for loops with variable definition (&lsquo;<samp>for (int i = 0; i &lt; 8; i++)</samp>&rsquo;);
-
-</li><li> Variadic macros (&lsquo;<samp>#define ARRAY(nb, ...) (int[nb + 1]){ nb, __VA_ARGS__ }</samp>&rsquo;);
-
-</li><li> Implementation defined behavior for signed integers is assumed to match the
-expected behavior for two&rsquo;s complement. Non representable values in integer
-casts are binary truncated. Shift right of signed values uses sign extension.
-</li></ul>
-
-<p>These features are supported by all compilers we care about, so we will not
-accept patches to remove their use unless they absolutely do not impair
-clarity and performance.
-</p>
-<p>All code must compile with recent versions of GCC and a number of other
-currently supported compilers. To ensure compatibility, please do not use
-additional C99 features or GCC extensions. Especially watch out for:
-</p>
-<ul>
-<li> mixing statements and declarations;
-
-</li><li> &lsquo;<samp>long long</samp>&rsquo; (use &lsquo;<samp>int64_t</samp>&rsquo; instead);
-
-</li><li> &lsquo;<samp>__attribute__</samp>&rsquo; not protected by &lsquo;<samp>#ifdef __GNUC__</samp>&rsquo; or similar;
-
-</li><li> GCC statement expressions (&lsquo;<samp>(x = ({ int y = 4; y; })</samp>&rsquo;).
-</li></ul>
-
 <a name="Naming-conventions"></a>
-<h3 class="section">3.4 Naming conventions<span class="pull-right"><a class="anchor hidden-xs" href="#Naming-conventions" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Naming-conventions" aria-hidden="true">TOC</a></span></h3>
-<p>All names should be composed with underscores (_), not CamelCase. For example,
-&lsquo;<samp>avfilter_get_video_buffer</samp>&rsquo; is an acceptable function name and
-&lsquo;<samp>AVFilterGetVideo</samp>&rsquo; is not. The exception from this are type names, like
-for example structs and enums; they should always be in CamelCase.
-</p>
-<p>There are the following conventions for naming variables and functions:
-</p>
-<ul>
-<li> For local variables no prefix is required.
+<h3 class="section">2.4 Naming conventions<span class="pull-right"><a class="anchor hidden-xs" href="#Naming-conventions" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Naming-conventions" aria-hidden="true">TOC</a></span></h3>
 
-</li><li> For file-scope variables and functions declared as <code>static</code>, no prefix
-is required.
+<p>Names of functions, variables, and struct members must be lowercase, using
+underscores (_) to separate words. For example, &lsquo;<samp>avfilter_get_video_buffer</samp>&rsquo;
+is an acceptable function name and &lsquo;<samp>AVFilterGetVideo</samp>&rsquo; is not.
+</p>
+<p>Struct, union, enum, and typedeffed type names must use CamelCase. All structs
+and unions should be typedeffed to the same name as the struct/union tag, e.g.
+<code>typedef struct AVFoo { ... } AVFoo;</code>. Enums are typically not
+typedeffed.
+</p>
+<p>Enumeration constants and macros must be UPPERCASE, except for macros
+masquerading as functions, which should use the function naming convention.
+</p>
+<p>All identifiers in the libraries should be namespaced as follows:
+</p><ul>
+<li> No namespacing for identifiers with file and lower scope (e.g. local variables,
+static functions), and struct and union members,
 
-</li><li> For variables and functions visible outside of file scope, but only used
-internally by a library, an <code>ff_</code> prefix should be used,
-e.g. &lsquo;<samp>ff_w64_demuxer</samp>&rsquo;.
+</li><li> The <code>ff_</code> prefix must be used for variables and functions visible outside
+of file scope, but only used internally within a single library, e.g.
+&lsquo;<samp>ff_w64_demuxer</samp>&rsquo;. This prevents name collisions when FFmpeg is statically
+linked.
 
 </li><li> For variables and functions visible outside of file scope, used internally
 across multiple libraries, use <code>avpriv_</code> as prefix, for example,
 &lsquo;<samp>avpriv_report_missing_feature</samp>&rsquo;.
 
+</li><li> All other internal identifiers, like private type or macro names, should be
+namespaced only to avoid possible internal conflicts. E.g. <code>H264_NAL_SPS</code>
+vs. <code>HEVC_NAL_SPS</code>.
+
 </li><li> Each library has its own prefix for public symbols, in addition to the
 commonly used <code>av_</code> (<code>avformat_</code> for libavformat,
 <code>avcodec_</code> for libavcodec, <code>swr_</code> for libswresample, etc).
 Check the existing code and choose names accordingly.
-Note that some symbols without these prefixes are also exported for
-retro-compatibility reasons. These exceptions are declared in the
-<code>lib&lt;name&gt;/lib&lt;name&gt;.v</code> files.
+
+</li><li> Other public identifiers (struct, union, enum, macro, type names) must use their
+library&rsquo;s public prefix (<code>AV</code>, <code>Sws</code>, or <code>Swr</code>).
 </li></ul>
 
 <p>Furthermore, name space reserved for the system should not be invaded.
@@ -247,7 +282,7 @@ are reserved at the file level and may not be used for externally visible
 symbols. If in doubt, just avoid names starting with <code>_</code> altogether.
 </p>
 <a name="Miscellaneous-conventions"></a>
-<h3 class="section">3.5 Miscellaneous conventions<span class="pull-right"><a class="anchor hidden-xs" href="#Miscellaneous-conventions" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Miscellaneous-conventions" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">2.5 Miscellaneous conventions<span class="pull-right"><a class="anchor hidden-xs" href="#Miscellaneous-conventions" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Miscellaneous-conventions" aria-hidden="true">TOC</a></span></h3>
 
 <ul>
 <li> fprintf and printf are forbidden in libavformat and libavcodec,
@@ -257,45 +292,11 @@ please use av_log() instead.
 should also be avoided if they don&rsquo;t make the code easier to understand.
 </li></ul>
 
-<a name="Editor-configuration"></a>
-<h3 class="section">3.6 Editor configuration<span class="pull-right"><a class="anchor hidden-xs" href="#Editor-configuration" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Editor-configuration" aria-hidden="true">TOC</a></span></h3>
-<p>In order to configure Vim to follow FFmpeg formatting conventions, paste
-the following snippet into your <samp>.vimrc</samp>:
-</p><div class="example">
-<pre class="example">&quot; indentation rules for FFmpeg: 4 spaces, no tabs
-set expandtab
-set shiftwidth=4
-set softtabstop=4
-set cindent
-set cinoptions=(0
-&quot; Allow tabs in Makefiles.
-autocmd FileType make,automake set noexpandtab shiftwidth=8 softtabstop=8
-&quot; Trailing whitespace and tabs are forbidden, so highlight them.
-highlight ForbiddenWhitespace ctermbg=red guibg=red
-match ForbiddenWhitespace /\s\+$\|\t/
-&quot; Do not highlight spaces at the end of line while typing on that line.
-autocmd InsertEnter * match ForbiddenWhitespace /\t\|\s\+\%#\@&lt;!$/
-</pre></div>
-
-<p>For Emacs, add these roughly equivalent lines to your <samp>.emacs.d/init.el</samp>:
-</p><div class="example lisp">
-<pre class="lisp">(c-add-style &quot;ffmpeg&quot;
-             '(&quot;k&amp;r&quot;
-               (c-basic-offset . 4)
-               (indent-tabs-mode . nil)
-               (show-trailing-whitespace . t)
-               (c-offsets-alist
-                (statement-cont . (c-lineup-assignments +)))
-               )
-             )
-(setq c-default-style &quot;ffmpeg&quot;)
-</pre></div>
-
-<a name="Development-Policy"></a>
-<h2 class="chapter">4 Development Policy<span class="pull-right"><a class="anchor hidden-xs" href="#Development-Policy" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Development-Policy" aria-hidden="true">TOC</a></span></h2>
+<span id="Development-Policy"></span><a name="Development-Policy-1"></a>
+<h2 class="chapter">3 Development Policy<span class="pull-right"><a class="anchor hidden-xs" href="#Development-Policy-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Development-Policy-1" aria-hidden="true">TOC</a></span></h2>
 
 <a name="Patches_002fCommitting"></a>
-<h3 class="section">4.1 Patches/Committing<span class="pull-right"><a class="anchor hidden-xs" href="#Patches_002fCommitting" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Patches_002fCommitting" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">3.1 Patches/Committing<span class="pull-right"><a class="anchor hidden-xs" href="#Patches_002fCommitting" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Patches_002fCommitting" aria-hidden="true">TOC</a></span></h3>
 <a name="Licenses-for-patches-must-be-compatible-with-FFmpeg_002e"></a>
 <p>Contributions should be licensed under the
 <a href="http://www.gnu.org/licenses/lgpl-2.1.html">LGPL 2.1</a>,
@@ -395,7 +396,7 @@ time-frame (12h for build failures and security fixes, 3 days small changes,
 Also note, the maintainer can simply ask for more time to review!
 </p>
 <a name="Code"></a>
-<h3 class="section">4.2 Code<span class="pull-right"><a class="anchor hidden-xs" href="#Code" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Code" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">3.2 Code<span class="pull-right"><a class="anchor hidden-xs" href="#Code" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Code" aria-hidden="true">TOC</a></span></h3>
 <a name="API_002fABI-changes-should-be-discussed-before-they-are-made_002e"></a>
 <p>Do not change behavior of the programs (renaming options etc) or public
 API or ABI without first discussing it on the ffmpeg-devel mailing list.
@@ -427,7 +428,7 @@ always check values read from some untrusted source before using them
 as array index or other risky things.
 </p>
 <a name="Documentation_002fOther"></a>
-<h3 class="section">4.3 Documentation/Other<span class="pull-right"><a class="anchor hidden-xs" href="#Documentation_002fOther" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Documentation_002fOther" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">3.3 Documentation/Other<span class="pull-right"><a class="anchor hidden-xs" href="#Documentation_002fOther" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Documentation_002fOther" aria-hidden="true">TOC</a></span></h3>
 <a name="Subscribe-to-the-ffmpeg_002ddevel-mailing-list_002e"></a>
 <p>It is important to be subscribed to the
 <a href="https://lists.ffmpeg.org/mailman/listinfo/ffmpeg-devel">ffmpeg-devel</a>
@@ -470,7 +471,7 @@ finding a new maintainer and also don&rsquo;t forget to update the <samp>MAINTAI
 <p>We think our rules are not too hard. If you have comments, contact us.
 </p>
 <a name="Code-of-conduct"></a>
-<h2 class="chapter">5 Code of conduct<span class="pull-right"><a class="anchor hidden-xs" href="#Code-of-conduct" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Code-of-conduct" aria-hidden="true">TOC</a></span></h2>
+<h2 class="chapter">4 Code of conduct<span class="pull-right"><a class="anchor hidden-xs" href="#Code-of-conduct" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Code-of-conduct" aria-hidden="true">TOC</a></span></h2>
 
 <p>Be friendly and respectful towards others and third parties.
 Treat others the way you yourself want to be treated.
@@ -500,7 +501,7 @@ instead and point them in the right direction.
 &quot;Be excellent to each other.&quot;
 </p>
 <span id="Submitting-patches"></span><a name="Submitting-patches-1"></a>
-<h2 class="chapter">6 Submitting patches<span class="pull-right"><a class="anchor hidden-xs" href="#Submitting-patches-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Submitting-patches-1" aria-hidden="true">TOC</a></span></h2>
+<h2 class="chapter">5 Submitting patches<span class="pull-right"><a class="anchor hidden-xs" href="#Submitting-patches-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Submitting-patches-1" aria-hidden="true">TOC</a></span></h2>
 
 <p>First, read the <a href="#Coding-Rules">Coding Rules</a> above if you did not yet, in particular
 the rules regarding patch submission.
@@ -564,7 +565,7 @@ send a reminder by email. Your patch should eventually be dealt with.
 </p>
 
 <a name="New-codecs-or-formats-checklist"></a>
-<h2 class="chapter">7 New codecs or formats checklist<span class="pull-right"><a class="anchor hidden-xs" href="#New-codecs-or-formats-checklist" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-New-codecs-or-formats-checklist" aria-hidden="true">TOC</a></span></h2>
+<h2 class="chapter">6 New codecs or formats checklist<span class="pull-right"><a class="anchor hidden-xs" href="#New-codecs-or-formats-checklist" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-New-codecs-or-formats-checklist" aria-hidden="true">TOC</a></span></h2>
 
 <ol>
 <li> Did you use av_cold for codec initialization and close functions?
@@ -605,7 +606,7 @@ configure?
 
 
 <a name="Patch-submission-checklist"></a>
-<h2 class="chapter">8 Patch submission checklist<span class="pull-right"><a class="anchor hidden-xs" href="#Patch-submission-checklist" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Patch-submission-checklist" aria-hidden="true">TOC</a></span></h2>
+<h2 class="chapter">7 Patch submission checklist<span class="pull-right"><a class="anchor hidden-xs" href="#Patch-submission-checklist" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Patch-submission-checklist" aria-hidden="true">TOC</a></span></h2>
 
 <ol>
 <li> Does <code>make fate</code> pass with the patch applied?
@@ -690,7 +691,7 @@ of leaks, out of array accesses, etc.
 </li></ol>
 
 <a name="Patch-review-process"></a>
-<h2 class="chapter">9 Patch review process<span class="pull-right"><a class="anchor hidden-xs" href="#Patch-review-process" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Patch-review-process" aria-hidden="true">TOC</a></span></h2>
+<h2 class="chapter">8 Patch review process<span class="pull-right"><a class="anchor hidden-xs" href="#Patch-review-process" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Patch-review-process" aria-hidden="true">TOC</a></span></h2>
 
 <p>All patches posted to ffmpeg-devel will be reviewed, unless they contain a
 clear note that the patch is not for the git master branch.
@@ -721,7 +722,7 @@ to be reviewed, please consider helping to review other patches, that is a great
 way to get everyone&rsquo;s patches reviewed sooner.
 </p>
 <span id="Regression-tests"></span><a name="Regression-tests-1"></a>
-<h2 class="chapter">10 Regression tests<span class="pull-right"><a class="anchor hidden-xs" href="#Regression-tests-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Regression-tests-1" aria-hidden="true">TOC</a></span></h2>
+<h2 class="chapter">9 Regression tests<span class="pull-right"><a class="anchor hidden-xs" href="#Regression-tests-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Regression-tests-1" aria-hidden="true">TOC</a></span></h2>
 
 <p>Before submitting a patch (or committing to the repository), you should at least
 test that you did not break anything.
@@ -733,7 +734,7 @@ this case, the reference results of the regression tests shall be modified
 accordingly].
 </p>
 <a name="Adding-files-to-the-fate_002dsuite-dataset"></a>
-<h3 class="section">10.1 Adding files to the fate-suite dataset<span class="pull-right"><a class="anchor hidden-xs" href="#Adding-files-to-the-fate_002dsuite-dataset" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Adding-files-to-the-fate_002dsuite-dataset" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">9.1 Adding files to the fate-suite dataset<span class="pull-right"><a class="anchor hidden-xs" href="#Adding-files-to-the-fate_002dsuite-dataset" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Adding-files-to-the-fate_002dsuite-dataset" aria-hidden="true">TOC</a></span></h3>
 
 <p>When there is no muxer or encoder available to generate test media for a
 specific test then the media has to be included in the fate-suite.
@@ -745,7 +746,7 @@ message or introductory message for the patch series that you post to
 the ffmpeg-devel mailing list, a direct link to download the sample media.
 </p>
 <a name="Visualizing-Test-Coverage"></a>
-<h3 class="section">10.2 Visualizing Test Coverage<span class="pull-right"><a class="anchor hidden-xs" href="#Visualizing-Test-Coverage" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Visualizing-Test-Coverage" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">9.2 Visualizing Test Coverage<span class="pull-right"><a class="anchor hidden-xs" href="#Visualizing-Test-Coverage" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Visualizing-Test-Coverage" aria-hidden="true">TOC</a></span></h3>
 
 <p>The FFmpeg build system allows visualizing the test coverage in an easy
 manner with the coverage tools <code>gcov</code>/<code>lcov</code>.  This involves
@@ -769,7 +770,7 @@ measurements. You will need to rerun <code>make lcov</code> after running a
 new test.
 </p>
 <a name="Using-Valgrind"></a>
-<h3 class="section">10.3 Using Valgrind<span class="pull-right"><a class="anchor hidden-xs" href="#Using-Valgrind" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Using-Valgrind" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">9.3 Using Valgrind<span class="pull-right"><a class="anchor hidden-xs" href="#Using-Valgrind" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Using-Valgrind" aria-hidden="true">TOC</a></span></h3>
 
 <p>The configure script provides a shortcut for using valgrind to spot bugs
 related to memory handling. Just add the option
@@ -783,7 +784,7 @@ FATE under the supervision of either the <strong>memcheck</strong> or the
 your configure line instead.
 </p>
 <span id="Release-process"></span><a name="Release-process-1"></a>
-<h2 class="chapter">11 Release process<span class="pull-right"><a class="anchor hidden-xs" href="#Release-process-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Release-process-1" aria-hidden="true">TOC</a></span></h2>
+<h2 class="chapter">10 Release process<span class="pull-right"><a class="anchor hidden-xs" href="#Release-process-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Release-process-1" aria-hidden="true">TOC</a></span></h2>
 
 <p>FFmpeg maintains a set of <strong>release branches</strong>, which are the
 recommended deliverable for system integrators and distributors (such as
@@ -813,7 +814,7 @@ adjustments to the symbol versioning file. Please discuss such changes
 on the <strong>ffmpeg-devel</strong> mailing list in time to allow forward planning.
 </p>
 <span id="Criteria-for-Point-Releases"></span><a name="Criteria-for-Point-Releases-1"></a>
-<h3 class="section">11.1 Criteria for Point Releases<span class="pull-right"><a class="anchor hidden-xs" href="#Criteria-for-Point-Releases-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Criteria-for-Point-Releases-1" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">10.1 Criteria for Point Releases<span class="pull-right"><a class="anchor hidden-xs" href="#Criteria-for-Point-Releases-1" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Criteria-for-Point-Releases-1" aria-hidden="true">TOC</a></span></h3>
 
 <p>Changes that match the following criteria are valid candidates for
 inclusion into a point release:
@@ -834,7 +835,7 @@ point releases of the same release branch.
 </p>
 
 <a name="Release-Checklist"></a>
-<h3 class="section">11.2 Release Checklist<span class="pull-right"><a class="anchor hidden-xs" href="#Release-Checklist" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Release-Checklist" aria-hidden="true">TOC</a></span></h3>
+<h3 class="section">10.2 Release Checklist<span class="pull-right"><a class="anchor hidden-xs" href="#Release-Checklist" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Release-Checklist" aria-hidden="true">TOC</a></span></h3>
 
 <p>The release process involves the following steps:
 </p>

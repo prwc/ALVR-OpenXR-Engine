@@ -56,8 +56,9 @@
     <li><a id="toc-Pushing-changes-to-remote-trees" href="#Pushing-changes-to-remote-trees">4.2 Pushing changes to remote trees</a></li>
     <li><a id="toc-Finding-a-specific-svn-revision" href="#Finding-a-specific-svn-revision">4.3 Finding a specific svn revision</a></li>
   </ul></li>
-  <li><a id="toc-Pre_002dpush-checklist" href="#Pre_002dpush-checklist">5 Pre-push checklist</a></li>
-  <li><a id="toc-Server-Issues" href="#Server-Issues">6 Server Issues</a></li>
+  <li><a id="toc-gpg-key-generation" href="#gpg-key-generation">5 gpg key generation</a></li>
+  <li><a id="toc-Pre_002dpush-checklist" href="#Pre_002dpush-checklist">6 Pre-push checklist</a></li>
+  <li><a id="toc-Server-Issues" href="#Server-Issues">7 Server Issues</a></li>
 </ul>
 </div>
 </div>
@@ -247,11 +248,18 @@ please avoid problems through this extra level of scrutiny.
 <pre class="example">git add [-i|-p|-A] &lt;filenames/dirnames&gt;
 </pre></div>
 
-<p>Make sure you have told Git your name and email address
+<p>Make sure you have told Git your name, email address and GPG key
 </p>
 <div class="example">
 <pre class="example">git config --global user.name &quot;My Name&quot;
 git config --global user.email my@email.invalid
+git config --global user.signingkey ABCDEF0123245
+</pre></div>
+
+<p>Enable signing all commits or use -S
+</p>
+<div class="example">
+<pre class="example">git config --global commit.gpgsign true
 </pre></div>
 
 <p>Use <samp>--global</samp> to set the global configuration for all your Git checkouts.
@@ -493,8 +501,22 @@ search capabilities is used).
 <p>where <var>$SHA1</var> is the commit hash from the <code>git log</code> output.
 </p>
 
+<a name="gpg-key-generation"></a>
+<h2 class="chapter">5 gpg key generation<span class="pull-right"><a class="anchor hidden-xs" href="#gpg-key-generation" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-gpg-key-generation" aria-hidden="true">TOC</a></span></h2>
+
+<p>If you have no gpg key yet, we recommend that you create a ed25519 based key as it
+is small, fast and secure. Especially it results in small signatures in git.
+</p>
+<div class="example">
+<pre class="example">gpg --default-new-key-algo &quot;ed25519/cert,sign+cv25519/encr&quot; --quick-generate-key &quot;human@server.com&quot;
+</pre></div>
+
+<p>When generating a key, make sure the email specified matches the email used in git as some sites like
+github consider mismatches a reason to declare such commits unverified. After generating a key you
+can add it to the MAINTAINER file and upload it to a keyserver.
+</p>
 <a name="Pre_002dpush-checklist"></a>
-<h2 class="chapter">5 Pre-push checklist<span class="pull-right"><a class="anchor hidden-xs" href="#Pre_002dpush-checklist" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Pre_002dpush-checklist" aria-hidden="true">TOC</a></span></h2>
+<h2 class="chapter">6 Pre-push checklist<span class="pull-right"><a class="anchor hidden-xs" href="#Pre_002dpush-checklist" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Pre_002dpush-checklist" aria-hidden="true">TOC</a></span></h2>
 
 <p>Once you have a set of commits that you feel are ready for pushing,
 work through the following checklist to doublecheck everything is in
@@ -531,7 +553,7 @@ merge request to ffmpeg-devel. You can also push them directly but this is not
 recommended.
 </p>
 <a name="Server-Issues"></a>
-<h2 class="chapter">6 Server Issues<span class="pull-right"><a class="anchor hidden-xs" href="#Server-Issues" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Server-Issues" aria-hidden="true">TOC</a></span></h2>
+<h2 class="chapter">7 Server Issues<span class="pull-right"><a class="anchor hidden-xs" href="#Server-Issues" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-Server-Issues" aria-hidden="true">TOC</a></span></h2>
 
 <p>Contact the project admins at <a href="mailto:root@ffmpeg.org">root@ffmpeg.org</a> if you have technical
 problems with the Git server.
