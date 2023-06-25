@@ -672,7 +672,7 @@ struct OpenXrProgram final : IOpenXrProgram {
             [](const std::string& ext) { return ext.c_str(); });
 
         for (const auto& [extName, extAvaileble] : m_availableSupportedExtMap) {
-            if (IsPrePicoPUI<5,6>() && extName == XR_EXT_HAND_TRACKING_EXTENSION_NAME) {
+            if (IsPrePicoPUI<5,7>() && extName == XR_EXT_HAND_TRACKING_EXTENSION_NAME) {
                 // Pico's implementation of XR_EXT_hand_tracking pre-PUI 5.6/7 has bugs:
                 //  * Behaves incorrect with stage reference spaces.
                 //  * Missing joints.
