@@ -511,12 +511,7 @@ struct OpenXrProgram final : IOpenXrProgram {
 #endif
         { XR_HTC_PASSTHROUGH_EXTENSION_NAME, false },
 
-#ifndef XR_USE_OXR_PICO_ANY_VERSION
-    // Pico's current implementation of XR_EXT_hand_tracking has bugs:
-    //  * Does not work stage reference spaces.
-    //  * Joint pose orienations are incorrect and/or in a wrong space.
         { XR_EXT_HAND_TRACKING_EXTENSION_NAME, false },
-#endif
 
         { XR_FB_DISPLAY_REFRESH_RATE_EXTENSION_NAME, false },
         { XR_FB_COLOR_SPACE_EXTENSION_NAME, false },
@@ -624,11 +619,12 @@ struct OpenXrProgram final : IOpenXrProgram {
         return rtType == m_runtimeType;
     }
 
-    inline bool IsPrePicoPUIv5_4() const {
+    template < const std::size_t major, const std::size_t minor >
+    inline bool IsPrePicoPUI() const {
 #ifdef XR_USE_OXR_PICO_ANY_VERSION
         assert(IsRuntime(OxrRuntimeType::Pico));
-        static constexpr const FirmwareVersion PicoPUIv5_4{ 5,4,0 };
-        return m_options->firmwareVersion < PicoPUIv5_4;
+        static constexpr const FirmwareVersion PuiVersion{ major,minor,0 };
+        return m_options->firmwareVersion < PuiVersion;
 #else
         return false;
 #endif
@@ -649,7 +645,7 @@ struct OpenXrProgram final : IOpenXrProgram {
         m_runtimeType = FromString(instanceProperties.runtimeName);
 
         const bool enableSRGBLinearization = [this]() {
-            if (IsPrePicoPUIv5_4())
+            if (IsPrePicoPUI<5,4>())
                 return false;
             return !m_options->DisableLinearizeSrgb;// || IsRuntime(OxrRuntimeType::HTCWave));
         }();
@@ -676,6 +672,14 @@ struct OpenXrProgram final : IOpenXrProgram {
             [](const std::string& ext) { return ext.c_str(); });
 
         for (const auto& [extName, extAvaileble] : m_availableSupportedExtMap) {
+            if (IsPrePicoPUI<5,6>() && extName == XR_EXT_HAND_TRACKING_EXTENSION_NAME) {
+                // Pico's implementation of XR_EXT_hand_tracking pre-PUI 5.6/7 has bugs:
+                //  * Behaves incorrect with stage reference spaces.
+                //  * Missing joints.
+                //  * Joint pose orienations are incorrect and/or in a wrong space.
+                Log::Write(Log::Level::Info, Fmt("Hand-tracking is non-functional in PUI versions below 5.6, %s will not be enabled.", XR_EXT_HAND_TRACKING_EXTENSION_NAME));
+                continue;
+            }
             if (m_options && !m_options->HeadlessSession && extName == XR_MND_HEADLESS_EXTENSION_NAME) {
                 Log::Write(Log::Level::Info, Fmt("Headless-session option not set, %s will not be enabled.", XR_MND_HEADLESS_EXTENSION_NAME));
                 continue;
@@ -937,7 +941,7 @@ struct OpenXrProgram final : IOpenXrProgram {
             return { -1, std::uint64_t(-1) };
 
         XrTime xrTimeNow;
-        if (IsPrePicoPUIv5_4()) {
+        if (IsPrePicoPUI<5,4>()) {
             // 
             // As of writing, there are bugs in Pico's OXR runtime with either/both:
             //      * xrLocateSpace for controller action spaces not working with any other times beyond XrFrameState::predicateDisplayTime (and zero, in a non-conforming way).
