@@ -140,3 +140,5 @@
 #endif
 
 #endif
+
+#include <openxr/fb_face_tracking2.h>

@@ -20,20 +20,20 @@ extern "C" {;
 #endif
 
 inline constexpr const std::size_t MaxEyeCount = 2;
-inline constexpr const std::size_t MaxExpressionCount = 63;
+inline constexpr const std::size_t MaxExpressionCount = 70;
 static_assert((XR_FACIAL_EXPRESSION_LIP_COUNT_HTC + XR_FACIAL_EXPRESSION_EYE_COUNT_HTC) <= MaxExpressionCount);
-#ifdef XR_USE_OXR_OCULUS
-    static_assert(XR_FACE_EXPRESSION_COUNT_FB <= MaxExpressionCount);
-#endif 
+static_assert(XR_FACE_EXPRESSION2_COUNT_FB <= MaxExpressionCount);
+static_assert(XR_FACE_EXPRESSION_COUNT_FB <= MaxExpressionCount);
 
 #pragma pack(push, 1)
 struct ALXRFacialEyePacket {
-    ALXRFacialExpressionType expressionType;
-    ALXREyeTrackingType      eyeTrackerType;
-    std::uint8_t             isEyeFollowingBlendshapesValid;
-    std::uint8_t             isEyeGazePoseValid[MaxEyeCount];
-    float                    expressionWeights[MaxExpressionCount];
-    XrPosef                  eyeGazePoses[MaxEyeCount];
+    ALXRFacialExpressionType   expressionType;
+    ALXREyeTrackingType        eyeTrackerType;
+    std::uint8_t               isEyeFollowingBlendshapesValid;
+    std::uint8_t               isEyeGazePoseValid[MaxEyeCount];
+    ALXRFaceTrackingDataSource expressionDataSource;
+    float                      expressionWeights[MaxExpressionCount];
+    XrPosef                    eyeGazePoses[MaxEyeCount];
 };
 #pragma pack(pop)
 

@@ -450,9 +450,15 @@ struct OpenXrProgram final : IOpenXrProgram {
             eyeTrackerFB_ = XR_NULL_HANDLE;
         }
 
+        if (faceTrackerFBV2_ != XR_NULL_HANDLE) {
+            Log::Write(Log::Level::Verbose, "Destroying FaceTrackerFB_V2");
+            assert(m_xrDestroyFaceTracker2FB_ != nullptr);
+            m_xrDestroyFaceTracker2FB_(faceTrackerFBV2_);
+        }
+
         if (faceTrackerFB_ != XR_NULL_HANDLE)
         {
-            Log::Write(Log::Level::Verbose, "Destroying FaceTracker");
+            Log::Write(Log::Level::Verbose, "Destroying FaceTrackerFB");
             assert(m_xrDestroyFaceTrackerFB_ != nullptr);
             m_xrDestroyFaceTrackerFB_(faceTrackerFB_);
             faceTrackerFB_ = XR_NULL_HANDLE;
@@ -564,6 +570,7 @@ struct OpenXrProgram final : IOpenXrProgram {
         { XR_FB_PASSTHROUGH_EXTENSION_NAME, false },
         { XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME, false },
         { XR_FB_EYE_TRACKING_SOCIAL_EXTENSION_NAME, false },
+        { XR_FB_FACE_TRACKING2_EXTENSION_NAME, false },
         { XR_FB_FACE_TRACKING_EXTENSION_NAME, false },
         { XR_META_LOCAL_DIMMING_EXTENSION_NAME, false },
 
@@ -727,6 +734,7 @@ struct OpenXrProgram final : IOpenXrProgram {
                 { XR_FB_PASSTHROUGH_EXTENSION_NAME,           m_options->NoPassthrough },
                 { XR_HTC_PASSTHROUGH_EXTENSION_NAME,          m_options->NoPassthrough },
                 { XR_HTC_FACIAL_TRACKING_EXTENSION_NAME,      !m_options->IsSelected(ALXRFacialExpressionType::HTC) },
+                { XR_FB_FACE_TRACKING2_EXTENSION_NAME,        !m_options->IsSelected(ALXRFacialExpressionType::FB_V2) },
                 { XR_FB_FACE_TRACKING_EXTENSION_NAME,         !m_options->IsSelected(ALXRFacialExpressionType::FB) },
                 { XR_FB_EYE_TRACKING_SOCIAL_EXTENSION_NAME,   !m_options->IsSelected(ALXREyeTrackingType::FBEyeTrackingSocial) },
                 { XR_EXT_EYE_GAZE_INTERACTION_EXTENSION_NAME, !m_options->IsSelected(ALXREyeTrackingType::ExtEyeGazeInteraction) },
@@ -1327,6 +1335,90 @@ struct OpenXrProgram final : IOpenXrProgram {
         return IsExtEyeGazeInteractionSupported();
     }
 
+    XrFaceTracker2FB faceTrackerFBV2_ = XR_NULL_HANDLE;
+    PFN_xrDestroyFaceTracker2FB m_xrDestroyFaceTracker2FB_ = nullptr;
+    PFN_xrGetFaceExpressionWeights2FB m_xrGetFaceExpressionWeights2FB_ = nullptr;
+
+    bool InitializeFBFacialTrackerV2()
+    {
+        if (!IsExtEnabled(XR_FB_FACE_TRACKING2_EXTENSION_NAME) ||
+            (m_options && !m_options->IsSelected(ALXRFacialExpressionType::FB_V2))) {
+            Log::Write(Log::Level::Warning, Fmt("%s is not enabled/supported.", XR_FB_FACE_TRACKING2_EXTENSION_NAME));
+            return false;
+        }
+
+        XrSystemFaceTrackingProperties2FB faceTrackingSystemProperties{
+            .type = XR_TYPE_SYSTEM_FACE_TRACKING_PROPERTIES2_FB,
+            .next = nullptr,
+            .supportsVisualFaceTracking = XR_FALSE,
+            .supportsAudioFaceTracking = XR_FALSE,
+        };
+        XrSystemProperties systemProperties{
+            .type = XR_TYPE_SYSTEM_PROPERTIES,
+            .next = &faceTrackingSystemProperties
+        };
+        if (XR_FAILED(xrGetSystemProperties(m_instance, m_systemId, &systemProperties)) ||
+            (!faceTrackingSystemProperties.supportsVisualFaceTracking &&
+             !faceTrackingSystemProperties.supportsAudioFaceTracking)) {
+            Log::Write(Log::Level::Warning, Fmt("%s is not enabled/supported.", XR_FB_FACE_TRACKING2_EXTENSION_NAME));
+            return false;
+        }
+
+        // Acquire Function Pointers
+        PFN_xrCreateFaceTracker2FB m_xrCreateFaceTrackerFB_ = nullptr;
+
+        if (XR_FAILED(xrGetInstanceProcAddr(
+            m_instance,
+            "xrCreateFaceTracker2FB",
+            (PFN_xrVoidFunction*)(&m_xrCreateFaceTrackerFB_)))) {
+            m_xrDestroyFaceTracker2FB_ = nullptr;
+        }
+        if (XR_FAILED(xrGetInstanceProcAddr(
+            m_instance,
+            "xrDestroyFaceTracker2FB",
+            (PFN_xrVoidFunction*)(&m_xrDestroyFaceTracker2FB_)))) {
+            m_xrDestroyFaceTracker2FB_ = nullptr;
+        }
+        if (XR_FAILED(xrGetInstanceProcAddr(
+            m_instance,
+            "xrGetFaceExpressionWeights2FB",
+            (PFN_xrVoidFunction*)(&m_xrGetFaceExpressionWeights2FB_)))) {
+            m_xrGetFaceExpressionWeights2FB_ = nullptr;
+        }
+
+        if (m_xrCreateFaceTrackerFB_ == nullptr ||
+            m_xrDestroyFaceTracker2FB_ == nullptr ||
+            m_xrGetFaceExpressionWeights2FB_ == nullptr) {
+            Log::Write(Log::Level::Warning, Fmt("%s is not enabled/supported.", XR_FB_FACE_TRACKING2_EXTENSION_NAME));
+            return false;
+        }
+
+        Log::Write(Log::Level::Info, Fmt("%s is enabled.", XR_FB_FACE_TRACKING2_EXTENSION_NAME));
+
+        Log::Write(Log::Level::Info, Fmt("Runtime supports the following data sources for %s:", XR_FB_FACE_TRACKING2_EXTENSION_NAME));
+        Log::Write(Log::Level::Info, Fmt("\tVisual Face Tracking: %s", faceTrackingSystemProperties.supportsVisualFaceTracking ? "true" : "false"));
+        Log::Write(Log::Level::Info, Fmt("\t Audio Face Tracking: %s", faceTrackingSystemProperties.supportsAudioFaceTracking  ? "true" : "false"));
+
+        std::vector<XrFaceTrackingDataSource2FB> dataSources{};
+        dataSources.reserve(2);
+        if (faceTrackingSystemProperties.supportsVisualFaceTracking == XR_TRUE)
+            dataSources.push_back(XR_FACE_TRACKING_DATA_SOURCE2_VISUAL_FB);
+        if (faceTrackingSystemProperties.supportsAudioFaceTracking == XR_TRUE)
+            dataSources.push_back(XR_FACE_TRACKING_DATA_SOURCE2_AUDIO_FB);
+        
+        assert(dataSources.size() > 0);
+
+        faceTrackerFBV2_ = XR_NULL_HANDLE;
+        const XrFaceTrackerCreateInfo2FB createInfo{
+            .type = XR_TYPE_FACE_TRACKER_CREATE_INFO2_FB,
+            .next = nullptr,
+            .faceExpressionSet = XR_FACE_EXPRESSION_SET2_DEFAULT_FB,
+            .requestedDataSourceCount = (std::uint32_t)dataSources.size(),
+            .requestedDataSources = dataSources.data(),
+        };
+        return XR_SUCCEEDED(m_xrCreateFaceTrackerFB_(m_session, &createInfo, &faceTrackerFBV2_)) && faceTrackerFBV2_ != XR_NULL_HANDLE;
+    }
+
     XrFaceTrackerFB faceTrackerFB_ = XR_NULL_HANDLE;
     PFN_xrDestroyFaceTrackerFB m_xrDestroyFaceTrackerFB_ = nullptr;
     PFN_xrGetFaceExpressionWeightsFB m_xrGetFaceExpressionWeightsFB_ = nullptr;
@@ -1485,12 +1577,16 @@ struct OpenXrProgram final : IOpenXrProgram {
     }
 
     bool InitializeFacialTracker() {
+        if (InitializeFBFacialTrackerV2())
+            return true;
         if (InitializeFBFacialTracker())
             return true;
         return InitializeHTCFacialTracker();
     }
 
     bool IsFacialTrackingEnabled() const override {
+        if (faceTrackerFBV2_ != XR_NULL_HANDLE)
+            return true;
         if (faceTrackerFB_ != XR_NULL_HANDLE)
             return true;
         return std::any_of(
@@ -3381,8 +3477,8 @@ struct OpenXrProgram final : IOpenXrProgram {
         return true;
     }
 
-    static_assert(XR_FACE_EXPRESSION_COUNT_FB <= MaxExpressionCount);
-    std::array<float, XR_FACE_EXPRESSION_COUNT_FB> m_confidences {};
+    static_assert(XR_FACE_CONFIDENCE_COUNT_FB <= XR_FACE_CONFIDENCE2_COUNT_FB);
+    std::array<float, XR_FACE_CONFIDENCE2_COUNT_FB> m_confidences {};
 
     inline void PollFaceEyeTracking(const XrTime& ptime, ALXRFacialEyePacket& newPacket)
     {
@@ -3407,6 +3503,40 @@ struct OpenXrProgram final : IOpenXrProgram {
                 if (XR_FAILED(m_xrGetFacialExpressionsHTC(facialTracker, &xrFacialExpr)))
                     continue;
                 newPacket.expressionType = ALXRFacialExpressionType::HTC;
+                newPacket.expressionDataSource = ALXRFaceTrackingDataSource::VisualSource;
+                if (exprCount == XR_FACIAL_EXPRESSION_EYE_COUNT_HTC) {
+                    newPacket.isEyeFollowingBlendshapesValid = 1;
+                }
+            }
+        }
+
+        if (noOptions || m_options->IsSelected(ALXRFacialExpressionType::FB_V2))
+        {
+            if (faceTrackerFBV2_ != XR_NULL_HANDLE) {
+                const XrFaceExpressionInfo2FB expressionInfo{
+                    .type = XR_TYPE_FACE_EXPRESSION_INFO2_FB,
+                    .next = nullptr,
+                    .time = ptime,
+                };
+                XrFaceExpressionWeights2FB expressionWeights{
+                    .type = XR_TYPE_FACE_EXPRESSION_WEIGHTS2_FB,
+                    .next = nullptr,
+                    .weightCount = XR_FACE_EXPRESSION2_COUNT_FB,
+                    .weights = newPacket.expressionWeights,
+                    .confidenceCount = XR_FACE_CONFIDENCE2_COUNT_FB,
+                    .confidences = m_confidences.data(),
+                    .isValid = XR_FALSE,
+                    .isEyeFollowingBlendshapesValid = XR_FALSE,
+                    .dataSource = XR_FACE_TRACKING_DATA_SOURCE2_VISUAL_FB,
+                };
+                assert(faceTrackerFBV2_ != XR_NULL_HANDLE && m_xrGetFaceExpressionWeights2FB_ != nullptr);
+                m_xrGetFaceExpressionWeights2FB_(faceTrackerFBV2_, &expressionInfo, &expressionWeights);
+                
+                if (expressionWeights.isValid) {
+                    newPacket.isEyeFollowingBlendshapesValid = static_cast<std::uint8_t>(expressionWeights.isEyeFollowingBlendshapesValid);
+                    newPacket.expressionType = ALXRFacialExpressionType::FB_V2;
+                    newPacket.expressionDataSource = static_cast<ALXRFaceTrackingDataSource>(expressionWeights.dataSource);
+                }
             }
         }
 
@@ -3424,13 +3554,20 @@ struct OpenXrProgram final : IOpenXrProgram {
                     .weightCount = XR_FACE_EXPRESSION_COUNT_FB,
                     .weights = newPacket.expressionWeights,
                     .confidenceCount = XR_FACE_CONFIDENCE_COUNT_FB,
-                    .confidences = m_confidences.data()
+                    .confidences = m_confidences.data(),
+                    .status = {
+                        .isValid = XR_FALSE,
+                        .isEyeFollowingBlendshapesValid = XR_FALSE,
+                    },
                 };
                 assert(faceTrackerFB_ != XR_NULL_HANDLE && m_xrGetFaceExpressionWeightsFB_ != nullptr);
                 m_xrGetFaceExpressionWeightsFB_(faceTrackerFB_, &expressionInfo, &expressionWeights);
 
-                newPacket.isEyeFollowingBlendshapesValid = static_cast<std::uint8_t>(expressionWeights.status.isEyeFollowingBlendshapesValid);
-                newPacket.expressionType = ALXRFacialExpressionType::FB;
+                if (expressionWeights.status.isValid) {
+                    newPacket.isEyeFollowingBlendshapesValid = static_cast<std::uint8_t>(expressionWeights.status.isEyeFollowingBlendshapesValid);
+                    newPacket.expressionType = ALXRFacialExpressionType::FB;
+                    newPacket.expressionDataSource = ALXRFaceTrackingDataSource::VisualSource;
+                }
             }
         }
 
@@ -3446,7 +3583,6 @@ struct OpenXrProgram final : IOpenXrProgram {
                     }
                 }
                 newPacket.eyeTrackerType = ALXREyeTrackingType::ExtEyeGazeInteraction;
-                newPacket.isEyeFollowingBlendshapesValid = 0;
             }
         }
 
@@ -3476,11 +3612,12 @@ struct OpenXrProgram final : IOpenXrProgram {
         }
     }
 
-    ALXRFacialEyePacket newFTPacket{
+    ALXRFacialEyePacket newFTPacket {
         .expressionType = ALXRFacialExpressionType::None,
         .eyeTrackerType = ALXREyeTrackingType::None,
         .isEyeFollowingBlendshapesValid = 0,
         .isEyeGazePoseValid { 0,0 },
+        .expressionDataSource = ALXRFaceTrackingDataSource::UnknownSource,
     };
     void PollFaceEyeTracking(const XrTime& ptime)
     {

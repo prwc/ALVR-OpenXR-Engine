@@ -178,12 +178,12 @@ endif()
 
 
     
-set(OCULUS_OXR_EXT_HEADERS)
-if (USE_OCULUS_OXR_EXT_HEADERS AND NOT ANDROID)
-    message(STATUS "Oculus OpenXR Extension Headers Enabled")
+#set(OCULUS_OXR_EXT_HEADERS)
+#if (USE_OCULUS_OXR_EXT_HEADERS AND NOT ANDROID)
+#    message(STATUS "Oculus OpenXR Extension Headers Enabled")
     set(OCULUS_OXR_EXT_HEADERS ${OCULUS_OPENXR_MOBILE_SDK}/Include)
-    add_definitions(-DXR_USE_OXR_OCULUS)
-endif()
+#    add_definitions(-DXR_USE_OXR_OCULUS)
+#endif()
 
 target_include_directories(alxr_engine
     PRIVATE

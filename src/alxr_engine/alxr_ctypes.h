@@ -39,6 +39,7 @@ enum class ALXRDecoderType : uint32_t
 enum class ALXRFacialExpressionType : uint8_t {
     None = 0, // Not Support or Disabled
     FB,
+    FB_V2,
     HTC,
     Pico,
     Auto,
@@ -50,6 +51,13 @@ enum class ALXREyeTrackingType : uint8_t {
     FBEyeTrackingSocial,
     ExtEyeGazeInteraction,
     Auto,
+    TypeCount
+};
+
+enum class ALXRFaceTrackingDataSource : uint8_t {
+    VisualSource = 0,
+    AudioSource,
+    UnknownSource,
     TypeCount
 };
 
