@@ -9,6 +9,7 @@
 #include <string_view>
 #include <locale>
 #include <algorithm>
+#include <memory>
 #include <stdarg.h>
 #include <stddef.h>
 
