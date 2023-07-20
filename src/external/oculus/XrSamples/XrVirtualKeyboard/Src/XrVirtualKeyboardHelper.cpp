@@ -322,6 +322,11 @@ bool XrVirtualKeyboardHelper::SendVirtualKeyboardInput(
 }
 
 bool XrVirtualKeyboardHelper::UpdateTextContext(const std::string& textContext) {
+    if (session_ == XR_NULL_HANDLE || GetInstance() == XR_NULL_HANDLE ||
+        keyboardHandle_ == XR_NULL_HANDLE) {
+        // Session needs to be initialized, and the method available
+        return false;
+    }
     if (xrChangeVirtualKeyboardTextContext_) {
         XrVirtualKeyboardTextContextChangeInfoMETA changeInfo{
             XR_TYPE_VIRTUAL_KEYBOARD_TEXT_CONTEXT_CHANGE_INFO_META};

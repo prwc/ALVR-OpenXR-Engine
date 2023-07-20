@@ -151,6 +151,7 @@ static const std::map<std::string, XrColor4f> SemanticLabelToColorMap = {
     {"SCREEN", {0.4f, 0.4f, 0.4f, 0.8f}},
     {"LAMP", {0.9f, 0.9f, 0.9f, 0.8f}},
     {"PLANT", {0.1f, 0.9f, 0.2f, 0.6f}},
+    {"WALL_ART", {1.0f, 0.6f, 0.0f, 1.0f}},
     {"OTHER", {1.0f, 0.0f, 1.0f, 0.2f}}};
 
 XrColor4f GetColorForSemanticLabels(const std::string& labels) {
@@ -681,7 +682,7 @@ void ovrApp::CollectSpaceContainerUuids(XrSpace space, std::unordered_set<std::s
 
 std::string GetSemanticLabels(ovrApp& app, const XrSpace space) {
     static const std::string recognizedLabels =
-        "TABLE,COUCH,FLOOR,CEILING,WALL_FACE,WINDOW_FRAME,DOOR_FRAME,STORAGE,BED,SCREEN,LAMP,PLANT,OTHER";
+        "TABLE,COUCH,FLOOR,CEILING,WALL_FACE,WINDOW_FRAME,DOOR_FRAME,STORAGE,BED,SCREEN,LAMP,PLANT,WALL_ART,OTHER";
     const XrSemanticLabelsSupportInfoFB semanticLabelsSupportInfo = {
         XR_TYPE_SEMANTIC_LABELS_SUPPORT_INFO_FB,
         nullptr,
@@ -709,9 +710,10 @@ bool UpdateOvrPlane(ovrApp& app, ovrPlane& plane) {
     const auto labels = GetSemanticLabels(app, plane.Space);
     const auto color = GetColorForSemanticLabels(labels);
 
-    // Move windows and doors so they appear in front of the walls
+    // Move windows, doors, and wall arts so they appear in front of the walls
     if (labels.find("WINDOW_FRAME") != std::string::npos ||
-        labels.find("DOOR_FRAME") != std::string::npos) {
+        labels.find("DOOR_FRAME") != std::string::npos ||
+        labels.find("WALL_ART") != std::string::npos) {
         plane.SetZOffset(0.01f); // move 1cm on Z+
     }
 

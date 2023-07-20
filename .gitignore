@@ -77,3 +77,6 @@ local.properties
 # Output artifact
 *.aar
 *.pom
+
+# uneeded external lfs bin
+*.glb

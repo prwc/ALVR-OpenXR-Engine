@@ -231,6 +231,7 @@ static const XrSemanticLabelsSupportFlagsFB
 #endif // XR_FB_scene_SPEC_VERSION == 2
 
 
+
 #ifdef __cplusplus
 }
 #endif

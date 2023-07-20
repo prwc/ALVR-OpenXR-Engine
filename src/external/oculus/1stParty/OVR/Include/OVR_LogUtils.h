@@ -312,4 +312,18 @@ inline void LogWithFileTag(const int prio, const char* fileTag, const char* fmt,
         }                                  \
     }
 
+#define OVR_LOG_IF(__condition__, ...) \
+    {                                  \
+        if (__condition__) {           \
+            OVR_LOG(__VA_ARGS__);      \
+        }                              \
+    }
+
+#define OVR_WARN_IF(__condition__, ...) \
+    {                                   \
+        if (__condition__) {            \
+            OVR_WARN(__VA_ARGS__);      \
+        }                               \
+    }
+
 #endif // OVRLib_Log_h

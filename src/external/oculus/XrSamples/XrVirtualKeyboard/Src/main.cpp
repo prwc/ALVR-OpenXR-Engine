@@ -7,9 +7,6 @@ Language    :   C++
 Copyright   :   Copyright (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 ************************************************************************************************/
 
-#include <cstdint>
-#include <map>
-
 #include <OVR_Math.h>
 #include <XrApp.h>
 
@@ -24,18 +21,6 @@ Copyright   :   Copyright (c) Meta Platforms, Inc. and affiliates. Confidential 
 #include "XrVirtualKeyboardHelper.h"
 
 enum struct InputHandedness { Unknown, Left, Right };
-enum struct VirtualKeyboardInputMode { Far, Direct };
-
-const std::map<VirtualKeyboardInputMode, const char*> kInputModeButtonLabels = {
-    {VirtualKeyboardInputMode::Far, "Show Far Keyboard"},
-    {VirtualKeyboardInputMode::Direct, "Show Direct Keyboard"}};
-
-const std::map<VirtualKeyboardInputMode, XrVirtualKeyboardLocationTypeMETA>
-    kInputModeDefaultLocations = {
-        {VirtualKeyboardInputMode::Far,
-         XrVirtualKeyboardLocationTypeMETA::XR_VIRTUAL_KEYBOARD_LOCATION_TYPE_FAR_META},
-        {VirtualKeyboardInputMode::Direct,
-         XrVirtualKeyboardLocationTypeMETA::XR_VIRTUAL_KEYBOARD_LOCATION_TYPE_DIRECT_META}};
 
 class XrVirtualKeyboardApp : public OVRFW::XrApp {
    public:
@@ -134,6 +119,7 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
             return false;
         }
         beamRenderer_.Init(GetFileSys(), nullptr, OVR::Vector4f(1.0f), 1.0f);
+        particleSystem_.Init(10, nullptr, OVRFW::ovrParticleSystem::GetDefaultGpuState(), false);
 
         if (keyboardExtensionAvailable_) {
             virtualKeyboard_->SessionInit(GetSession());
@@ -145,13 +131,15 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
             }
 
             // Create a default space to locate the keyboard
-            XrVirtualKeyboardSpaceCreateInfoMETA spaceCreateInfo{
-                XR_TYPE_VIRTUAL_KEYBOARD_SPACE_CREATE_INFO_META};
-            spaceCreateInfo.space = GetLocalSpace();
-            spaceCreateInfo.poseInSpace = ToXrPosef(OVR::Posef::Identity());
-            success = virtualKeyboard_->CreateVirtualKeyboardSpace(&spaceCreateInfo);
-            if (!success) {
-                OXR(virtualKeyboard_->GetLastError());
+            if (success) {
+                XrVirtualKeyboardSpaceCreateInfoMETA spaceCreateInfo{
+                    XR_TYPE_VIRTUAL_KEYBOARD_SPACE_CREATE_INFO_META};
+                spaceCreateInfo.space = GetLocalSpace();
+                spaceCreateInfo.poseInSpace = ToXrPosef(OVR::Posef::Identity());
+                success = virtualKeyboard_->CreateVirtualKeyboardSpace(&spaceCreateInfo);
+                if (!success) {
+                    OXR(virtualKeyboard_->GetLastError());
+                }
             }
         }
 
@@ -187,6 +175,7 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
         keyboardModelRenderer_.Shutdown();
         controllerRenderL_.Shutdown();
         controllerRenderR_.Shutdown();
+        particleSystem_.Shutdown();
         beamRenderer_.Shutdown();
     }
 
@@ -279,6 +268,7 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
                                     if (keyboardModelRenderer_.Init(buffer)) {
                                         keyboardModelRenderer_.Update(
                                             currentPose_, OVR::Vector3f(currentScale_));
+                                        ShowKeyboard();
                                     } else {
                                         ALOGE("Failed to load virtual keyboard render model");
                                     }
@@ -329,8 +319,11 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
         }
 
         if (in.Clicked(in.kButtonA)) {
-            isShowingKeyboard_ = !isShowingKeyboard_;
-            ToggleKeyboard(VirtualKeyboardInputMode::Far);
+            if (!isShowingKeyboard_) {
+                ShowKeyboard();
+            } else {
+                HideKeyboard();
+            }
         }
 
         UpdateUIHitTests(in);
@@ -352,10 +345,10 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
 
         // Controllers
         if (in.LeftRemoteTracked) {
-            controllerRenderL_.Update(in.LeftRemotePose);
+            controllerRenderL_.Update(leftAdjustedRemotePose_);
         }
         if (in.RightRemoteTracked) {
-            controllerRenderR_.Update(in.RightRemotePose);
+            controllerRenderR_.Update(rightAdjustedRemotePose_);
         }
 
         if (keyboardModelRenderer_.IsModelLoaded()) {
@@ -386,7 +379,9 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
     virtual void Render(const OVRFW::ovrApplFrameIn& in, OVRFW::ovrRendererOutput& out) override {
         ui_.Render(in, out);
 
-        keyboardModelRenderer_.Render(out.Surfaces);
+        if (isShowingKeyboard_) {
+            keyboardModelRenderer_.Render(out.Surfaces);
+        }
 
         if (handsExtensionAvailable_ && handL_->AreLocationsActive() && handL_->IsPositionValid()) {
             handRendererL_.Render(out.Surfaces);
@@ -401,6 +396,9 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
         }
 
         // Render beams last for proper blending
+        particleSystem_.Frame(in, nullptr, out.FrameMatrices.CenterView);
+        particleSystem_.RenderEyeView(
+            out.FrameMatrices.CenterView, out.FrameMatrices.EyeProjection[0], out.Surfaces);
         beamRenderer_.Render(in, out);
     }
 
@@ -412,59 +410,48 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
         RightRemote,
     };
 
-    void ToggleKeyboard(VirtualKeyboardInputMode inputMode) {
-        OVRFW::VRMenuObject* thisButton;
-        OVRFW::VRMenuObject* otherButton;
-        if (inputMode == VirtualKeyboardInputMode::Direct) {
-            thisButton = showDirectKeyboardButton_;
-            otherButton = showRayKeyboardButton_;
-        } else {
-            thisButton = showRayKeyboardButton_;
-            otherButton = showDirectKeyboardButton_;
+    void ShowKeyboard() {
+        if (!virtualKeyboard_->HasVirtualKeyboard()) {
+            return;
         }
-        if (isShowingKeyboard_) {
-            inputMode_ = inputMode;
 
-            // Skip if 'success' is false
-            bool success = virtualKeyboard_->HasVirtualKeyboard();
-            success = success && virtualKeyboard_->ShowModel(true);
-
-            XrVirtualKeyboardLocationInfoMETA locationInfo{
-                XR_TYPE_VIRTUAL_KEYBOARD_LOCATION_INFO_META};
-            locationInfo.space = GetLocalSpace();
-            locationInfo.locationType = kInputModeDefaultLocations.at(inputMode);
-            success = success && virtualKeyboard_->SuggestVirtualKeyboardLocation(&locationInfo);
-
-            // Sync local location/scale
-            VirtualKeyboardLocation location;
-            success = success &&
-                virtualKeyboard_->GetVirtualKeyboardLocation(
-                    GetLocalSpace(), ToXrTime(OVRFW::GetTimeInSeconds()), &location);
-            if (success) {
-                currentPose_ = FromXrPosef(location.pose);
-                currentScale_ = location.scale;
-            }
-
-            if (success) {
-                eventLog_->SetText(
-                    "Keyboard %f, %f, %f",
-                    currentPose_.Translation.x,
-                    currentPose_.Translation.y,
-                    currentPose_.Translation.z);
-                otherButton->SetVisible(false);
-            } else {
-                eventLog_->SetText("Keyboard creation failed");
-                thisButton->SetText(kInputModeButtonLabels.at(inputMode));
-                isShowingKeyboard_ = false;
-            }
-
-            // Should call this whenever the keyboard is created or when the text focus changes
-            virtualKeyboard_->UpdateTextContext(textInputBuffer_);
-        } else {
-            eventLog_->SetText("Keyboard Hidden");
-            otherButton->SetVisible(true);
-            virtualKeyboard_->ShowModel(false);
+        if (!virtualKeyboard_->ShowModel(true)) {
+            eventLog_->SetText("Failed to show keyboard");
+            return;
         }
+
+        SetKeyboardLocation(locationType_);
+
+        // Should call this whenever the keyboard is created or when the text focus changes
+        virtualKeyboard_->UpdateTextContext(textInputBuffer_);
+    }
+
+    void SetKeyboardLocation(XrVirtualKeyboardLocationTypeMETA locationType) {
+        // Update keyboard location based on the location type
+        XrVirtualKeyboardLocationInfoMETA locationInfo{XR_TYPE_VIRTUAL_KEYBOARD_LOCATION_INFO_META};
+        locationInfo.space = GetLocalSpace();
+        locationInfo.locationType = locationType;
+        if (!virtualKeyboard_->SuggestVirtualKeyboardLocation(&locationInfo)) {
+            eventLog_->SetText("Failed to update keyboard location & scale.");
+            return;
+        }
+
+        // Remember the current location type
+        locationType_ = locationType;
+
+        // Sync local location/scale
+        VirtualKeyboardLocation location;
+        if (!virtualKeyboard_->GetVirtualKeyboardLocation(
+                GetLocalSpace(), ToXrTime(OVRFW::GetTimeInSeconds()), &location)) {
+            eventLog_->SetText("Failed to sync keyboard location & scale.");
+            return;
+        }
+        currentPose_ = FromXrPosef(location.pose);
+        currentScale_ = location.scale;
+    }
+
+    void HideKeyboard() {
+        virtualKeyboard_->ShowModel(false);
     }
 
     bool ExtensionsArePresent(const std::vector<const char*>& extensionList) const {
@@ -496,7 +483,7 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
         keyboardHitTest_->SetColor({0, 0, 0, 0});
         keyboardHitTest_->AddFlags(OVRFW::VRMENUOBJECT_FLAG_NO_DEPTH_MASK);
 
-        eventLog_ = ui_.AddLabel("", {0.1f, 0.5f, -1.5f}, {1300.0f, 100.0f});
+        eventLog_ = ui_.AddLabel("", {0.0f, 0.5f, -1.5f}, {600.0f, 50.0f});
 
         // virtual keyboard
         if (!keyboardExtensionAvailable_) {
@@ -507,39 +494,64 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
             eventLog_->SetText("Virtual Keyboard not supported.");
             return;
         }
+        if (!virtualKeyboard_->HasVirtualKeyboard()) {
+            eventLog_->SetText("Virtual Keyboard creation failed");
+            return;
+        }
 
         // Build UI
-        textInput_ = ui_.AddLabel("", {0.1f, 0.25f, -1.5f}, {1300.0f, 100.0f});
+        textInput_ = ui_.AddLabel("", {0.0f, 0.1f, -1.5f}, {600.0f, 320.0f});
+        OVRFW::VRMenuFontParms fontParms = textInput_->GetFontParms();
+        fontParms.AlignHoriz = OVRFW::HORIZONTAL_LEFT;
+        fontParms.AlignVert = OVRFW::VERTICAL_BASELINE;
+        fontParms.WrapWidth = 1.1f;
+        fontParms.MaxLines = 10;
+        textInput_->SetFontParms(fontParms);
+        textInput_->SetTextLocalPosition({-0.55f, 0.25f, 0.0f});
 
-        // Direct + Indirect keyboard
-        const char* kHideKeyboardText = "Hide Keyboard";
-        showRayKeyboardButton_ = ui_.AddToggleButton(
-            kHideKeyboardText,
-            kInputModeButtonLabels.at(VirtualKeyboardInputMode::Far),
-            &isShowingKeyboard_,
-            {0.4f, 0.8f, -1.5f},
-            {300.0f, 50.0f},
-            [=]() { ToggleKeyboard(VirtualKeyboardInputMode::Far); });
+        // Keyboard visibility controls
+        showKeyboardButton_ = ui_.AddButton(
+            "Show Keyboard", {-0.3f, 0.9f, -1.5f}, {300.0f, 50.0f}, [this]() { ShowKeyboard(); });
+        hideKeyboardButton_ = ui_.AddButton(
+            "Hide Keyboard", {-0.3f, 0.8f, -1.5f}, {300.0f, 50.0f}, [this]() { HideKeyboard(); });
 
-        showDirectKeyboardButton_ = ui_.AddToggleButton(
-            kHideKeyboardText,
-            kInputModeButtonLabels.at(VirtualKeyboardInputMode::Direct),
-            &isShowingKeyboard_,
-            {0.4f, 0.9f, -1.5f},
-            {300.0f, 50.0f},
-            [=]() { ToggleKeyboard(VirtualKeyboardInputMode::Direct); });
-
-        // Move Keyboard
-        enableMoveKeyboard_ =
-            ui_.AddButton("Move Keyboard", {0.4f, 0.7f, -1.5f}, {300.0f, 50.0f}, [=]() {
+        // Keyboard location controls
+        enableMoveKeyboardButton_ =
+            ui_.AddButton("Move", {0.1f, 0.9f, -1.5f}, {100.0f, 50.0f}, [this]() {
                 if (isShowingKeyboard_) {
                     isMovingKeyboard_ = true;
                     keyboardMoveDistance_ = 0.0f;
                 }
             });
-        enableMoveKeyboard_->SetVisible(false);
+        showNearKeyboardButton_ =
+            ui_.AddButton("Near", {0.3f, 0.9f, -1.5f}, {100.0f, 50.0f}, [this]() {
+                SetKeyboardLocation(XR_VIRTUAL_KEYBOARD_LOCATION_TYPE_DIRECT_META);
+            });
+        showFarKeyboardButton_ =
+            ui_.AddButton("Far", {0.5f, 0.9f, -1.5f}, {100.0f, 50.0f}, [this]() {
+                SetKeyboardLocation(XR_VIRTUAL_KEYBOARD_LOCATION_TYPE_FAR_META);
+            });
 
-        ui_.SetUnhandledClickHandler([=]() { isMovingKeyboard_ = false; });
+        // Clear text
+        clearTextButton_ =
+            ui_.AddButton("Clear Text", {0.3f, 0.8f, -1.5f}, {300.0f, 50.0f}, [this]() {
+                textInputBuffer_.clear();
+                textInput_->SetText(textInputBuffer_.c_str());
+                eventLog_->SetText("Text Cleared");
+                virtualKeyboard_->UpdateTextContext(textInputBuffer_);
+            });
+
+        ui_.SetUnhandledClickHandler([this]() { isMovingKeyboard_ = false; });
+    }
+
+    void EnableButton(OVRFW::VRMenuObject* button) {
+        button->SetSurfaceColor(0, ui_.BackgroundColor);
+        button->RemoveFlags(OVRFW::VRMENUOBJECT_DONT_HIT_ALL);
+    }
+
+    void DisableButton(OVRFW::VRMenuObject* button) {
+        button->SetSurfaceColor(0, {0.1f, 0.1f, 0.1f, 1.0f});
+        button->AddFlags(OVRFW::VRMENUOBJECT_DONT_HIT_ALL);
     }
 
     void DetermineHandedness(const OVRFW::ovrApplFrameIn& in) {
@@ -611,35 +623,57 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
         virtualKeyboard_->SuggestVirtualKeyboardLocation(&locationInfo);
     }
 
+    OVRFW::ovrParticleSystem::handle_t AddParticle(
+        const OVRFW::ovrApplFrameIn& in,
+        const OVR::Vector3f& position) {
+        return particleSystem_.AddParticle(
+            in,
+            position,
+            0.0f,
+            OVR::Vector3f(0.0f),
+            OVR::Vector3f(0.0f),
+            beamRenderer_.PointerParticleColor,
+            OVRFW::ovrEaseFunc::NONE,
+            0.0f,
+            0.03f,
+            0.1f,
+            0);
+    }
+
     void UpdateUIHitTests(const OVRFW::ovrApplFrameIn& in) {
         ui_.HitTestDevices().clear();
+        particleSystem_.RemoveParticle(leftControllerPoint_);
+        particleSystem_.RemoveParticle(rightControllerPoint_);
 
         // The controller actions are still triggered with hand tracking
-        if (in.LeftRemoteTracked) {
-            UpdateRemoteTrackedUIHitTest(
-                in.LeftRemotePointPose,
-                in.LeftRemoteIndexTrigger,
-                handL_.get(),
-                HitTestRayDeviceNums::LeftRemote);
-        } else if (handsExtensionAvailable_ && handL_->IsPositionValid()) {
+        if (handsExtensionAvailable_ && handL_->IsPositionValid()) {
             UpdateRemoteTrackedUIHitTest(
                 FromXrPosef(handL_->AimPose()),
                 handL_->IndexPinching() ? 1.0f : 0.0f,
                 handL_.get(),
                 HitTestRayDeviceNums::LeftHand);
-        }
-        if (in.RightRemoteTracked) {
+        } else if (in.LeftRemoteTracked) {
             UpdateRemoteTrackedUIHitTest(
-                in.RightRemotePointPose,
-                in.RightRemoteIndexTrigger,
-                handR_.get(),
-                HitTestRayDeviceNums::RightRemote);
-        } else if (handsExtensionAvailable_ && handR_->IsPositionValid()) {
+                in.LeftRemotePointPose,
+                in.LeftRemoteIndexTrigger,
+                handL_.get(),
+                HitTestRayDeviceNums::LeftRemote);
+            leftControllerPoint_ = AddParticle(in, in.LeftRemotePointPose.Translation);
+        }
+
+        if (handsExtensionAvailable_ && handR_->IsPositionValid()) {
             UpdateRemoteTrackedUIHitTest(
                 FromXrPosef(handR_->AimPose()),
                 handR_->IndexPinching() ? 1.0f : 0.0f,
                 handR_.get(),
                 HitTestRayDeviceNums::RightHand);
+        } else if (in.RightRemoteTracked) {
+            UpdateRemoteTrackedUIHitTest(
+                in.RightRemotePointPose,
+                in.RightRemoteIndexTrigger,
+                handR_.get(),
+                HitTestRayDeviceNums::RightRemote);
+            rightControllerPoint_ = AddParticle(in, in.RightRemotePointPose.Translation);
         }
 
         ui_.Update(in);
@@ -655,8 +689,8 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
             const bool controllerNearKeyboard =
                 keyboardModelRenderer_.IsPointNearKeyboard(remotePose.Translation);
             const bool handNearKeyboard = (hand != nullptr) && hand->IsPositionValid() &&
-                keyboardModelRenderer_.IsPointNearKeyboard(FromXrVector3f(
-                    hand->GetScaledJointPose(XR_HAND_JOINT_INDEX_TIP_EXT).position));
+                keyboardModelRenderer_.IsPointNearKeyboard(
+                    FromXrVector3f(hand->GetScaledJointPose(XR_HAND_JOINT_INDEX_TIP_EXT).position));
             if (controllerNearKeyboard || handNearKeyboard) {
                 // Don't interact with UI if controller/hand near keyboard
                 return;
@@ -667,76 +701,89 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
         ui_.AddHitTestRay(remotePose, didPinch, static_cast<int>(device));
     }
 
-    bool UpdateRemoteInteraction(
-        const InputHandedness handedness,
-        bool isRemoteTracked,
+    void UpdateHandInteraction(InputHandedness handedness, XrHandHelper& hand) {
+        const auto rayInputSource = (handedness == InputHandedness::Left)
+            ? XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_HAND_RAY_LEFT_META
+            : XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_HAND_RAY_RIGHT_META;
+        const auto directInputSource = (handedness == InputHandedness::Left)
+            ? XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_HAND_DIRECT_INDEX_TIP_LEFT_META
+            : XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_HAND_DIRECT_INDEX_TIP_RIGHT_META;
+
+        const XrPosef& xrAimPose = hand.AimPose();
+        const XrPosef& xrTouchPose = hand.GetScaledJointPose(XR_HAND_JOINT_INDEX_TIP_EXT);
+        const bool didPinch = hand.IndexPinching();
+        XrPosef interactorRootPose = hand.WristRootPose();
+
+        // Send both ray and direct input and let the runtime decide which best to use
+        const auto result =
+            virtualKeyboard_->SendVirtualKeyboardInput(
+                GetLocalSpace(), rayInputSource, xrAimPose, didPinch, &interactorRootPose) &&
+            virtualKeyboard_->SendVirtualKeyboardInput(
+                GetLocalSpace(), directInputSource, xrTouchPose, didPinch, &interactorRootPose);
+
+        // Handle poke limiting
+        if (result) {
+            hand.ModifyWristRoot(interactorRootPose);
+        }
+    }
+
+    void UpdateControllerInteraction(
+        InputHandedness handedness,
         float remoteIndexTrigger,
         const OVR::Posef& remotePointPose,
-        XrHandHelper* hand) {
-        if (!isRemoteTracked && !hand->IsPositionValid()) {
-            return false;
-        }
-        XrPosef xrPointerPose = ToXrPosef(OVR::Posef::Identity());
-        XrPosef interactorRootPose = ToXrPosef(OVR::Posef::Identity());
-
-        auto inputSource = handedness == InputHandedness::Left
+        const OVR::Posef& remotePose,
+        OVR::Posef& adjustedRemotePose) {
+        const auto rayInputSource = (handedness == InputHandedness::Left)
             ? XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_CONTROLLER_RAY_LEFT_META
             : XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_CONTROLLER_RAY_RIGHT_META;
 
-        if (inputMode_ == VirtualKeyboardInputMode::Direct) {
-            inputSource = handedness == InputHandedness::Left
-                ? XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_CONTROLLER_DIRECT_LEFT_META
-                : XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_CONTROLLER_DIRECT_RIGHT_META;
-        }
+        const auto directInputSource = (handedness == InputHandedness::Left)
+            ? XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_CONTROLLER_DIRECT_LEFT_META
+            : XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_CONTROLLER_DIRECT_RIGHT_META;
 
-        // ovrApplFrameIn handles both hand and controllers as one, so mark as a hand source if
-        // active.
-        bool didPinch = false;
-        if (hand->AreLocationsActive()) {
-            inputSource = handedness == InputHandedness::Left
-                ? XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_HAND_RAY_LEFT_META
-                : XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_HAND_RAY_RIGHT_META;
-            interactorRootPose = hand->WristRootPose();
-            if (inputMode_ == VirtualKeyboardInputMode::Direct) {
-                inputSource = handedness == InputHandedness::Left
-                    ? XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_HAND_DIRECT_INDEX_TIP_LEFT_META
-                    : XR_VIRTUAL_KEYBOARD_INPUT_SOURCE_HAND_DIRECT_INDEX_TIP_RIGHT_META;
-                xrPointerPose = hand->GetScaledJointPose(XR_HAND_JOINT_INDEX_TIP_EXT);
-            } else {
-                xrPointerPose = hand->AimPose();
-            }
-            didPinch = hand->IndexPinching();
+        const auto& xrAimPose = ToXrPosef(remotePointPose);
+        const auto& xrTouchPose = ToXrPosef(remotePointPose);
+        const bool didPinch = remoteIndexTrigger > 0.25f;
+        XrPosef interactorRootPose = ToXrPosef(remotePose);
+
+        // Send both ray and direct input and let the runtime decide which best to use
+        auto result =
+            virtualKeyboard_->SendVirtualKeyboardInput(
+                GetLocalSpace(), rayInputSource, xrAimPose, didPinch, &interactorRootPose) &&
+            virtualKeyboard_->SendVirtualKeyboardInput(
+                GetLocalSpace(), directInputSource, xrTouchPose, didPinch, &interactorRootPose);
+
+        // Handle poke limiting
+        if (result) {
+            adjustedRemotePose = FromXrPosef(interactorRootPose);
         } else {
-            xrPointerPose = ToXrPosef(remotePointPose);
-            interactorRootPose = xrPointerPose;
-            didPinch = remoteIndexTrigger > 0.25f;
+            adjustedRemotePose = remotePose;
         }
-
-        auto result = virtualKeyboard_->SendVirtualKeyboardInput(
-            GetLocalSpace(), inputSource, xrPointerPose, didPinch, &interactorRootPose);
-
-        // Handle Poke Limiting
-        if (result && hand->AreLocationsActive()) {
-            hand->ModifyWristRoot(interactorRootPose);
-        }
-
-        return result;
     }
 
     void UpdateKeyboardInteractions(const OVRFW::ovrApplFrameIn& in) {
         if (keyboardExtensionAvailable_ && !isMovingKeyboard_) {
-            UpdateRemoteInteraction(
-                InputHandedness::Left,
-                in.LeftRemoteTracked,
-                in.LeftRemoteIndexTrigger,
-                in.LeftRemotePointPose,
-                handL_.get());
-            UpdateRemoteInteraction(
-                InputHandedness::Right,
-                in.RightRemoteTracked,
-                in.RightRemoteIndexTrigger,
-                in.RightRemotePointPose,
-                handR_.get());
+            if (handL_->AreLocationsActive()) {
+                UpdateHandInteraction(InputHandedness::Left, *handL_);
+            } else if (in.LeftRemoteTracked) {
+                UpdateControllerInteraction(
+                    InputHandedness::Left,
+                    in.LeftRemoteIndexTrigger,
+                    in.LeftRemotePointPose,
+                    in.LeftRemotePose,
+                    leftAdjustedRemotePose_);
+            }
+
+            if (handR_->AreLocationsActive()) {
+                UpdateHandInteraction(InputHandedness::Right, *handR_);
+            } else if (in.RightRemoteTracked) {
+                UpdateControllerInteraction(
+                    InputHandedness::Right,
+                    in.RightRemoteIndexTrigger,
+                    in.RightRemotePointPose,
+                    in.RightRemotePose,
+                    rightAdjustedRemotePose_);
+            }
         }
     }
 
@@ -803,34 +850,38 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
             textInputBuffer_.pop_back();
             textInput_->SetText(textInputBuffer_.c_str());
         }
-        eventLog_->SetText("Backspace");
+        eventLog_->SetText("Backspace Pressed");
     }
 
     void OnEnter() {
         ALOGV("VIRTUALKEYBOARD Enter");
         textInputBuffer_.append("\n");
         textInput_->SetText(textInputBuffer_.c_str());
-        eventLog_->SetText("Enter");
+        eventLog_->SetText("Enter Pressed");
     }
 
     void OnKeyboardShown() {
         ALOGV("VIRTUALKEYBOARD Shown");
-        eventLog_->SetText("Show Keyboard");
         isShowingKeyboard_ = true;
-        enableMoveKeyboard_->SetVisible(true);
+        DisableButton(showKeyboardButton_);
+        EnableButton(hideKeyboardButton_);
+        EnableButton(enableMoveKeyboardButton_);
+        EnableButton(showNearKeyboardButton_);
+        EnableButton(showFarKeyboardButton_);
+        keyboardHitTest_->SetVisible(true);
+        eventLog_->SetText("Keyboard Shown");
     }
 
     void OnKeyboardHidden() {
         ALOGV("VIRTUALKEYBOARD Hidden");
-        eventLog_->SetText("Hide Keyboard");
-        // Show keyboard buttons again
-        showRayKeyboardButton_->SetText(kInputModeButtonLabels.at(VirtualKeyboardInputMode::Far));
-        showRayKeyboardButton_->SetVisible(true);
-        showDirectKeyboardButton_->SetText(
-            kInputModeButtonLabels.at(VirtualKeyboardInputMode::Direct));
-        showDirectKeyboardButton_->SetVisible(true);
-        enableMoveKeyboard_->SetVisible(false);
         isShowingKeyboard_ = false;
+        EnableButton(showKeyboardButton_);
+        DisableButton(hideKeyboardButton_);
+        DisableButton(enableMoveKeyboardButton_);
+        DisableButton(showNearKeyboardButton_);
+        DisableButton(showFarKeyboardButton_);
+        keyboardHitTest_->SetVisible(false);
+        eventLog_->SetText("Keyboard Hidden");
     }
 
    private:
@@ -860,6 +911,9 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
     OVRFW::TinyUI ui_;
     OVRFW::SimpleBeamRenderer beamRenderer_;
     std::vector<OVRFW::ovrBeamRenderer::handle_t> beams_;
+    OVRFW::ovrParticleSystem particleSystem_;
+    OVRFW::ovrParticleSystem::handle_t leftControllerPoint_;
+    OVRFW::ovrParticleSystem::handle_t rightControllerPoint_;
 
     OVRFW::VRMenuObject* textInput_ = nullptr;
     std::string textInputBuffer_;
@@ -868,19 +922,25 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
     OVRFW::VRMenuObject* keyboardHitTest_ = nullptr;
     OVR::Vector3f keyboardSize_ = OVR::Vector3f::ZERO;
 
-    OVRFW::VRMenuObject* showRayKeyboardButton_ = nullptr;
-    OVRFW::VRMenuObject* showDirectKeyboardButton_ = nullptr;
+    OVRFW::VRMenuObject* showKeyboardButton_ = nullptr;
+    OVRFW::VRMenuObject* hideKeyboardButton_ = nullptr;
     bool isShowingKeyboard_ = false;
 
-    OVRFW::VRMenuObject* enableMoveKeyboard_ = nullptr;
+    OVRFW::VRMenuObject* enableMoveKeyboardButton_ = nullptr;
+    OVRFW::VRMenuObject* showNearKeyboardButton_ = nullptr;
+    OVRFW::VRMenuObject* showFarKeyboardButton_ = nullptr;
     bool isMovingKeyboard_ = false;
     float keyboardMoveDistance_ = 0.0f;
+    XrVirtualKeyboardLocationTypeMETA locationType_ = XR_VIRTUAL_KEYBOARD_LOCATION_TYPE_DIRECT_META;
 
-    VirtualKeyboardInputMode inputMode_ = VirtualKeyboardInputMode::Far;
+    OVRFW::VRMenuObject* clearTextButton_ = nullptr;
+
     InputHandedness currentHandedness_ = InputHandedness::Unknown;
 
     OVR::Posef currentPose_ = OVR::Posef::Identity();
     float currentScale_ = 1.0f;
+    OVR::Posef leftAdjustedRemotePose_ = OVR::Posef::Identity();
+    OVR::Posef rightAdjustedRemotePose_ = OVR::Posef::Identity();
 };
 
 ENTRY_POINT(XrVirtualKeyboardApp)

@@ -10,7 +10,6 @@ Sample app for FB_face_tracking
 #include <cstdio>
 
 #include "XrApp.h"
-#include <openxr/fb_face_tracking.h>
 #include <openxr/fb_eye_tracking_social.h>
 
 #include "Input/TinyUI.h"
