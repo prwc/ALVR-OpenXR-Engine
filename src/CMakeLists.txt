@@ -112,7 +112,7 @@ find_package(JsonCpp)
 
 ### All options defined here
 option(BUILD_LOADER "Build loader" ON)
-option(BUILD_ALL_EXTENSIONS "Build loader and layers with all extensions" OFF)
+option(BUILD_ALL_EXTENSIONS "Build loader and layers with all extensions" ON)
 option(
     BUILD_LOADER_WITH_EXCEPTION_HANDLING
     "Enable exception handling in the loader. Leave this on unless your standard library is built to not throw."
@@ -135,13 +135,13 @@ else()
     option(DYNAMIC_LOADER "Build the loader as a .dll library" ON)
 endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/api_layers/CMakeLists.txt")
-    option(BUILD_API_LAYERS "Build API layers" ON)
+    option(BUILD_API_LAYERS "Build API layers" OFF)
 endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/CMakeLists.txt")
-    option(BUILD_TESTS "Build tests" ON)
+    option(BUILD_TESTS "Build tests" OFF)
 endif()
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/conformance/CMakeLists.txt")
-    option(BUILD_CONFORMANCE_TESTS "Build conformance tests" ON)
+    option(BUILD_CONFORMANCE_TESTS "Build conformance tests" OFF)
 endif()
 include(CMakeDependentOption)
 
