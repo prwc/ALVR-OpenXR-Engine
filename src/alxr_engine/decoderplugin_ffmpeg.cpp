@@ -1,4 +1,4 @@
-#ifndef XR_USE_PLATFORM_ANDROID
+#if !defined(XR_USE_PLATFORM_ANDROID)  && !defined(XR_DISABLE_DECODER_THREAD)
 
 #include "pch.h"
 #include "common.h"

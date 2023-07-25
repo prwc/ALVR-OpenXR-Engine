@@ -1,17 +1,17 @@
 #include "decoderplugin.h"
 
-#ifdef XR_USE_PLATFORM_ANDROID
+#if defined(XR_USE_PLATFORM_ANDROID) && !defined(XR_DISABLE_DECODER_THREAD)
 std::shared_ptr<IDecoderPlugin> CreateDecoderPlugin_MediaCodec();
-#elif 1
+#elif !defined(XR_DISABLE_DECODER_THREAD)
 std::shared_ptr<IDecoderPlugin> CreateDecoderPlugin_FFMPEG();
 #else
 std::shared_ptr<IDecoderPlugin> CreateDecoderPlugin_Dummy();
 #endif
 
 std::shared_ptr<IDecoderPlugin> CreateDecoderPlugin() {
-#ifdef XR_USE_PLATFORM_ANDROID
+#if defined(XR_USE_PLATFORM_ANDROID) && !defined(XR_DISABLE_DECODER_THREAD)
 	return CreateDecoderPlugin_MediaCodec();
-#elif 1
+#elif !defined(XR_DISABLE_DECODER_THREAD)
 	return CreateDecoderPlugin_FFMPEG();
 #else
 	return CreateDecoderPlugin_Dummy();
