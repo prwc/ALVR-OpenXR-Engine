@@ -2058,9 +2058,10 @@ static void RenderScene(
             }
 
             // Current controller pose
-            XrPosef poseInWorld = XrPosef_Multiply(
-                sceneMatrices->XrSpacePoseInWorld, scene->SceneTransform.TrackedController[i].Pose);
-            XrMatrix4x4f pose = XrMatrix4x4f_CreateFromRigidTransform(&poseInWorld);
+            XrPosef poseInWorld;
+            XrPosef_Multiply(&poseInWorld, &sceneMatrices->XrSpacePoseInWorld, &scene->SceneTransform.TrackedController[i].Pose);
+            XrMatrix4x4f pose;
+            XrMatrix4x4f_CreateFromRigidTransform(&pose, &poseInWorld);
 
             XrMatrix4x4f scale;
             if (i & 1) {
@@ -2075,10 +2076,10 @@ static void RenderScene(
 
             // Previous controller pose
             if (prevFrameSceneTransform->TrackedController[i].Active) {
-                poseInWorld = XrPosef_Multiply(
-                    prevFrameSceneMatrices->XrSpacePoseInWorld,
-                    prevFrameSceneTransform->TrackedController[i].Pose);
-                pose = XrMatrix4x4f_CreateFromRigidTransform(&poseInWorld);
+                XrPosef_Multiply(&poseInWorld,
+                    &prevFrameSceneMatrices->XrSpacePoseInWorld,
+                    &prevFrameSceneTransform->TrackedController[i].Pose);
+                XrMatrix4x4f_CreateFromRigidTransform(&pose, &poseInWorld);
                 if (i & 1) {
                     XrMatrix4x4f_CreateScale(&scale, 0.03f, 0.03f, 0.03f);
                 } else {
@@ -3305,8 +3306,8 @@ void android_main(struct android_app* app) {
 
         // Moving forward
         XrVector3f forwardDir = {0.0f, 0.0f, -1.0f};
-        XrPosef xfWorldFromHead =
-            XrPosef_Multiply(sceneMatrices.XrSpacePoseInWorld, xfStageFromHead);
+        XrPosef xfWorldFromHead;
+        XrPosef_Multiply(&xfWorldFromHead, &sceneMatrices.XrSpacePoseInWorld, &xfStageFromHead);
 
         forwardDir = XrQuaternionf_Rotate(xfWorldFromHead.orientation, forwardDir);
 
@@ -3320,18 +3321,19 @@ void android_main(struct android_app* app) {
         cameraPos.y = 0.0f;
         sceneMatrices.XrSpacePoseInWorld.position = cameraPos;
 
-        xfWorldFromHead = XrPosef_Multiply(sceneMatrices.XrSpacePoseInWorld, xfStageFromHead);
+        XrPosef_Multiply(&xfWorldFromHead, &sceneMatrices.XrSpacePoseInWorld, &xfStageFromHead);
 
         for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
             XrPosef xfHeadFromEye = projections[eye].pose;
-            XrPosef xfStageFromEye = XrPosef_Multiply(xfStageFromHead, xfHeadFromEye);
+            XrPosef xfStageFromEye;
+            XrPosef_Multiply(&xfStageFromEye, &xfStageFromHead, &xfHeadFromEye);
             viewTransform[eye] = XrPosef_Inverse(xfStageFromEye);
 
             // ViewMatrix is in world space, so we can do camera locomotion
-            XrPosef xfWorldFromEye = XrPosef_Multiply(xfWorldFromHead, xfHeadFromEye);
+            XrPosef xfWorldFromEye;
+            XrPosef_Multiply(&xfWorldFromEye, &xfWorldFromHead, &xfHeadFromEye);
             XrPosef renderViewTransform = XrPosef_Inverse(xfWorldFromEye);
-            sceneMatrices.ViewMatrix[eye] =
-                XrMatrix4x4f_CreateFromRigidTransform(&renderViewTransform);
+            XrMatrix4x4f_CreateFromRigidTransform(&sceneMatrices.ViewMatrix[eye], &renderViewTransform);
 
             const XrFovf fov = projections[eye].fov;
             XrMatrix4x4f_CreateProjectionFov(
@@ -3559,8 +3561,10 @@ void android_main(struct android_app* app) {
                         XrPosef_Inverse(PrevFrameXrSpacePoseInWorld);
                     XrPosef XrSpacePoseInWorld = sceneMatrices.XrSpacePoseInWorld;
 
-                    proj_spacewarp_views[eye].appSpaceDeltaPose =
-                        XrPosef_Multiply(InvPrevFrameXrSpacePoseInWorld, XrSpacePoseInWorld);
+                    XrPosef_Multiply(
+                        &proj_spacewarp_views[eye].appSpaceDeltaPose,
+                        &InvPrevFrameXrSpacePoseInWorld,
+                        &XrSpacePoseInWorld);
 
                     // Make debugDeltaPose =1 and rotating the camera with thumbstick,
                     // if you looked carefully on the pixels between cube and background color,
@@ -3613,8 +3617,10 @@ void android_main(struct android_app* app) {
 
             if (!QuadLayerFollowing) {
                 // Transform layer pose back to appState.CurrentSpace
-                quad_layer_left.pose =
-                    XrPosef_Multiply(InvXrSpacePoseInWorld, quad_layer_left.pose);
+                XrPosef p;
+                XrPosef_Multiply(&p, &InvXrSpacePoseInWorld, &quad_layer_left.pose);
+                quad_layer_left.pose = p;
+                    
             }
             quad_layer_left.size = size;
             appState.Layers[appState.LayerCount++].Quad = quad_layer_left;
@@ -3637,8 +3643,9 @@ void android_main(struct android_app* app) {
 
             if (!QuadLayerFollowing) {
                 // Transform layer pose back to appState.CurrentSpace
-                quad_layer_right.pose =
-                    XrPosef_Multiply(InvXrSpacePoseInWorld, quad_layer_right.pose);
+                XrPosef p;
+                XrPosef_Multiply(&p, &InvXrSpacePoseInWorld, &quad_layer_right.pose);
+                quad_layer_right.pose = p;
             }
 
             quad_layer_right.size = size;

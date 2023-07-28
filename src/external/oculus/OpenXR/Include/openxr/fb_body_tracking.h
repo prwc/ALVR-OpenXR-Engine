@@ -21,12 +21,12 @@ XR_DEFINE_HANDLE(XrBodyTrackerFB)
 #define XR_FB_body_tracking_SPEC_VERSION  1
 #define XR_FB_BODY_TRACKING_EXTENSION_NAME "XR_FB_body_tracking"
 // XrBodyTrackerFB
-#define XR_OBJECT_TYPE_BODY_TRACKER_FB    ((XrObjectType) 1000076000U)
-#define XR_TYPE_BODY_TRACKER_CREATE_INFO_FB ((XrStructureType) 1000076001U)
-#define XR_TYPE_BODY_JOINTS_LOCATE_INFO_FB ((XrStructureType) 1000076002U)
-#define XR_TYPE_SYSTEM_BODY_TRACKING_PROPERTIES_FB ((XrStructureType) 1000076004U)
-#define XR_TYPE_BODY_JOINT_LOCATIONS_FB   ((XrStructureType) 1000076005U)
-#define XR_TYPE_BODY_SKELETON_FB          ((XrStructureType) 1000076006U)
+static const XrObjectType XR_OBJECT_TYPE_BODY_TRACKER_FB = (XrObjectType) 1000076000;
+static const XrStructureType XR_TYPE_BODY_TRACKER_CREATE_INFO_FB = (XrStructureType) 1000076001;
+static const XrStructureType XR_TYPE_BODY_JOINTS_LOCATE_INFO_FB = (XrStructureType) 1000076002;
+static const XrStructureType XR_TYPE_SYSTEM_BODY_TRACKING_PROPERTIES_FB = (XrStructureType) 1000076004;
+static const XrStructureType XR_TYPE_BODY_JOINT_LOCATIONS_FB = (XrStructureType) 1000076005;
+static const XrStructureType XR_TYPE_BODY_SKELETON_FB = (XrStructureType) 1000076006;
 
 typedef enum XrBodyJointFB {
     XR_BODY_JOINT_ROOT_FB = 0,

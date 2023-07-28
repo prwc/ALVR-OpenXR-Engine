@@ -9,6 +9,7 @@
 #include <string_view>
 #include <locale>
 #include <algorithm>
+#include <memory>
 #include <stdarg.h>
 #include <stddef.h>
 
@@ -76,19 +77,17 @@ inline std::string Fmt(const char* fmt, ...) {
     va_start(vl, fmt);
     int size = std::vsnprintf(nullptr, 0, fmt, vl);
     va_end(vl);
+    if (size < 0)
+        return {};
 
-    if (size != -1) {
-        std::unique_ptr<char[]> buffer(new char[size + 1]);
-
-        va_start(vl, fmt);
-        size = std::vsnprintf(buffer.get(), size + 1, fmt, vl);
-        va_end(vl);
-        if (size != -1) {
-            return std::string(buffer.get(), size);
-        }
-    }
-
-    throw std::runtime_error("Unexpected vsnprintf failure");
+    std::string buffer(size + 1, '\0');
+    va_start(vl, fmt);
+    size = std::vsnprintf(buffer.data(), size + 1, fmt, vl);
+    va_end(vl);
+    if (size < 0)
+        return {};
+    buffer.pop_back();
+    return buffer;
 }
 
 // The equivalent of C++17 std::size. A helper to get the dimension for an array.

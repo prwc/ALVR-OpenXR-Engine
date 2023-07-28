@@ -190,10 +190,11 @@ xrGetSpaceRoomLayoutFB(XrSession session, XrSpace space, XrRoomLayoutFB* roomLay
 
 typedef XrFlags64 XrSemanticLabelsSupportFlagsFB;
 
-// When this flag is set, the system may return multiple semantic labels separated by comma (,) in
-// XrSemanticLabelsFB. Otherwise, the system returns a single semantic label.
-static const XrSemanticLabelsSupportFlagsFB XR_SCENE_SUPPORT_MULTIPLE_SEMANTIC_LABELS_FB =
-    0x00000001;
+// When this flag is set in XrSemanticLabelsSupportInfoFB::flags, the system may return multiple
+// semantic labels separated by comma (,) in XrSemanticLabelsFB. Otherwise, the system returns a
+// single semantic label.
+static const XrSemanticLabelsSupportFlagsFB
+    XR_SEMANTIC_LABELS_SUPPORT_MULTIPLE_SEMANTIC_LABELS_BIT_FB = 0x00000001;
 
 // Struct used to tell the system what semantic labels and format in the return are supported by the
 // caller. This struct may be provided as the next of XrSemanticLabelsFB. When the next of
@@ -214,6 +215,21 @@ typedef struct XrSemanticLabelsSupportInfoFB {
 } XrSemanticLabelsSupportInfoFB;
 
 #endif // XR_FB_scene_SPEC_VERSION == 1
+
+// Planned additions for spec version 3
+#if XR_FB_scene_SPEC_VERSION == 2
+#undef XR_FB_scene_SPEC_VERSION
+#define XR_FB_scene_SPEC_VERSION 3
+
+// When this flag is set in XrSemanticLabelsSupportInfoFB::flags, the system returns TABLE instead
+// of DESK in XrSemanticLabelsFB. Otherwise, the system returns DESK instead of TABLE in
+// XrSemanticLabelsFB. Note that XrSemanticLabelsSupportInfoFB::recognizedLabels needs to include
+// TABLE or DESK to receive those labels. Otherwise they will be returned as OTHER.
+static const XrSemanticLabelsSupportFlagsFB
+    XR_SEMANTIC_LABELS_SUPPORT_ACCEPT_DESK_TO_TABLE_MIGRATION_BIT_FB = 0x00000002;
+
+#endif // XR_FB_scene_SPEC_VERSION == 2
+
 
 
 #ifdef __cplusplus

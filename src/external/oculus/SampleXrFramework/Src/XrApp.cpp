@@ -1463,9 +1463,11 @@ void XrApp::MainLoop(MainLoopContext& loopContext) {
         XrPosef viewTransform[2];
         for (int eye = 0; eye < MAX_NUM_EYES; eye++) {
             XrPosef xfHeadFromEye = Projections[eye].pose;
-            XrPosef xfStageFromEye = XrPosef_Multiply(xfStageFromHead, xfHeadFromEye);
+            XrPosef xfStageFromEye{};
+            XrPosef_Multiply(&xfStageFromEye, &xfStageFromHead, &xfHeadFromEye);
             viewTransform[eye] = XrPosef_Inverse(xfStageFromEye);
-            XrMatrix4x4f viewMat = XrMatrix4x4f_CreateFromRigidTransform(&viewTransform[eye]);
+            XrMatrix4x4f viewMat{};
+            XrMatrix4x4f_CreateFromRigidTransform(&viewMat, &viewTransform[eye]);
             const XrFovf fov = Projections[eye].fov;
             XrMatrix4x4f projMat;
             XrMatrix4x4f_CreateProjectionFov(&projMat, GRAPHICS_OPENGL_ES, fov, 0.1f, 0.0f);
@@ -1476,7 +1478,8 @@ void XrApp::MainLoop(MainLoopContext& loopContext) {
         }
 
         XrPosef centerView = XrPosef_Inverse(xfStageFromHead);
-        XrMatrix4x4f viewMat = XrMatrix4x4f_CreateFromRigidTransform(&centerView);
+        XrMatrix4x4f viewMat{};
+        XrMatrix4x4f_CreateFromRigidTransform(&viewMat, &centerView);
         out.FrameMatrices.CenterView = XrMatrix4x4f_To_OVRMatrix4f(viewMat);
 
         // Input

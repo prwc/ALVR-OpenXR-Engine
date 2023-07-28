@@ -21,13 +21,8 @@ extern "C" {
 #ifndef XR_FB_scene_capture
 #define XR_FB_scene_capture 1
 
-
-#ifndef XR_FB_scene_capture_EXPERIMENTAL_VERSION
 #define XR_FB_scene_capture_SPEC_VERSION 1
 #define XR_FB_SCENE_CAPTURE_EXTENSION_NAME "XR_FB_scene_capture"
-#else
-#error "unknown experimental version number for XR_FB_scene_capture_EXPERIMENTAL_VERSION"
-#endif
 
 // Events.
 static const XrStructureType XR_TYPE_EVENT_DATA_SCENE_CAPTURE_COMPLETE_FB =
@@ -72,8 +67,6 @@ XRAPI_ATTR XrResult XRAPI_CALL xrRequestSceneCaptureFB(
 
 #endif // XR_EXTENSION_PROTOTYPES
 #endif // !XR_NO_PROTOTYPES
-
-
 #endif // XR_FB_scene_capture
 
 #ifdef __cplusplus

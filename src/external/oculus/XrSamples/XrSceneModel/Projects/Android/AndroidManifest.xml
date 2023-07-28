@@ -24,6 +24,9 @@
   <!-- Allows to access TrackingEnvironment functionality -->
   <uses-permission android:name="com.oculus.permission.ACCESS_TRACKING_ENV" />
 
+  <!-- Request permission to use Scene -->
+  <uses-permission android:name="com.oculus.permission.USE_SCENE" />
+
   <!-- Grants access to Spatial Anchors. -->
   <uses-permission android:name="com.oculus.permission.USE_ANCHOR_API" />
   <application

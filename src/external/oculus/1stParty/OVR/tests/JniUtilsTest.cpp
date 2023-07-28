@@ -8,7 +8,6 @@
 // Helper libraries to access the JNI information for the session. This hides most of the JNI
 // ugliness
 #include <system_utils/jni/Helper.h>
-#include <system_utils/jni/AndroidAppContext.h>
 
 void OxxAndroidOnLoad(JavaVM* vm, JNIEnv* env) {
     arvr::system_utils::jni::Helper::androidMain(vm, env);

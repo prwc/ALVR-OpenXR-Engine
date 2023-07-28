@@ -45,9 +45,11 @@
 //--------------------------------------------------------------------------------------------------
 
 #ifndef OVR_BUILD_DEBUG
+
 #define OVR_DEBUG_BREAK ((void)0)
 #define OVR_ASSERT(p) ((void)0)
-#else
+
+#else // OVR_DEBUG_BUILD
 
 // Microsoft Win32 specific debugging support
 #if defined(OVR_OS_WIN32)
@@ -105,14 +107,9 @@
 #endif
 
 #if !defined(OVR_ASSERT) // Android currently defines its own version of OVR_ASSERT() with logging
-// This will cause compiler breakpoint
-#define OVR_ASSERT(p)        \
-    do {                     \
-        if (!(p)) {          \
-            OVR_DEBUG_BREAK; \
-        }                    \
-    } while (0)
-#endif
+#include <assert.h>
+#define OVR_ASSERT assert
+#endif // !defined(OVR_ASSERT)
 
 #endif // OVR_DEBUG_BUILD
 

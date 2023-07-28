@@ -16,7 +16,6 @@ Authors     :   John Kearney
 #include "XrApp.h"
 #include <openxr/fb_body_tracking.h>
 #include <openxr/fb_eye_tracking_social.h>
-#include <openxr/fb_face_tracking.h>
 
 
 #include "Input/SkeletonRenderer.h"
@@ -323,27 +322,29 @@ class XrBodyFaceEyeSocialApp : public OVRFW::XrApp {
                 }
 
                 // Display hierarchy
-                // Skip root and hips
-                for (int i = 2; i < XR_BODY_JOINT_COUNT_FB; ++i) {
-                    const auto fromJoint = jointLocations_[skeleton.joints[i].parentJoint];
-                    const auto toJoint = jointLocations_[skeleton.joints[i].joint];
+                if (skeletonChangeCount_ != 0) {
+                    // Skip root and hips
+                    for (int i = 2; i < XR_BODY_JOINT_COUNT_FB; ++i) {
+                        const auto fromJoint = jointLocations_[skeleton.joints[i].parentJoint];
+                        const auto toJoint = jointLocations_[skeleton.joints[i].joint];
 
-                    if (isValid(fromJoint.locationFlags) && isValid(toJoint.locationFlags)) {
-                        // calculation length and orientation between this two points?
-                        const auto p0 = FromXrVector3f(fromJoint.pose.position);
-                        const auto p1 = FromXrVector3f(toJoint.pose.position);
-                        const auto d = (p1 - p0);
+                        if (isValid(fromJoint.locationFlags) && isValid(toJoint.locationFlags)) {
+                            // calculation length and orientation between this two points?
+                            const auto p0 = FromXrVector3f(fromJoint.pose.position);
+                            const auto p1 = FromXrVector3f(toJoint.pose.position);
+                            const auto d = (p1 - p0);
 
-                        const OVR::Quatf look = OVR::Quatf::LookRotation(d.Normalized(), {0, 1, 0});
-                        /// apply inverse scale here
-                        const float h = d.Length();
-                        const OVR::Vector3f start = p0 + look.Rotate(OVR::Vector3f(0, 0, -h / 2));
+                            const OVR::Quatf look = OVR::Quatf::LookRotation(d.Normalized(), {0, 1, 0});
+                            /// apply inverse scale here
+                            const float h = d.Length();
+                            const OVR::Vector3f start = p0 + look.Rotate(OVR::Vector3f(0, 0, -h / 2));
 
-                        // Skip root and hips
-                        OVRFW::GeometryRenderer& gr = bodySkeletonRenderers[i - 2];
-                        gr.SetScale({1, 1, 1});
-                        gr.SetPose(OVR::Posef(look, start));
-                        gr.Update();
+                            // Skip root and hips
+                            OVRFW::GeometryRenderer& gr = bodySkeletonRenderers[i - 2];
+                            gr.SetScale({1, 1, 1});
+                            gr.SetPose(OVR::Posef(look, start));
+                            gr.Update();
+                        }
                     }
                 }
             }

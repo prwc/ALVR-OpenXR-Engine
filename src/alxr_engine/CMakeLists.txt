@@ -38,6 +38,11 @@ endforeach()
 # For including compiled shaders
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+option(DISABLE_DECODER_SUPPORT "Disable decoder support and decoder dependencies" OFF)
+if (DISABLE_DECODER_SUPPORT)
+    message(WARNING "Option \"DISABLE_DECODER_SUPPORT\" is ON, decoder support & dependencies are disabled.")
+endif()
+
 set(CUDA_LIB_LIST)
 set(ENABLE_CUDA_INTEROP FALSE)
 if(NOT ANDROID)
@@ -45,7 +50,7 @@ if(NOT ANDROID)
     if (BUILD_CUDA_INTEROP)
         find_package(CUDAToolkit)
         if (CUDAToolkit_FOUND)
-            set(CUDA_LIB_LIST CUDA::cudart CUDA::cuda_driver)
+            set(CUDA_LIB_LIST CUDA::cudart_static CUDA::cuda_driver)
             set(ENABLE_CUDA_INTEROP TRUE)
             message(STATUS "Enabling CUDA Buffer Interop")
         endif()
@@ -59,6 +64,9 @@ if(ANDROID)
         ${VULKAN_SHADERS})
         #$<TARGET_OBJECTS:android_native_app_glue>)
     target_link_libraries(alxr_engine ${ANDROID_LIBRARY} ${ANDROID_LOG_LIBRARY} mediandk)
+    if (NOT DISABLE_DECODER_SUPPORT)
+        target_link_libraries(alxr_engine mediandk)
+    endif()
 else()
     set(CMAKE_INSTALL_RPATH $ORIGIN)
     add_library(alxr_engine SHARED
@@ -71,6 +79,9 @@ set_target_properties(alxr_engine PROPERTIES FOLDER ${SAMPLES_FOLDER})
 target_compile_definitions(alxr_engine PRIVATE ALXR_CLIENT)
 if (XR_IS_UWP)
     target_compile_definitions(alxr_engine PRIVATE XR_USE_PLATFORM_UWP)
+endif()
+if (DISABLE_DECODER_SUPPORT)
+    target_compile_definitions(alxr_engine PRIVATE XR_DISABLE_DECODER_THREAD)
 endif()
 
 source_group("Headers" FILES ${LOCAL_HEADERS})
@@ -110,7 +121,7 @@ if (MSVC)
 endif()
 
 set(FFMPEG_LIBS)
-if(ANDROID)
+if(DISABLE_DECODER_SUPPORT OR ANDROID)
     set(FFMPEG_LIBS)
     set(ONE_API_TTB_LIBS)
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -119,13 +130,10 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set(PKG_CONFIG_USE_CMAKE_PREFIX_PATH ON)
 
     pkg_check_modules(LIBAV REQUIRED IMPORTED_TARGET
-        libavutil#>=56.70.100
-        #libswresample
-        #libavdevice
-        libavcodec#>=58.134.100
-        #libavformat#>=58.76.100
-        libavfilter#>=7.110.100
-        libswscale#>=5.9.100
+        libavutil
+        libavcodec
+        libavfilter
+        libswscale
     )
 
     set(FFMPEG_LIBS PkgConfig::LIBAV)
@@ -155,13 +163,13 @@ elseif (WIN32)
 	        INTERFACE_INCLUDE_DIRECTORIES ${FFMPEG_DIR}/include)
     endfunction()  
 
-    add_ffmpeg_shared_lib("libavutil" "avutil.lib" "avutil-57.dll")
-    add_ffmpeg_shared_lib("libavdevice" "avdevice.lib" "avdevice-59.dll")
+    add_ffmpeg_shared_lib("libavutil" "avutil.lib" "avutil-58.dll")
+    add_ffmpeg_shared_lib("libavdevice" "avdevice.lib" "avdevice-60.dll")
     add_ffmpeg_shared_lib("libswresample" "swresample.lib" "swresample-4.dll")
-    add_ffmpeg_shared_lib("libavcodec" "avcodec.lib" "avcodec-59.dll")
-    add_ffmpeg_shared_lib("libavformat" "avformat.lib" "avformat-59.dll")
-    add_ffmpeg_shared_lib("libavfilter" "avfilter.lib" "avfilter-8.dll")
-    add_ffmpeg_shared_lib("libswscale" "swscale.lib" "swscale-6.dll")
+    add_ffmpeg_shared_lib("libavcodec" "avcodec.lib" "avcodec-60.dll")
+    add_ffmpeg_shared_lib("libavformat" "avformat.lib" "avformat-60.dll")
+    add_ffmpeg_shared_lib("libavfilter" "avfilter.lib" "avfilter-9.dll")
+    add_ffmpeg_shared_lib("libswscale" "swscale.lib" "swscale-7.dll")
     
     # avutil, avresample, avcodec, avformat 
     set(FFMPEG_LIBS libavutil libswresample libavdevice libavcodec libavformat libavfilter libswscale)

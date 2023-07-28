@@ -19,8 +19,8 @@ extern "C" {
 #define XR_META_recommended_layer_resolution 1
 #define XR_META_recommended_layer_resolution_SPEC_VERSION 1
 #define XR_META_RECOMMENDED_LAYER_RESOLUTION_EXTENSION_NAME "XR_META_recommended_layer_resolution"
-#define XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_META ((XrStructureType) 1000254000U)
-#define XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_GET_INFO_META ((XrStructureType) 1000254001U)
+static const XrStructureType XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_META = (XrStructureType) 1000254000;
+static const XrStructureType XR_TYPE_RECOMMENDED_LAYER_RESOLUTION_GET_INFO_META = (XrStructureType) 1000254001;
 typedef struct XrRecommendedLayerResolutionMETA {
     XrStructureType       type;
     void* XR_MAY_ALIAS    next;

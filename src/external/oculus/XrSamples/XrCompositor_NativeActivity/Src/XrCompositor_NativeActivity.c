@@ -2112,8 +2112,8 @@ static void ovrRenderer_RenderFrame(
             if (scene->TrackedController[i].Active == false) {
                 continue;
             }
-            XrMatrix4x4f pose =
-                XrMatrix4x4f_CreateFromRigidTransform(&scene->TrackedController[i].Pose);
+            XrMatrix4x4f pose;
+            XrMatrix4x4f_CreateFromRigidTransform(&pose, &scene->TrackedController[i].Pose);
             XrMatrix4x4f scale;
             if (i & 1) {
                 XrMatrix4x4f_CreateScale(&scale, 0.03f, 0.03f, 0.03f);
@@ -3538,11 +3538,11 @@ void android_main(struct android_app* app) {
 
         for (int eye = 0; eye < ovrMaxNumEyes; eye++) {
             XrPosef xfHeadFromEye = projections[eye].pose;
-            XrPosef xfStageFromEye = XrPosef_Multiply(xfStageFromHead, xfHeadFromEye);
+            XrPosef xfStageFromEye;
+            XrPosef_Multiply(&xfStageFromEye, &xfStageFromHead, &xfHeadFromEye);
             viewTransform[eye] = XrPosef_Inverse(xfStageFromEye);
 
-            sceneMatrices.ViewMatrix[eye] =
-                XrMatrix4x4f_CreateFromRigidTransform(&viewTransform[eye]);
+            XrMatrix4x4f_CreateFromRigidTransform(&sceneMatrices.ViewMatrix[eye], &viewTransform[eye]);
 
             const XrFovf fov = projections[eye].fov;
             XrMatrix4x4f_CreateProjectionFov(

@@ -275,6 +275,7 @@
       <li><a id="toc-HEVC-Options-1" href="#HEVC-Options-1">9.23.6 HEVC Options</a></li>
       <li><a id="toc-MPEG2-Options" href="#MPEG2-Options">9.23.7 MPEG2 Options</a></li>
       <li><a id="toc-VP9-Options" href="#VP9-Options">9.23.8 VP9 Options</a></li>
+      <li><a id="toc-AV1-Options" href="#AV1-Options">9.23.9 AV1 Options</a></li>
     </ul></li>
     <li><a id="toc-snow" href="#snow">9.24 snow</a>
     <ul class="no-bullet">
@@ -1103,6 +1104,9 @@ for codecs that support it. See also <samp>doc/examples/export_mvs.c</samp>.
 <dt><span>&lsquo;<samp>ass_ro_flush_noop</samp>&rsquo;</span></dt>
 <dd><p>Do not reset ASS ReadOrder field on flush.
 </p></dd>
+<dt><span>&lsquo;<samp>icc_profiles</samp>&rsquo;</span></dt>
+<dd><p>Generate/parse embedded ICC profiles from/to colorimetry tags.
+</p></dd>
 </dl>
 
 </dd>
@@ -1661,13 +1665,18 @@ You need to explicitly configure the build with <code>--enable-libdav1d</code>.
 <dt><span><samp>framethreads</samp></span></dt>
 <dd><p>Set amount of frame threads to use during decoding. The default value is 0 (autodetect).
 This option is deprecated for libdav1d &gt;= 1.0 and will be removed in the future. Use the
-global option <code>threads</code> instead.
+option <code>max_frame_delay</code> and the global option <code>threads</code> instead.
 </p>
 </dd>
 <dt><span><samp>tilethreads</samp></span></dt>
 <dd><p>Set amount of tile threads to use during decoding. The default value is 0 (autodetect).
 This option is deprecated for libdav1d &gt;= 1.0 and will be removed in the future. Use the
 global option <code>threads</code> instead.
+</p>
+</dd>
+<dt><span><samp>max_frame_delay</samp></span></dt>
+<dd><p>Set max amount of frames the decoder may buffer internally. The default value is 0
+(autodetect).
 </p>
 </dd>
 <dt><span><samp>filmgrain</samp></span></dt>
@@ -4408,27 +4417,6 @@ is 0. This is only used when <samp>slice_mode</samp> is set to
 &lsquo;<samp>fixed</samp>&rsquo;.
 </p>
 </dd>
-<dt><span><samp>slice_mode</samp></span></dt>
-<dd><p>Set slice mode. Can assume one of the following possible values:
-</p>
-<dl compact="compact">
-<dt><span>&lsquo;<samp>fixed</samp>&rsquo;</span></dt>
-<dd><p>a fixed number of slices
-</p></dd>
-<dt><span>&lsquo;<samp>rowmb</samp>&rsquo;</span></dt>
-<dd><p>one slice per row of macroblocks
-</p></dd>
-<dt><span>&lsquo;<samp>auto</samp>&rsquo;</span></dt>
-<dd><p>automatic number of slices according to number of threads
-</p></dd>
-<dt><span>&lsquo;<samp>dyn</samp>&rsquo;</span></dt>
-<dd><p>dynamic slicing
-</p></dd>
-</dl>
-
-<p>Default value is &lsquo;<samp>auto</samp>&rsquo;.
-</p>
-</dd>
 <dt><span><samp>loopfilter</samp></span></dt>
 <dd><p>Enable loop filter, if set to 1 (automatically enabled). To disable
 set a value of 0.
@@ -4669,6 +4657,9 @@ Values greater than 1 enable multi-layer alternate reference frames (VP9 only).
 </p></dd>
 <dt><span><samp>rc-lookahead, lag-in-frames (<em>lag-in-frames</em>)</samp></span></dt>
 <dd><p>Set number of frames to look ahead for frametype and ratecontrol.
+</p></dd>
+<dt><span><samp>min-gf-interval</samp></span></dt>
+<dd><p>Set minimum golden/alternate reference frame interval (VP9 only).
 </p></dd>
 </dl>
 
@@ -5935,9 +5926,9 @@ the average bitrate.
 </li><li>- <var>VBR</var> - variable bitrate, when <samp>maxrate</samp> is specified, but is higher
 than the average bitrate.
 
-</li><li>- <var>AVBR</var> - average VBR mode, when <samp>maxrate</samp> is not specified. This mode
-is further configured by the <samp>avbr_accuracy</samp> and
-<samp>avbr_convergence</samp> options.
+</li><li>- <var>AVBR</var> - average VBR mode, when <samp>maxrate</samp> is not specified, both
+<samp>avbr_accuracy</samp> and <samp>avbr_convergence</samp> are set to non-zero. This
+mode is available for H264 and HEVC on Windows.
 </li></ul>
 </li></ul>
 
@@ -5985,21 +5976,6 @@ before the application explicitly synchronizes the result. If zero,
 the value is not specified.
 </p>
 </dd>
-<dt><span><samp><var>avbr_accuracy</var></samp></span></dt>
-<dd><p>Accuracy of the AVBR ratecontrol (unit of tenth of percent).
-</p>
-</dd>
-<dt><span><samp><var>avbr_convergence</var></samp></span></dt>
-<dd><p>Convergence of the AVBR ratecontrol (unit of 100 frames)
-</p>
-<p>The parameters <var>avbr_accuracy</var> and <var>avbr_convergence</var> are for the
-average variable bitrate control (AVBR) algorithm.
-The algorithm focuses on overall encoding quality while meeting the specified
-bitrate, <var>target_bitrate</var>, within the accuracy range <var>avbr_accuracy</var>,
-after a <var>avbr_Convergence</var> period. This method does not follow HRD and the
-instant bitrate is not capped or padded.
-</p>
-</dd>
 <dt><span><samp><var>preset</var></samp></span></dt>
 <dd><p>This option itemizes a range of choices from veryfast (best speed) to veryslow
 (best quality).
@@ -6028,10 +6004,63 @@ instant bitrate is not capped or padded.
 <p>Following options can be used durning qsv encoding.
 </p>
 <dl compact="compact">
-<dt><span><samp><var>qsv_config_qp</var></samp></span></dt>
+<dt><span><samp><var>global_quality</var></samp></span></dt>
+<dt><span><samp><var>i_quant_factor</var></samp></span></dt>
+<dt><span><samp><var>i_quant_offset</var></samp></span></dt>
+<dt><span><samp><var>b_quant_factor</var></samp></span></dt>
+<dt><span><samp><var>b_quant_offset</var></samp></span></dt>
 <dd><p>Supported in h264_qsv and hevc_qsv.
-This option can be set in per-frame metadata. QP parameter can be dynamically
-changed when encoding in CQP mode.
+Change these value to reset qsv codec&rsquo;s qp configuration.
+</p>
+</dd>
+<dt><span><samp><var>max_frame_size</var></samp></span></dt>
+<dd><p>Supported in h264_qsv and hevc_qsv.
+Change this value to reset qsv codec&rsquo;s MaxFrameSize configuration.
+</p>
+</dd>
+<dt><span><samp><var>gop_size</var></samp></span></dt>
+<dd><p>Change this value to reset qsv codec&rsquo;s gop configuration.
+</p>
+</dd>
+<dt><span><samp><var>int_ref_type</var></samp></span></dt>
+<dt><span><samp><var>int_ref_cycle_size</var></samp></span></dt>
+<dt><span><samp><var>int_ref_qp_delta</var></samp></span></dt>
+<dt><span><samp><var>int_ref_cycle_dist</var></samp></span></dt>
+<dd><p>Supported in h264_qsv and hevc_qsv.
+Change these value to reset qsv codec&rsquo;s Intra Refresh configuration.
+</p>
+</dd>
+<dt><span><samp><var>qmax</var></samp></span></dt>
+<dt><span><samp><var>qmin</var></samp></span></dt>
+<dt><span><samp><var>max_qp_i</var></samp></span></dt>
+<dt><span><samp><var>min_qp_i</var></samp></span></dt>
+<dt><span><samp><var>max_qp_p</var></samp></span></dt>
+<dt><span><samp><var>min_qp_p</var></samp></span></dt>
+<dt><span><samp><var>max_qp_b</var></samp></span></dt>
+<dt><span><samp><var>min_qp_b</var></samp></span></dt>
+<dd><p>Supported in h264_qsv.
+Change these value to reset qsv codec&rsquo;s max/min qp configuration.
+</p>
+</dd>
+<dt><span><samp><var>low_delay_brc</var></samp></span></dt>
+<dd><p>Supported in h264_qsv and hevc_qsv.
+Change this value to reset qsv codec&rsquo;s low_delay_brc configuration.
+</p>
+</dd>
+<dt><span><samp><var>framerate</var></samp></span></dt>
+<dd><p>Change this value to reset qsv codec&rsquo;s framerate configuration.
+</p>
+</dd>
+<dt><span><samp><var>bit_rate</var></samp></span></dt>
+<dt><span><samp><var>rc_buffer_size</var></samp></span></dt>
+<dt><span><samp><var>rc_initial_buffer_occupancy</var></samp></span></dt>
+<dt><span><samp><var>rc_max_rate</var></samp></span></dt>
+<dd><p>Change these value to reset qsv codec&rsquo;s bitrate control configuration.
+</p>
+</dd>
+<dt><span><samp><var>pic_timing_sei</var></samp></span></dt>
+<dd><p>Supported in h264_qsv and hevc_qsv.
+Change this value to reset qsv codec&rsquo;s pic_timing_sei configuration.
 </p></dd>
 </dl>
 
@@ -6161,8 +6190,10 @@ to allow changing of frame type from P and B to I.
 error resilience without significant impact on encoded bitstream size caused by
 I frames. The SDK encoder achieves this by encoding part of each frame in
 refresh cycle using intra MBs. <var>none</var> means no refresh. <var>vertical</var> means
-vertical refresh, by column of MBs. To enable intra refresh, B frame should be
-set to 0.
+vertical refresh, by column of MBs. <var>horizontal</var> means horizontal refresh,
+by rows of MBs. <var>slice</var> means horizontal refresh by slices without
+overlapping. In case of <var>slice</var>, in_ref_cycle_size is ignored. To enable
+intra refresh, B frame should be set to 0.
 </p>
 </dd>
 <dt><span><samp><var>int_ref_cycle_size</var></samp></span></dt>
@@ -6231,7 +6262,61 @@ range is [-63, 63] for 10 bit-depth or [-75, 75] for 12 bit-depth respectively.
 </dd>
 <dt><span><samp><var>min_qp_b</var></samp></span></dt>
 <dd><p>Minimum video quantizer scale for B frame.
+</p>
+</dd>
+<dt><span><samp><var>scenario</var></samp></span></dt>
+<dd><p>Provides a hint to encoder about the scenario for the encoding session.
+</p><dl compact="compact">
+<dt><span>&lsquo;<samp>unknown</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>displayremoting</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>videoconference</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>archive</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>livestreaming</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>cameracapture</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>videosurveillance</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>gamestreaming</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>remotegaming</samp>&rsquo;</span></dt>
+</dl>
+
+</dd>
+<dt><span><samp><var>avbr_accuracy</var></samp></span></dt>
+<dd><p>Accuracy of the AVBR ratecontrol (unit of tenth of percent).
+</p>
+</dd>
+<dt><span><samp><var>avbr_convergence</var></samp></span></dt>
+<dd><p>Convergence of the AVBR ratecontrol (unit of 100 frames)
+</p>
+<p>The parameters <var>avbr_accuracy</var> and <var>avbr_convergence</var> are for the
+average variable bitrate control (AVBR) algorithm.
+The algorithm focuses on overall encoding quality while meeting the specified
+bitrate, <var>target_bitrate</var>, within the accuracy range <var>avbr_accuracy</var>,
+after a <var>avbr_Convergence</var> period. This method does not follow HRD and the
+instant bitrate is not capped or padded.
+</p>
+</dd>
+<dt><span><samp><var>skip_frame</var></samp></span></dt>
+<dd><p>Use per-frame metadata &quot;qsv_skip_frame&quot; to skip frame when encoding. This option
+defines the usage of this metadata.
+</p><dl compact="compact">
+<dt><span>&lsquo;<samp>no_skip</samp>&rsquo;</span></dt>
+<dd><p>Frame skipping is disabled.
 </p></dd>
+<dt><span>&lsquo;<samp>insert_dummy</samp>&rsquo;</span></dt>
+<dd><p>Encoder inserts into bitstream frame where all macroblocks are encoded as
+skipped.
+</p></dd>
+<dt><span>&lsquo;<samp>insert_nothing</samp>&rsquo;</span></dt>
+<dd><p>Similar to insert_dummy, but encoder inserts nothing into bitstream. The skipped
+frames are still used in brc. For example, gop still include skipped frames, and
+the frames after skipped frames will be larger in size.
+</p></dd>
+<dt><span>&lsquo;<samp>brc_only</samp>&rsquo;</span></dt>
+<dd><p>skip_frame metadata indicates the number of missed frames before the current
+frame.
+</p></dd>
+</dl>
+
+</dd>
 </dl>
 
 <a name="HEVC-Options-1"></a>
@@ -6280,6 +6365,15 @@ on performance and objective visual quality metric.
 <dd><p>Setting this flag turns on or off LowDelayBRC feautre in qsv plugin, which provides
 more accurate bitrate control to minimize the variance of bitstream size frame
 by frame. Value: -1-default 0-off 1-on
+</p>
+</dd>
+<dt><span><samp><var>adaptive_i</var></samp></span></dt>
+<dd><p>This flag controls insertion of I frames by the QSV encoder. Turn ON this flag
+to allow changing of frame type from P and B to I.
+</p>
+</dd>
+<dt><span><samp><var>adaptive_b</var></samp></span></dt>
+<dd><p>This flag controls changing of frame type from B to P.
 </p>
 </dd>
 <dt><span><samp><var>p_strategy</var></samp></span></dt>
@@ -6334,6 +6428,16 @@ an internal session.
 </dl>
 
 </dd>
+<dt><span><samp><var>tier</var></samp></span></dt>
+<dd><p>Set the encoding tier (only level &gt;= 4 can support high tier).
+This option only takes effect when the level option is specified.
+</p>
+<dl compact="compact">
+<dt><span>&lsquo;<samp>main</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>high</samp>&rsquo;</span></dt>
+</dl>
+
+</dd>
 <dt><span><samp><var>gpb</var></samp></span></dt>
 <dd><p>1: GPB (generalized P/B frame)
 </p>
@@ -6366,8 +6470,10 @@ or newer than ICL.
 error resilience without significant impact on encoded bitstream size caused by
 I frames. The SDK encoder achieves this by encoding part of each frame in
 refresh cycle using intra MBs. <var>none</var> means no refresh. <var>vertical</var> means
-vertical refresh, by column of MBs. To enable intra refresh, B frame should be
-set to 0.
+vertical refresh, by column of MBs. <var>horizontal</var> means horizontal refresh,
+by rows of MBs. <var>slice</var> means horizontal refresh by slices without
+overlapping. In case of <var>slice</var>, in_ref_cycle_size is ignored. To enable
+intra refresh, B frame should be set to 0.
 </p>
 </dd>
 <dt><span><samp><var>int_ref_cycle_size</var></samp></span></dt>
@@ -6407,7 +6513,61 @@ range is [-63, 63] for 10 bit-depth or [-75, 75] for 12 bit-depth respectively.
 </dd>
 <dt><span><samp><var>min_qp_b</var></samp></span></dt>
 <dd><p>Minimum video quantizer scale for B frame.
+</p>
+</dd>
+<dt><span><samp><var>scenario</var></samp></span></dt>
+<dd><p>Provides a hint to encoder about the scenario for the encoding session.
+</p><dl compact="compact">
+<dt><span>&lsquo;<samp>unknown</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>displayremoting</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>videoconference</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>archive</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>livestreaming</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>cameracapture</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>videosurveillance</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>gamestreaming</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>remotegaming</samp>&rsquo;</span></dt>
+</dl>
+
+</dd>
+<dt><span><samp><var>avbr_accuracy</var></samp></span></dt>
+<dd><p>Accuracy of the AVBR ratecontrol (unit of tenth of percent).
+</p>
+</dd>
+<dt><span><samp><var>avbr_convergence</var></samp></span></dt>
+<dd><p>Convergence of the AVBR ratecontrol (unit of 100 frames)
+</p>
+<p>The parameters <var>avbr_accuracy</var> and <var>avbr_convergence</var> are for the
+average variable bitrate control (AVBR) algorithm.
+The algorithm focuses on overall encoding quality while meeting the specified
+bitrate, <var>target_bitrate</var>, within the accuracy range <var>avbr_accuracy</var>,
+after a <var>avbr_Convergence</var> period. This method does not follow HRD and the
+instant bitrate is not capped or padded.
+</p>
+</dd>
+<dt><span><samp><var>skip_frame</var></samp></span></dt>
+<dd><p>Use per-frame metadata &quot;qsv_skip_frame&quot; to skip frame when encoding. This option
+defines the usage of this metadata.
+</p><dl compact="compact">
+<dt><span>&lsquo;<samp>no_skip</samp>&rsquo;</span></dt>
+<dd><p>Frame skipping is disabled.
 </p></dd>
+<dt><span>&lsquo;<samp>insert_dummy</samp>&rsquo;</span></dt>
+<dd><p>Encoder inserts into bitstream frame where all macroblocks are encoded as
+skipped.
+</p></dd>
+<dt><span>&lsquo;<samp>insert_nothing</samp>&rsquo;</span></dt>
+<dd><p>Similar to insert_dummy, but encoder inserts nothing into bitstream. The skipped
+frames are still used in brc. For example, gop still include skipped frames, and
+the frames after skipped frames will be larger in size.
+</p></dd>
+<dt><span>&lsquo;<samp>brc_only</samp>&rsquo;</span></dt>
+<dd><p>skip_frame metadata indicates the number of missed frames before the current
+frame.
+</p></dd>
+</dl>
+
+</dd>
 </dl>
 
 <a name="MPEG2-Options"></a>
@@ -6444,6 +6604,59 @@ range is [-63, 63] for 10 bit-depth or [-75, 75] for 12 bit-depth respectively.
 </dd>
 <dt><span><samp><var>tile_rows</var></samp></span></dt>
 <dd><p>Number of rows for tiled encoding (requires libmfx  &gt;= 1.29).
+</p></dd>
+</dl>
+
+<a name="AV1-Options"></a>
+<h4 class="subsection">9.23.9 AV1 Options<span class="pull-right"><a class="anchor hidden-xs" href="#AV1-Options" aria-hidden="true">#</a> <a class="anchor hidden-xs"href="#toc-AV1-Options" aria-hidden="true">TOC</a></span></h4>
+<p>These options are used by av1_qsv (requires libvpl).
+</p><dl compact="compact">
+<dt><span><samp><var>profile</var></samp></span></dt>
+<dd><dl compact="compact">
+<dt><span>&lsquo;<samp>unknown</samp>&rsquo;</span></dt>
+<dt><span>&lsquo;<samp>main</samp>&rsquo;</span></dt>
+</dl>
+
+</dd>
+<dt><span><samp><var>tile_cols</var></samp></span></dt>
+<dd><p>Number of columns for tiled encoding.
+</p>
+</dd>
+<dt><span><samp><var>tile_rows</var></samp></span></dt>
+<dd><p>Number of rows for tiled encoding.
+</p>
+</dd>
+<dt><span><samp><var>adaptive_i</var></samp></span></dt>
+<dd><p>This flag controls insertion of I frames by the QSV encoder. Turn ON this flag
+to allow changing of frame type from P and B to I.
+</p>
+</dd>
+<dt><span><samp><var>adaptive_b</var></samp></span></dt>
+<dd><p>This flag controls changing of frame type from B to P.
+</p>
+</dd>
+<dt><span><samp><var>b_strategy</var></samp></span></dt>
+<dd><p>This option controls usage of B frames as reference.
+</p>
+</dd>
+<dt><span><samp><var>extbrc</var></samp></span></dt>
+<dd><p>Extended bitrate control.
+</p>
+</dd>
+<dt><span><samp><var>look_ahead_depth</var></samp></span></dt>
+<dd><p>Depth of look ahead in number frames, available when extbrc option is enabled.
+</p>
+</dd>
+<dt><span><samp><var>low_delay_brc</var></samp></span></dt>
+<dd><p>Setting this flag turns on or off LowDelayBRC feautre in qsv plugin, which provides
+more accurate bitrate control to minimize the variance of bitstream size frame
+by frame. Value: -1-default 0-off 1-on
+</p>
+</dd>
+<dt><span><samp>max_frame_size</samp></span></dt>
+<dd><p>Set the allowed max size in bytes for each frame. If the frame size exceeds
+the limitation, encoder will adjust the QP value to control the frame size.
+Invalid in CQP rate control mode.
 </p></dd>
 </dl>
 

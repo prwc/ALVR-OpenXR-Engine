@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright 2004-present Facebook. All Rights Reserved.
+# (c) Meta Platforms, Inc. and affiliates. Confidential and proprietary.
 
 # This script is used for generate XrSample from the beginning by copying over the XrAppBase and
 # modify all necessary field based on the extension name
