@@ -251,14 +251,22 @@ inline XrReferenceSpaceCreateInfo GetXrReferenceSpaceCreateInfo(const ALXRTracki
     return GetXrReferenceSpaceCreateInfo(ToTrackingSpaceName(ts));
 }
 
-constexpr inline TrackingVector3 ToTrackingVector3(const XrVector3f& v)
+constexpr inline ALXRVector3f ToALXRVector3f(const XrVector3f& v)
 {
     return { v.x, v.y, v.z };
 }
 
-constexpr inline TrackingQuat ToTrackingQuat(const XrQuaternionf& v)
+constexpr inline ALXRQuaternionf ToALXRQuaternionf(const XrQuaternionf& v)
 {
     return { v.x, v.y, v.z, v.w };
+}
+
+constexpr inline ALXRPosef ToALXRPosef(const XrPosef& p)
+{
+    return { 
+        .orientation = ToALXRQuaternionf(p.orientation),
+        .position    = ToALXRVector3f(p.position),
+    };
 }
 
 constexpr inline const XrView IdentityView {
@@ -2045,8 +2053,8 @@ struct OpenXrProgram final : IOpenXrProgram {
                 XrVector3f localizedPos;
                 XrMatrix4x4f_GetTranslation(&localizedPos, &jointLocal);
 
-                boneRot = ToTrackingQuat(localizedRot);
-                bonePos = ToTrackingVector3(localizedPos);
+                boneRot = ToALXRQuaternionf(localizedRot);
+                bonePos = ToALXRVector3f(localizedPos);
             }
 
             controller.enabled = true;
@@ -2057,31 +2065,35 @@ struct OpenXrProgram final : IOpenXrProgram {
             XrVector3f palmPos;
             XrMatrix4x4f_GetTranslation(&palmPos, &palmMatP);
             XrMatrix4x4f_GetRotation(&palmRot, &palmMatP);
-            controller.boneRootPosition = ToTrackingVector3(palmPos);
-            controller.boneRootOrientation = ToTrackingQuat(palmRot);
+            controller.boneRootPose.orientation = ToALXRQuaternionf(palmRot);
+            controller.boneRootPose.position    = ToALXRVector3f(palmPos);            
             controller.linearVelocity  = { 0,0,0 };
             controller.angularVelocity = { 0,0,0 };
         }
     }
 
     void PollActions() override {
-        using ControllerInfo = TrackingInfo::Controller;
+        using ControllerInfo = ALXRTrackingInfo::Controller;
         constexpr static const ControllerInfo ControllerIdentity {
-            .enabled = false,
-            .isHand = false,
-            .buttons = 0,
-            .trackpadPosition = { 0,0 },
-            .triggerValue = 0.0f,
-            .gripValue = 0.0f,
-            .orientation = { 0,0,0,1 },
-            .position = { 0,0,0 },
-            .angularVelocity = { 0,0,0 },
-            .linearVelocity = { 0,0,0 },
             .boneRotations = {},
             .bonePositionsBase = {},
-            .boneRootOrientation = {0,0,0,1},
-            .boneRootPosition = {0,0,0},
-            .handFingerConfidences = 0
+            .boneRootPose {
+                .orientation = { 0,0,0,1 },
+                .position = { 0,0,0 },
+            },
+            .pose {
+                .orientation = { 0,0,0,1 },
+                .position = { 0,0,0 },
+            },
+            .angularVelocity = { 0,0,0 },
+            .linearVelocity = { 0,0,0 },
+            .trackpadPosition = { 0,0 },
+            .buttons = 0,
+            .triggerValue = 0.0f,
+            .gripValue = 0.0f,
+            .handFingerConfidences = 0,
+            .enabled = false,
+            .isHand = false,
         };
         m_input.controllerInfo = { ControllerIdentity, ControllerIdentity };
         m_interactionManager->PollActions(m_input.controllerInfo);
@@ -2749,8 +2761,8 @@ struct OpenXrProgram final : IOpenXrProgram {
     virtual bool GetTrackingInfo(TrackingInfo& info, const bool clientPredict) /*const*/ override
     {
         info = {
+            .controller = { m_input.controllerInfo[0], m_input.controllerInfo[1] },
             .mounted = true,
-            .controller = { m_input.controllerInfo[0], m_input.controllerInfo[1] }
         };
 
         const XrDuration predicatedLatencyOffsetNs = m_PredicatedLatencyOffset.load();
@@ -2778,10 +2790,9 @@ struct OpenXrProgram final : IOpenXrProgram {
         info.targetTimestampNs = predicatedDisplayTimeNs;
         
         const auto hmdSpaceLoc = GetSpaceLocation(m_viewSpace, predicatedDisplayTimeXR);
-        info.HeadPose_Pose_Orientation  = ToTrackingQuat(hmdSpaceLoc.pose.orientation);
-        info.HeadPose_Pose_Position     = ToTrackingVector3(hmdSpaceLoc.pose.position);
-        // info.HeadPose_LinearVelocity    = ToTrackingVector3(hmdSpaceLoc.linearVelocity);
-        // info.HeadPose_AngularVelocity   = ToTrackingVector3(hmdSpaceLoc.angularVelocity);
+        info.headPose = ToALXRPosef(hmdSpaceLoc.pose);
+        // info.HeadPose_LinearVelocity    = ToALXRVector3f(hmdSpaceLoc.linearVelocity);
+        // info.HeadPose_AngularVelocity   = ToALXRVector3f(hmdSpaceLoc.angularVelocity);
 
         const auto lastPredicatedDisplayTime = m_lastPredicatedDisplayTime.load();
         const auto& inputPredicatedTime = clientPredict ? predicatedDisplayTimeXR : lastPredicatedDisplayTime;
@@ -2790,10 +2801,9 @@ struct OpenXrProgram final : IOpenXrProgram {
             auto& newContInfo = info.controller[hand];
             const auto spaceLoc = GetHandSpaceLocation(hand, inputPredicatedTime);
 
-            newContInfo.position        = ToTrackingVector3(spaceLoc.pose.position);
-            newContInfo.orientation     = ToTrackingQuat(spaceLoc.pose.orientation);
-            newContInfo.linearVelocity  = ToTrackingVector3(spaceLoc.linearVelocity);
-            newContInfo.angularVelocity = ToTrackingVector3(spaceLoc.angularVelocity);
+            newContInfo.pose            = ToALXRPosef(spaceLoc.pose);
+            newContInfo.linearVelocity  = ToALXRVector3f(spaceLoc.linearVelocity);
+            newContInfo.angularVelocity = ToALXRVector3f(spaceLoc.angularVelocity);
         }
 
         PollHandTrackers(inputPredicatedTime, info.controller);
@@ -2908,9 +2918,9 @@ struct OpenXrProgram final : IOpenXrProgram {
         if (!GetBoundingStageSpace(time, loc, boundingArea))
             return false;
         gd = {
-            .shouldSync = true,
             .areaWidth = boundingArea.width,
-            .areaHeight = boundingArea.height
+            .areaHeight = boundingArea.height,
+            .shouldSync = true,
         };
         return true;
     }
@@ -3033,7 +3043,7 @@ struct OpenXrProgram final : IOpenXrProgram {
             XrHandTrackerEXT tracker{ XR_NULL_HANDLE };
         };
         std::array<HandTrackerData, Side::COUNT> handerTrackers;
-        std::array<TrackingInfo::Controller, Side::COUNT> controllerInfo{};
+        std::array<ALXRTrackingInfo::Controller, Side::COUNT> controllerInfo{};
     };
     InputState m_input{};
 

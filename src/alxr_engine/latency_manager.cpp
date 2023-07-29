@@ -89,19 +89,19 @@ void LatencyManager::SendTimeSync() {
         .packetsLostTotal = LatencyCollector::Instance().getPacketsLostTotal(),
         .packetsLostInSecond = LatencyCollector::Instance().getPacketsLostInSecond(),
 
+        .averageDecodeLatency = (uint64_t)LatencyCollector::Instance().getLatency(2),
+
         .averageTotalLatency = (uint32_t)LatencyCollector::Instance().getLatency(0),
 
         .averageSendLatency = (uint32_t)LatencyCollector::Instance().getLatency(3),
 
         .averageTransportLatency = (uint32_t)LatencyCollector::Instance().getLatency(1),
 
-        .averageDecodeLatency = (uint64_t)LatencyCollector::Instance().getLatency(2),
-
         .idleTime = (uint32_t)LatencyCollector::Instance().getLatency(4),
 
-        .fecFailure = m_rt_state.isFecFailed.load(),
         .fecFailureInSecond = LatencyCollector::Instance().getFecFailureInSecond(),
         .fecFailureTotal = LatencyCollector::Instance().getFecFailureTotal(),
+        .fecFailure = m_rt_state.isFecFailed.load(),
 
         .fps = LatencyCollector::Instance().getFramesInSecond()
     };
@@ -121,15 +121,15 @@ void LatencyManager::SendFrameReRenderTimeSync() {
         .packetsLostTotal = LatencyCollector::Instance().getPacketsLostTotal(),
         .packetsLostInSecond = LatencyCollector::Instance().getPacketsLostInSecond(),
 
+        .averageDecodeLatency = 0,
         .averageTotalLatency = 0,
         .averageSendLatency = 0,
-        .averageTransportLatency = 0,
-        .averageDecodeLatency = 0,
+        .averageTransportLatency = 0,        
         .idleTime = 0,
-
-        .fecFailure = m_rt_state.isFecFailed.load(),
+                
         .fecFailureInSecond = LatencyCollector::Instance().getFecFailureInSecond(),
         .fecFailureTotal = LatencyCollector::Instance().getFecFailureTotal(),
+        .fecFailure = m_rt_state.isFecFailed.load(),
 
         .fps = LatencyCollector::Instance().getFramesInSecond()
     };

@@ -288,9 +288,9 @@ void alxr_on_server_disconnect()
 ALXRGuardianData alxr_get_guardian_data()
 {
     ALXRGuardianData gd {
-        .shouldSync = false,
         .areaWidth = 0,
-        .areaHeight = 0
+        .areaHeight = 0,
+        .shouldSync = false,
     };
     if (const auto programPtr = gProgram) {
         programPtr->GetGuardianData(gd);
