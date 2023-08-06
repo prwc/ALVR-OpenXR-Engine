@@ -11,6 +11,8 @@ struct ALXRStreamConfig;
 struct ALXRSystemProperties;
 struct ALXRGuardianData;
 struct ALXREyeInfo;
+struct ALXRFacialEyePacket;
+struct ALXRHandTracking;
 struct TrackingInfo;
 
 namespace ALXR {;
@@ -90,6 +92,10 @@ struct IOpenXrProgram {
     // Sample input actions and generate haptic feedback.
     virtual void PollActions() = 0;
 
+    virtual void PollFaceEyeTracking(ALXRFacialEyePacket& newPacket) = 0;
+
+    virtual void PollHandTracking(ALXRHandTracking& handTrackingData) = 0;
+    
     // Create and submit a frame.
     virtual void RenderFrame() = 0;
 
@@ -128,6 +134,10 @@ struct IOpenXrProgram {
     virtual inline bool SetAndroidAppThread(const AndroidThreadType) { return false; }
 
     virtual bool IsHeadlessSession() const = 0;
+
+    virtual bool IsHandTrackingEnabled() const = 0;
+    virtual bool IsFacialTrackingEnabled() const = 0;
+    virtual bool IsEyeTrackingEnabled() const = 0;
 };
 
 struct Swapchain {

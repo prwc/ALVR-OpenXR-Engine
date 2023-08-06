@@ -13,6 +13,8 @@ extern "C" {;
 #endif
 #include "bindings.h"
 
+#undef None
+
 enum ALXRGraphicsApi : uint32_t
 {
     Auto,
@@ -32,6 +34,23 @@ enum class ALXRDecoderType : uint32_t
     CUVID,
     VAAPI,
     CPU
+};
+
+enum class ALXRFacialExpressionType : uint8_t {
+    None = 0, // Not Support or Disabled
+    FB,
+    HTC,
+    Pico,
+    Auto,
+    TypeCount
+};
+
+enum class ALXREyeTrackingType : uint8_t {
+    None = 0, // Not Support or Disabled
+    FBEyeTrackingSocial,
+    ExtEyeGazeInteraction,
+    Auto,
+    TypeCount
 };
 
 enum class ALXRTrackingSpace : uint32_t
@@ -61,6 +80,13 @@ enum class ALXRColorSpace : int32_t  {
     MaxEnum = 0x7fffffff
 };
 
+enum ALXRTrackingEnabledFlags : uint64_t {
+    ALXR_TRACKING_ENABLED_HANDS = (1u << 0),
+    ALXR_TRACKING_ENABLED_EYES  = (1u << 1),
+    ALXR_TRACKING_ENABLED_FACE  = (1u << 2),    
+    ALXR_TRACKING_ENABLED_ALL = ALXR_TRACKING_ENABLED_HANDS | ALXR_TRACKING_ENABLED_EYES | ALXR_TRACKING_ENABLED_FACE
+};
+
 struct ALXRSystemProperties
 {
     char         systemName[256];
@@ -69,6 +95,7 @@ struct ALXRSystemProperties
     uint32_t refreshRatesCount;
     uint32_t recommendedEyeWidth;
     uint32_t recommendedEyeHeight;
+    uint64_t enabledTrackingSystemsFlags;
 };
 
 struct ALXREyeInfo
@@ -83,7 +110,7 @@ struct ALXRVersion {
     uint32_t patch;
 };
 
-struct ALXRRustCtx
+typedef struct ALXRClientCtx
 {
     void (*inputSend)(const TrackingInfo* data);
     void (*viewsConfigSend)(const ALXREyeInfo* eyeInfo);
@@ -99,6 +126,11 @@ struct ALXRRustCtx
     ALXRDecoderType decoderType;
     ALXRColorSpace  displayColorSpace;
 
+    ALXRFacialExpressionType facialTracking;
+    ALXREyeTrackingType eyeTracking;
+
+    uint16_t trackingServerPortNo;
+
     bool verbose;
     bool disableLinearizeSrgb;
     bool noSuggestedBindings;
@@ -106,12 +138,15 @@ struct ALXRRustCtx
     bool noFrameSkip;
     bool disableLocalDimming;
     bool headlessSession;
+    bool noFTServer;
+    bool noPassthrough;
+    bool noHandTracking;
 
 #ifdef XR_USE_PLATFORM_ANDROID
     void* applicationVM;
     void* applicationActivity;
 #endif
-};
+} ALXRClientCtx;
 
 struct ALXRGuardianData {
     float areaWidth;
