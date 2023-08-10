@@ -1790,7 +1790,7 @@ struct D3D12GraphicsPlugin final : public IGraphicsPlugin {
         std::uint64_t          frameIndex = std::uint64_t(-1);
     };
     std::array<NV12Texture, VideoTexCount> m_videoTextures{};
-    std::atomic<std::size_t>       m_currentVideoTex{ 0 }, m_renderTex{ -1 };
+    std::atomic<std::size_t>       m_currentVideoTex{ (std::size_t)0 }, m_renderTex{ (std::size_t)-1 };
     std::atomic<bool>              m_is3PlaneFormat{ false };
     NV12Texture                    m_videoTexUploadBuffers{};
     //std::mutex                     m_renderMutex{};
