@@ -134,6 +134,7 @@ struct Options {
     bool NoFTServer = false;
     bool NoPassthrough = false;
     bool NoHandTracking = false;
+    bool SimulateHeadless = false;
 
     struct {
         XrFormFactor FormFactor{XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY};
@@ -177,5 +178,9 @@ struct Options {
 
     inline bool IsSelected(const ALXREyeTrackingType t) const {
         return EyeTracking == ALXREyeTrackingType::Auto || EyeTracking == t;
+    }
+
+    inline bool EnableHeadless() const {
+        return HeadlessSession || SimulateHeadless;
     }
 };

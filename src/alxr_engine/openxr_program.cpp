@@ -363,7 +363,7 @@ struct OpenXrProgram final : IOpenXrProgram {
     {
         LogLayersAndExtensions();
         
-        const bool headlessRequested = m_options && m_options->HeadlessSession;
+        const bool headlessRequested = m_options && m_options->EnableHeadless();
         auto& graphicsApi = options->GraphicsPlugin;
         if (graphicsApi.empty() || graphicsApi == "auto" || 
             (headlessRequested && !IsExtEnabled(XR_MND_HEADLESS_EXTENSION_NAME)))
@@ -708,7 +708,7 @@ struct OpenXrProgram final : IOpenXrProgram {
                 return {};
             return {
                 { XR_EXT_HAND_TRACKING_EXTENSION_NAME,        m_options->NoHandTracking || IsPrePicoPUI<5,7>() },
-                { XR_MND_HEADLESS_EXTENSION_NAME,             !m_options->HeadlessSession },
+                { XR_MND_HEADLESS_EXTENSION_NAME,             !m_options->EnableHeadless()},
                 { XR_FB_PASSTHROUGH_EXTENSION_NAME,           m_options->NoPassthrough },
                 { XR_HTC_PASSTHROUGH_EXTENSION_NAME,          m_options->NoPassthrough },
                 { XR_HTC_FACIAL_TRACKING_EXTENSION_NAME,      !m_options->IsSelected(ALXRFacialExpressionType::HTC) },
@@ -2294,7 +2294,9 @@ struct OpenXrProgram final : IOpenXrProgram {
     bool IsSessionFocused() const override { return m_sessionState == XR_SESSION_STATE_FOCUSED; }
 
     bool IsHeadlessSession() const override {
-        return m_options && m_options->HeadlessSession && IsExtEnabled(XR_MND_HEADLESS_EXTENSION_NAME);
+        if (m_options == nullptr)
+            return false;
+        return m_options->SimulateHeadless || (m_options->HeadlessSession && IsExtEnabled(XR_MND_HEADLESS_EXTENSION_NAME));
     }
 
     template < typename ControllerInfoArray >
@@ -2507,7 +2509,36 @@ struct OpenXrProgram final : IOpenXrProgram {
         };
     }
 
+    XrSteadyClock::time_point lastFrameTime = XrSteadyClock::now();
+
+    void HeadlessWaitFrame() {
+        assert(IsHeadlessSession());
+        static_assert(XrSteadyClock::is_steady);
+        using millisecondsf = std::chrono::duration<float, std::chrono::milliseconds::period>;
+        const auto targetFrameTime = millisecondsf((1.0f / m_streamConfig.renderConfig.refreshRate) * 1000.0f);
+        const auto currTime = XrSteadyClock::now();
+        const auto elapsed = std::chrono::duration_cast<millisecondsf>(currTime - lastFrameTime);
+        if (elapsed > targetFrameTime) {
+            lastFrameTime = currTime;
+            return;
+        }
+        const auto sleepTime = targetFrameTime - elapsed;
+        std::this_thread::sleep_for(sleepTime);
+        lastFrameTime = XrSteadyClock::now();
+    }
+
     void RenderFrame() override {
+        if (IsHeadlessSession()) {
+            HeadlessWaitFrame();
+            const auto [displayTime,ignore] = XrTimeNow();
+            m_lastPredicatedDisplayTime.store(displayTime);
+            PollFaceEyeTracking(displayTime);
+            return;
+        }
+        RenderFrameImpl();
+    }
+
+    void RenderFrameImpl() {
         CHECK(m_session != XR_NULL_HANDLE);
         constexpr const XrFrameWaitInfo frameWaitInfo{
             .type = XR_TYPE_FRAME_WAIT_INFO,
@@ -2517,7 +2548,13 @@ struct OpenXrProgram final : IOpenXrProgram {
             .type = XR_TYPE_FRAME_STATE,
             .next = nullptr
         };
-        CHECK_XRCMD(xrWaitFrame(m_session, &frameWaitInfo, &frameState));
+        if (XR_FAILED(xrWaitFrame(m_session, &frameWaitInfo, &frameState))) {
+            if (m_renderMode.load() == RenderMode::VideoStream) {
+                m_graphicsPlugin->BeginVideoView();
+                m_graphicsPlugin->EndVideoView();
+            }
+            return;
+        }
         m_PredicatedLatencyOffset.store(frameState.predictedDisplayPeriod);
         m_lastPredicatedDisplayTime.store(frameState.predictedDisplayTime);
 
@@ -2541,7 +2578,11 @@ struct OpenXrProgram final : IOpenXrProgram {
             .type = XR_TYPE_FRAME_BEGIN_INFO,
             .next = nullptr
         };
-        CHECK_XRCMD(xrBeginFrame(m_session, &frameBeginInfo));
+        if (XR_FAILED(xrBeginFrame(m_session, &frameBeginInfo))) {
+            if (isVideoStream)
+                m_graphicsPlugin->EndVideoView();
+            return;
+        }
 
         XrCompositionLayerPassthroughFB  passthroughLayer;
         XrCompositionLayerPassthroughHTC passthroughLayerHTC;
@@ -2598,7 +2639,9 @@ struct OpenXrProgram final : IOpenXrProgram {
             .layerCount = layerCount,
             .layers = layers.data()
         };
-        CHECK_XRCMD(xrEndFrame(m_session, &frameEndInfo));
+        if (XR_FAILED(xrEndFrame(m_session, &frameEndInfo))) {
+            Log::Write(Log::Level::Verbose, "xrEndFrame failed!");
+        }
 
         LatencyManager::Instance().SubmitAndSync(videoFrameDisplayTime, !timeRender);
         if (isVideoStream)
@@ -2771,14 +2814,18 @@ struct OpenXrProgram final : IOpenXrProgram {
             .type = XR_TYPE_SWAPCHAIN_IMAGE_ACQUIRE_INFO,
             .next = nullptr
         };
-        CHECK_XRCMD(xrAcquireSwapchainImage(swapChain.handle, &acquireInfo, &swapchainImageIndex));
+        if (XR_FAILED(xrAcquireSwapchainImage(swapChain.handle, &acquireInfo, &swapchainImageIndex))) {
+            return static_cast<const std::uint32_t>(-1);
+        }
 
         constexpr const XrSwapchainImageWaitInfo waitInfo{
             .type = XR_TYPE_SWAPCHAIN_IMAGE_WAIT_INFO,
             .next = nullptr,
             .timeout = XR_INFINITE_DURATION
         };
-        CHECK_XRCMD(xrWaitSwapchainImage(swapChain.handle, &waitInfo));
+        if (XR_FAILED(xrWaitSwapchainImage(swapChain.handle, &waitInfo))) {
+            return static_cast<const std::uint32_t>(-1);
+        }
         return swapchainImageIndex;
     }
 
@@ -2795,8 +2842,9 @@ struct OpenXrProgram final : IOpenXrProgram {
         const ALXR::PassthroughMode mode
     )
     {
+        assert(!m_swapchains.empty());
         assert(projectionLayerViews.size() == views.size());
-        assert(m_isMultiViewEnabled);
+        assert(m_isMultiViewEnabled);        
 
         const bool isVideoStream = m_renderMode == RenderMode::VideoStream;
         const auto vizCubes = isVideoStream ? VizCubeList{} : GetVisualizedCubes(predictedDisplayTime);
@@ -2809,6 +2857,9 @@ struct OpenXrProgram final : IOpenXrProgram {
         };
 
         const std::uint32_t swapchainImageIndex = AcquireAndWaitForSwapchainImage(viewSwapchain);
+        if (swapchainImageIndex == static_cast<const std::uint32_t>(-1))
+            return false;
+
         for (std::uint32_t viewIndex = 0; viewIndex < views.size(); ++viewIndex) {
             const auto& view = views[viewIndex];
             projectionLayerViews[viewIndex] = {
@@ -2834,7 +2885,8 @@ struct OpenXrProgram final : IOpenXrProgram {
             .type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO,
             .next = nullptr
         };
-        CHECK_XRCMD(xrReleaseSwapchainImage(viewSwapchain.handle, &releaseInfo));
+        if (XR_FAILED(xrReleaseSwapchainImage(viewSwapchain.handle, &releaseInfo)))
+            return false;
 
         layer = XrCompositionLayerProjection{
             .type = XR_TYPE_COMPOSITION_LAYER_PROJECTION,
@@ -2866,6 +2918,8 @@ struct OpenXrProgram final : IOpenXrProgram {
             // Each view has a separate swapchain which is acquired, rendered to, and released.
             const Swapchain& viewSwapchain = m_swapchains[i];
             const std::uint32_t swapchainImageIndex = AcquireAndWaitForSwapchainImage(viewSwapchain);
+            if (swapchainImageIndex == static_cast<const std::uint32_t>(-1))
+                return false;
 
             const auto& view = views[i];
             projectionLayerViews[i] = {
@@ -2892,7 +2946,8 @@ struct OpenXrProgram final : IOpenXrProgram {
                 .type = XR_TYPE_SWAPCHAIN_IMAGE_RELEASE_INFO,
                 .next = nullptr
             };
-            CHECK_XRCMD(xrReleaseSwapchainImage(viewSwapchain.handle, &releaseInfo));
+            if (XR_FAILED(xrReleaseSwapchainImage(viewSwapchain.handle, &releaseInfo)))
+                return false;
         }
 
         layer = XrCompositionLayerProjection {
@@ -2992,6 +3047,7 @@ struct OpenXrProgram final : IOpenXrProgram {
         if (m_pfnEnumerateDisplayRefreshRatesFB) {
             std::uint32_t size = 0;
             CHECK_XRCMD(m_pfnEnumerateDisplayRefreshRatesFB(m_session, 0, &size, nullptr));
+            assert(size > 0);
             m_displayRefreshRates.resize(size);
             CHECK_XRCMD(m_pfnEnumerateDisplayRefreshRatesFB(m_session, size, &size, m_displayRefreshRates.data()));
             return;
@@ -2999,7 +3055,6 @@ struct OpenXrProgram final : IOpenXrProgram {
         // If OpenXR runtime does not support XR_FB_display_refresh_rate extension
         // and currently core spec has no method of query the supported refresh rates
         // the only way to determine this is with a dumy loop
-        m_displayRefreshRates = 
 #ifdef ALXR_ENABLE_ESTIMATE_DISPLAY_REFRESH_RATE
         m_displayRefreshRates = { EstimateDisplayRefreshRate() };
 #else

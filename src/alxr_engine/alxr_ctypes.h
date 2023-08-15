@@ -141,6 +141,10 @@ typedef struct ALXRClientCtx
     bool noFTServer;
     bool noPassthrough;
     bool noHandTracking;
+    // Enables a headless OpenXR session if supported by the runtime (same as `headlessSession`).
+    // In the absence of native support, will attempt to simulate a headless session.
+    // Caution: May not be compatible with all runtimes and could lead to unexpected behavior.
+    bool simulateHeadless;
 
 #ifdef XR_USE_PLATFORM_ANDROID
     void* applicationVM;
