@@ -567,6 +567,8 @@ struct OpenXrProgram final : IOpenXrProgram {
         { XR_PICO_RESET_SENSOR_EXTENSION_NAME, false },
         { XR_PICO_SESSION_BEGIN_INFO_EXT_ENABLE_EXTENSION_NAME, false },
         { XR_PICO_SINGLEPASS_ENABLE_EXTENSION_NAME, false },
+#else 
+        { XR_BD_CONTROLLER_INTERACTION_EXTENSION_NAME, false },
 #endif
 #ifdef XR_USE_OXR_PICO_ANY_VERSION
         { XR_PICO_BOUNDARY_EXT_EXTENSION_NAME, false },
