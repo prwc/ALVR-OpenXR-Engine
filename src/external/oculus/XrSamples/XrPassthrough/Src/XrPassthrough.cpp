@@ -323,7 +323,6 @@ void Egl::DestroyContext() {
 
 void App::Clear() {
 #if defined(XR_USE_PLATFORM_ANDROID)
-    NativeWindow = NULL;
     Resumed = false;
 #endif // defined(XR_USE_PLATFORM_ANDROID)
     ShouldExit = false;
@@ -358,7 +357,6 @@ void App::HandleSessionStateChanges(XrSessionState state) {
     if (state == XR_SESSION_STATE_READY) {
 #if defined(XR_USE_PLATFORM_ANDROID)
         assert(Resumed);
-        assert(NativeWindow != NULL);
 #endif // defined(XR_USE_PLATFORM_ANDROID)
         assert(SessionActive == false);
 
@@ -562,19 +560,16 @@ static void app_handle_cmd(struct android_app* androidApp, int32_t cmd) {
         case APP_CMD_DESTROY: {
             ALOGV("onDestroy()");
             ALOGV("    APP_CMD_DESTROY");
-            app.NativeWindow = NULL;
             break;
         }
         case APP_CMD_INIT_WINDOW: {
             ALOGV("surfaceCreated()");
             ALOGV("    APP_CMD_INIT_WINDOW");
-            app.NativeWindow = androidApp->window;
             break;
         }
         case APP_CMD_TERM_WINDOW: {
             ALOGV("surfaceDestroyed()");
             ALOGV("    APP_CMD_TERM_WINDOW");
-            app.NativeWindow = NULL;
             break;
         }
     }

@@ -26,7 +26,9 @@
 	<!-- Tell the system this app can handle tracked keyboards -->
 	<uses-feature android:name="oculus.software.trackedkeyboard" android:required="false" />
 	<uses-permission android:name="com.oculus.permission.TRACKED_KEYBOARD" />
-
+    <!-- Enable report events to Telemetry Service -->
+    <uses-permission android:name="com.oculus.permission.REPORT_EVENTS" />
+    <uses-permission android:name="com.oculus.permission.REPORT_EVENTS_DEBUG" />
 	<application android:allowBackup="false" android:label="@string/app_name">
 	    <meta-data android:name="com.oculus.supportedDevices" android:value="all" />
 		<!-- launchMode is set to singleTask because there should never be multiple copies of the app running -->

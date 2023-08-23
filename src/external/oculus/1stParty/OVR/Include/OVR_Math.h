@@ -780,13 +780,13 @@ class Vector3 {
     // FIXME: default initialization of a vector class can be very expensive in a full-blown
     // application.  A few hundred thousand vector constructions is not unlikely and can add
     // up to milliseconds of time on processors like the PS3 PPU.
-    Vector3() : x(0), y(0), z(0) {}
-    Vector3(T x_, T y_, T z_ = 0) : x(x_), y(y_), z(z_) {}
-    explicit Vector3(T s) : x(s), y(s), z(s) {}
-    explicit Vector3(const Vector3<typename Math<T>::OtherFloatType>& src)
+    constexpr Vector3() : x(0), y(0), z(0) {}
+    constexpr Vector3(T x_, T y_, T z_ = 0) : x(x_), y(y_), z(z_) {}
+    constexpr explicit Vector3(T s) : x(s), y(s), z(s) {}
+    constexpr explicit Vector3(const Vector3<typename Math<T>::OtherFloatType>& src)
         : x((T)src.x), y((T)src.y), z((T)src.z) {}
     // MERGE_MOBILE_SDK
-    Vector3(const Vector2<T>& xy, const T z_) : x(xy.x), y(xy.y), z(z_) {}
+    constexpr Vector3(const Vector2<T>& xy, const T z_) : x(xy.x), y(xy.y), z(z_) {}
     // MERGE_MOBILE_SDK
 
     static const Vector3 ZERO;

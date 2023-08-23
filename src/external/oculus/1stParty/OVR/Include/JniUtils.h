@@ -293,6 +293,16 @@ inline jclass ovr_GetLocalClassReferenceWithLoader(
     const char* className,
     const bool fail = true,
     const bool warn = true) {
+    if (jni == nullptr) {
+        if (fail) {
+            OVR_FAIL(
+                "ovr_GetLocalClassReferenceWithLoader: JNIEnv is NULL. Classname is %s", className);
+        } else if (warn) {
+            OVR_WARN(
+                "ovr_GetLocalClassReferenceWithLoader: JNIEnv is NULL. Classname is %s", className);
+        }
+        return nullptr;
+    }
     // This is a lambda because if it were at file scope it would need to be inlined since
     // this is a header, and that could mean the errorMsg[256] declaration could take up
     // 256 bytes on the stack each time the function is called (which is currently 3x in

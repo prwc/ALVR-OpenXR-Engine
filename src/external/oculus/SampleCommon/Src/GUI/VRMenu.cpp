@@ -157,7 +157,6 @@ void VRMenu::AddItems(
     bool const recenter) {
     // OVR_PERF_TIMER( AddItems );
 
-    const Vector3f fwd(0.0f, 0.0f, 1.0f);
     const Vector3f up(0.0f, 1.0f, 0.0f);
     const Vector3f left(1.0f, 0.0f, 0.0f);
 

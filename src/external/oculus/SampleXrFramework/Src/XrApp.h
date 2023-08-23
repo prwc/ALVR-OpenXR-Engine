@@ -426,6 +426,9 @@ class XrApp {
     // Override this for custom action bindings, or modify the default bindings.
     virtual std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> GetSuggestedBindings(
         XrInstance instance);
+    virtual void SuggestInteractionProfileBindings(
+        const std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>>
+            allSuggestedBindings);
 
     /// Xr Helpers
     XrInstance& GetInstance() {
@@ -529,7 +532,6 @@ class XrApp {
     };
 
 #if defined(ANDROID)
-    ANativeWindow* NativeWindow;
     bool Resumed = false;
 #endif // defined(ANDROID)
     bool ShouldExit = false;

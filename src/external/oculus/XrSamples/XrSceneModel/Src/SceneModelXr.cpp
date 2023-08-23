@@ -37,6 +37,7 @@ Copyright : Copyright (c) Facebook Technologies, LLC and its affiliates. All rig
 #include <openxr/fb_spatial_entity_container.h>
 #include <openxr/fb_scene.h>
 #include <openxr/fb_scene_capture.h>
+#include <openxr/meta_spatial_entity_mesh.h>
 
 using namespace OVR;
 
@@ -144,6 +145,7 @@ static const std::map<std::string, XrColor4f> SemanticLabelToColorMap = {
     {"FLOOR", {0.2f, 0.2f, 0.8f, 1.0f}},
     {"CEILING", {0.3f, 0.3f, 0.3f, 1.0f}},
     {"WALL_FACE", {0.5f, 0.5f, 0.0f, 1.0f}},
+    {"INVISIBLE_WALL_FACE", {0.7f, 0.9f, 0.3f, 1.0f}},
     {"WINDOW_FRAME", {0.0f, 0.5f, 0.6f, 0.8f}},
     {"DOOR_FRAME", {0.0f, 0.2f, 0.2f, 1.0f}},
     {"STORAGE", {0.5f, 0.1f, 0.4f, 0.6f}},
@@ -420,6 +422,7 @@ struct ovrExtensionFunctionPointers {
     PFN_xrGetSpaceBoundary2DFB xrGetSpaceBoundary2DFB = nullptr;
     PFN_xrGetSpaceRoomLayoutFB xrGetSpaceRoomLayoutFB = nullptr;
     PFN_xrGetSpaceContainerFB xrGetSpaceContainerFB = nullptr;
+    PFN_xrGetSpaceTriangleMeshMETA xrGetSpaceTriangleMeshMETA = nullptr;
     PFN_xrRequestSceneCaptureFB xrRequestSceneCaptureFB = nullptr;
 };
 
@@ -433,7 +436,6 @@ struct ovrApp {
     void CollectSpaceContainerUuids(XrSpace space, std::unordered_set<std::string>& UuidSet);
 
     ovrEgl Egl;
-    ANativeWindow* NativeWindow;
     bool Resumed;
     bool Focused;
 
@@ -476,6 +478,14 @@ struct ovrApp {
     };
     PlaneVisualizationMode CurrentPlaneVisualizationMode = PlaneVisualizationMode::Boundary;
 
+    enum class VisualizationMode {
+        VisualizeAll = 0,
+        VisualizePlanesAndVolumes,
+        VisualizeMeshes,
+        Count, // Not a valid enum
+    };
+    VisualizationMode CurrentVisualizationMode = VisualizationMode::VisualizeAll;
+
     bool ClearScene = false;
 
     XrSwapchain ColorSwapChain;
@@ -492,7 +502,6 @@ struct ovrApp {
 };
 
 void ovrApp::Clear() {
-    NativeWindow = NULL;
     Resumed = false;
     Focused = false;
     instance = XR_NULL_HANDLE;
@@ -682,11 +691,12 @@ void ovrApp::CollectSpaceContainerUuids(XrSpace space, std::unordered_set<std::s
 
 std::string GetSemanticLabels(ovrApp& app, const XrSpace space) {
     static const std::string recognizedLabels =
-        "TABLE,COUCH,FLOOR,CEILING,WALL_FACE,WINDOW_FRAME,DOOR_FRAME,STORAGE,BED,SCREEN,LAMP,PLANT,WALL_ART,OTHER";
+        "TABLE,COUCH,FLOOR,CEILING,WALL_FACE,WINDOW_FRAME,DOOR_FRAME,STORAGE,BED,SCREEN,LAMP,PLANT,WALL_ART,INVISIBLE_WALL_FACE,OTHER";
     const XrSemanticLabelsSupportInfoFB semanticLabelsSupportInfo = {
         XR_TYPE_SEMANTIC_LABELS_SUPPORT_INFO_FB,
         nullptr,
-        XR_SEMANTIC_LABELS_SUPPORT_MULTIPLE_SEMANTIC_LABELS_BIT_FB | XR_SEMANTIC_LABELS_SUPPORT_ACCEPT_DESK_TO_TABLE_MIGRATION_BIT_FB,
+        XR_SEMANTIC_LABELS_SUPPORT_MULTIPLE_SEMANTIC_LABELS_BIT_FB | XR_SEMANTIC_LABELS_SUPPORT_ACCEPT_DESK_TO_TABLE_MIGRATION_BIT_FB |
+        XR_SEMANTIC_LABELS_SUPPORT_ACCEPT_INVISIBLE_WALL_FACE_BIT_FB,
         recognizedLabels.c_str()};
 
     XrSemanticLabelsFB labels = {XR_TYPE_SEMANTIC_LABELS_FB, &semanticLabelsSupportInfo, 0};
@@ -767,6 +777,33 @@ bool UpdateOvrVolume(ovrApp& app, ovrVolume& volume) {
     const auto labels = GetSemanticLabels(app, volume.Space);
 
     volume.Update(boundingBox3D, GetColorForSemanticLabels(labels));
+    return true;
+}
+
+bool UpdateOvrMesh(ovrApp& app, ovrMesh& mesh) {
+    XrResult res;
+    const XrSpaceTriangleMeshGetInfoMETA getInfo = {XR_TYPE_SPACE_TRIANGLE_MESH_GET_INFO_META};
+    XrSpaceTriangleMeshMETA triangleMesh = {XR_TYPE_SPACE_TRIANGLE_MESH_META};
+    assert(app.FunPtrs.xrGetSpaceTriangleMeshMETA != nullptr);
+    // First call
+    OXR(res = app.FunPtrs.xrGetSpaceTriangleMeshMETA(mesh.Space, &getInfo, &triangleMesh));
+    if (XR_FAILED(res)) {
+        ALOGE("Failed getting triangle mesh!");
+        return false;
+    }
+    // Second call
+    std::vector<XrVector3f> vertices(triangleMesh.vertexCountOutput);
+    std::vector<uint32_t> indices(triangleMesh.indexCountOutput);
+    triangleMesh.vertexCapacityInput = vertices.size();
+    triangleMesh.vertices = vertices.data();
+    triangleMesh.indexCapacityInput = indices.size();
+    triangleMesh.indices = indices.data();
+    OXR(res = app.FunPtrs.xrGetSpaceTriangleMeshMETA(mesh.Space, &getInfo, &triangleMesh));
+    if (XR_FAILED(res)) {
+        ALOGE("Failed getting triangle mesh!");
+        return false;
+    }
+    mesh.Update(triangleMesh);
     return true;
 }
 
@@ -852,6 +889,13 @@ void ovrApp::HandleXrEvents() {
                                 AppRenderer.Scene.Volumes.emplace_back(volume);
                             }
                         }
+                        if (IsComponentEnabled(
+                                setStatusComplete->space, XR_SPACE_COMPONENT_TYPE_TRIANGLE_MESH_META)) {
+                            ovrMesh mesh(setStatusComplete->space);
+                            if (UpdateOvrMesh(*this, mesh)) {
+                                AppRenderer.Scene.Meshes.emplace_back(mesh);
+                            }
+                        }
                     }
                 }
             } break;
@@ -913,6 +957,13 @@ void ovrApp::HandleXrEvents() {
                                 ovrVolume volume(result.space);
                                 if (UpdateOvrVolume(*this, volume)) {
                                     AppRenderer.Scene.Volumes.emplace_back(volume);
+                                }
+                            }
+                            if (IsComponentEnabled(
+                                    result.space, XR_SPACE_COMPONENT_TYPE_TRIANGLE_MESH_META)) {
+                                ovrMesh mesh(result.space);
+                                if (UpdateOvrMesh(*this, mesh)) {
+                                    AppRenderer.Scene.Meshes.emplace_back(mesh);
                                 }
                             }
                         }
@@ -1005,19 +1056,16 @@ static void app_handle_cmd(struct android_app* androidApp, int32_t cmd) {
         case APP_CMD_DESTROY: {
             ALOGV("onDestroy()");
             ALOGV("    APP_CMD_DESTROY");
-            app.NativeWindow = NULL;
             break;
         }
         case APP_CMD_INIT_WINDOW: {
             ALOGV("surfaceCreated()");
             ALOGV("    APP_CMD_INIT_WINDOW");
-            app.NativeWindow = androidApp->window;
             break;
         }
         case APP_CMD_TERM_WINDOW: {
             ALOGV("surfaceDestroyed()");
             ALOGV("    APP_CMD_TERM_WINDOW");
-            app.NativeWindow = NULL;
             break;
         }
     }
@@ -1130,13 +1178,37 @@ void UpdateScenePlanes(ovrApp& app, const XrFrameState& frameState) {
     }
 }
 
-void CycleScenePlaneRenderingMode(ovrApp& app) {
+void CycleScenePlaneVisualizationMode(ovrApp& app) {
     app.CurrentPlaneVisualizationMode = static_cast<ovrApp::PlaneVisualizationMode>(
         (static_cast<int>(app.CurrentPlaneVisualizationMode) + 1) %
         (static_cast<int>(ovrApp::PlaneVisualizationMode::Count)));
     auto& scene = app.AppRenderer.Scene;
     for (auto& plane : scene.Planes) {
         UpdateOvrPlane(app, plane);
+    }
+}
+
+void CycleSceneVisualizationMode(ovrApp& app) {
+    app.CurrentVisualizationMode = static_cast<ovrApp::VisualizationMode>(
+        (static_cast<int>(app.CurrentVisualizationMode) + 1) %
+        (static_cast<int>(ovrApp::VisualizationMode::Count)));
+
+    const bool isVisiblePlanesAndVolumes =
+        app.CurrentVisualizationMode == ovrApp::VisualizationMode::VisualizeAll ||
+        app.CurrentVisualizationMode == ovrApp::VisualizationMode::VisualizePlanesAndVolumes;
+    const bool isVisibleMeshes =
+        app.CurrentVisualizationMode == ovrApp::VisualizationMode::VisualizeAll ||
+        app.CurrentVisualizationMode == ovrApp::VisualizationMode::VisualizeMeshes;
+
+    auto& scene = app.AppRenderer.Scene;
+    for (auto& plane : scene.Planes) {
+        plane.SetVisible(isVisiblePlanesAndVolumes);
+    }
+    for (auto& volume : scene.Volumes) {
+        volume.SetVisible(isVisiblePlanesAndVolumes);
+    }
+    for (auto& mesh : scene.Meshes) {
+        mesh.SetVisible(isVisibleMeshes);
     }
 }
 
@@ -1153,6 +1225,22 @@ void UpdateSceneVolumes(ovrApp& app, const XrFrameState& frameState) {
             continue;
         }
         volume.SetPose(spaceLocation.pose);
+    }
+}
+
+void UpdateSceneMeshes(ovrApp& app, const XrFrameState& frameState) {
+    auto& scene = app.AppRenderer.Scene;
+
+    for (auto& mesh : scene.Meshes) {
+        XrSpaceLocation spaceLocation = {XR_TYPE_SPACE_LOCATION};
+        XrResult res = XR_SUCCESS;
+        OXR(res = xrLocateSpace(
+                mesh.Space, app.LocalSpace, frameState.predictedDisplayTime, &spaceLocation));
+        if (XR_FAILED(res)) {
+            ALOGE("Failed getting anchor pose!");
+            continue;
+        }
+        mesh.SetPose(spaceLocation.pose);
     }
 }
 
@@ -1223,6 +1311,7 @@ void android_main(struct android_app* androidApp) {
         XR_FB_SPATIAL_ENTITY_QUERY_EXTENSION_NAME,
         XR_FB_SPATIAL_ENTITY_STORAGE_EXTENSION_NAME,
         XR_FB_SPATIAL_ENTITY_CONTAINER_EXTENSION_NAME,
+        XR_META_SPATIAL_ENTITY_MESH_EXTENSION_NAME,
         XR_FB_SCENE_EXTENSION_NAME,
         XR_FB_SCENE_CAPTURE_EXTENSION_NAME};
     const uint32_t numRequiredExtensions =
@@ -1620,6 +1709,10 @@ void android_main(struct android_app* androidApp) {
         (PFN_xrVoidFunction*)(&app.FunPtrs.xrGetSpaceContainerFB)));
     OXR(xrGetInstanceProcAddr(
         instance,
+        "xrGetSpaceTriangleMeshMETA",
+        (PFN_xrVoidFunction*)(&app.FunPtrs.xrGetSpaceTriangleMeshMETA)));
+    OXR(xrGetInstanceProcAddr(
+        instance,
         "xrRequestSceneCaptureFB",
         (PFN_xrVoidFunction*)(&app.FunPtrs.xrRequestSceneCaptureFB)));
 
@@ -1681,6 +1774,12 @@ void android_main(struct android_app* androidApp) {
                 volume.Geometry.Destroy();
             }
             app.AppRenderer.Scene.Volumes.clear();
+
+            for (auto& mesh : app.AppRenderer.Scene.Meshes) {
+                mesh.Geometry.DestroyVAO();
+                mesh.Geometry.Destroy();
+            }
+            app.AppRenderer.Scene.Meshes.clear();
 
             app.ClearScene = false;
 
@@ -1751,6 +1850,8 @@ void android_main(struct android_app* androidApp) {
 
         UpdateSceneVolumes(app, frameState);
 
+        UpdateSceneMeshes(app, frameState);
+
         assert(input != nullptr);
         // A Button: Refresh all by querying room entity that has room layout component enabled.
         if (input->IsButtonAPressed()) {
@@ -1783,9 +1884,14 @@ void android_main(struct android_app* androidApp) {
             lastInputTimes[0] = frameState.predictedDisplayTime;
         }
 
-        // Left Index Trigger: Toggle rendering mode
+        // Left Index Trigger: Toggle plane visualization mode.
         if (input->IsTriggerPressed(SimpleXrInput::Side_Left)) {
-            CycleScenePlaneRenderingMode(app);
+            CycleScenePlaneVisualizationMode(app);
+        }
+
+        // Left Thumb Click: Toggle visualization mode.
+        if (input->IsThumbClickPressed(SimpleXrInput::Side_Left)) {
+            CycleSceneVisualizationMode(app);
         }
 
         // Right Index Trigger: Request scene capture.

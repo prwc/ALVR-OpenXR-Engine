@@ -316,7 +316,7 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
 
         /// Build UI
         bigText_ = ui_.AddLabel(
-            "OpenXR Controllers Sample", {0.1f, -0.7f, -2.0f}, {1300.0f, 100.0f});
+            "OpenXR Controllers Sample", {0.0f, -0.8f, -1.9f}, {1300.0f, 100.0f});
 
         OVR::Vector2f size = {200.0f, 100.0f};
         OVR::Vector3f position = {+0.0f, 0.5f, -1.9f};
@@ -382,6 +382,9 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
         ui_.AddLabel("Squeeze Value", position, size);
         squeezeValueLText_ = ui_.AddLabel("sqVal L 0.0", positionL, size);
         squeezeValueRText_ = ui_.AddLabel("sqVal R 0.0", positionR, size);
+
+        ipText_ = ui_.AddLabel(
+            "Interaction Profiles", {0.0f, 0.5f, -1.9f}, {600.0f, 100.0f});
 
         ui_.AddButton("Haptic Main S", {-0.8f, 0.5f, -1.9f}, size, [=]() {
             VibrateController(mainHapticAction_, LeftHandPath, XR_MIN_HAPTIC_DURATION, 157.0f, 1.0f);
@@ -809,6 +812,35 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
 
         /// Update labels
         {
+            XrInteractionProfileState lIpState {XR_TYPE_INTERACTION_PROFILE_STATE};
+            OXR(xrGetCurrentInteractionProfile(Session, LeftHandPath, &lIpState));
+            XrInteractionProfileState rIpState {XR_TYPE_INTERACTION_PROFILE_STATE};
+            OXR(xrGetCurrentInteractionProfile(Session, LeftHandPath, &rIpState));
+
+            char lBuf[XR_MAX_PATH_LENGTH];
+            uint32_t written = 0;
+            if(lIpState.interactionProfile != XR_NULL_PATH) {
+                OXR(xrPathToString(Instance, lIpState.interactionProfile, XR_MAX_PATH_LENGTH, &written, lBuf));
+            }
+            if(written == 0) {
+                strcpy(lBuf, "<none>");
+            }
+
+            char rBuf[XR_MAX_PATH_LENGTH];
+            written = 0;
+            if(rIpState.interactionProfile != XR_NULL_PATH) {
+                OXR(xrPathToString(Instance, rIpState.interactionProfile, XR_MAX_PATH_LENGTH, &written, rBuf));
+            }
+            if(written == 0) {
+                strcpy(rBuf, "<none>");
+            }
+
+            std::stringstream ss;
+            ss << "Left IP: " << lBuf << std::endl;
+            ss << "Right IP: " << rBuf;
+            ipText_->SetText(ss.str().c_str());
+        }
+        {
             std::stringstream ss;
             ss << std::setprecision(4) << std::fixed;
             ss << trackpadForceL_;
@@ -1118,6 +1150,7 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
     std::vector<OVRFW::ovrBeamRenderer::handle_t> beams_;
 
     OVRFW::VRMenuObject* bigText_ = nullptr;
+    OVRFW::VRMenuObject* ipText_ = nullptr;
 
     XrAction trackpadForceAction_ = XR_NULL_HANDLE;
     float trackpadForceL_ = 0.0f;

@@ -268,19 +268,34 @@ inline void LogWithFileTag(const int prio, const char* fileTag, const char* fmt,
 
 // Helper that converts a printf-style format string to an std::string. Needed
 // because the folly macros don't accept printf-style strings.
-#define FORMAT_STR(...)                                                 \
-    ([&] {                                                              \
-        size_t _buf_len = snprintf(nullptr, 0, __VA_ARGS__);            \
-        std::string _format_str_result;                                 \
-        _format_str_result.resize(_buf_len);                            \
-        snprintf(_format_str_result.data(), _buf_len + 1, __VA_ARGS__); \
-        return _format_str_result;                                      \
-    }())
+static inline std::string ovrLogConvertPrintfToString(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
 
-#define OVR_LOG(...) XLOG(INFO, FORMAT_STR(__VA_ARGS__))
-#define OVR_WARN(...) XLOG(WARN, FORMAT_STR(__VA_ARGS__))
-#define OVR_ERROR(...) XLOG(ERR, FORMAT_STR(__VA_ARGS__))
-#define OVR_FAIL(...) XLOG(FATAL, FORMAT_STR(__VA_ARGS__))
+    // Determine the required size of the formatted string
+    va_list argsCopy; // we can't reuse va_list, so copy
+    va_copy(argsCopy, args);
+    const int size = std::vsnprintf(nullptr, 0, format, argsCopy);
+    va_end(argsCopy);
+
+    if (size <= 0) {
+        va_end(args);
+        return "";
+    }
+
+    // Allocate and format the string
+    std::string result(size, '\0');
+    std::vsnprintf(result.data(), result.size() + 1, format, args);
+
+    va_end(args);
+
+    return result;
+}
+
+#define OVR_LOG(...) XLOG(INFO, ovrLogConvertPrintfToString(__VA_ARGS__))
+#define OVR_WARN(...) XLOG(WARN, ovrLogConvertPrintfToString(__VA_ARGS__))
+#define OVR_ERROR(...) XLOG(ERR, ovrLogConvertPrintfToString(__VA_ARGS__))
+#define OVR_FAIL(...) XLOG(FATAL, ovrLogConvertPrintfToString(__VA_ARGS__))
 #define OVR_LOG_WITH_TAG(__tag__, ...) OVR_LOG(__VA_ARGS__)
 #define OVR_ASSERT_WITH_TAG(__expr__, __tag__)           \
     {                                                    \

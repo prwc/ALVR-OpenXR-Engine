@@ -118,10 +118,14 @@ class LocklessUpdater {
     }
 
     void SetState(const T& state) {
-        const int slot = UpdateBegin.fetch_add(1, std::memory_order_seq_cst) & 1;
+        const int index = UpdateBegin.fetch_add(1, std::memory_order_seq_cst);
+        const int slot = index & 1;
         // Write to (slot ^ 1) because fetch_add returns 'previous' value before add.
         Slots[slot ^ 1] = state;
-        UpdateEnd.fetch_add(1, std::memory_order_seq_cst);
+        if (UpdateEnd.fetch_add(1, std::memory_order_seq_cst) != index + 1) {
+            // We can uncomment this out once we fix the multi-producer issues in Runtime Service.
+            // OVR_FAIL("SetState: Detected multiple producers");
+        }
     }
 
     std::atomic<int> UpdateBegin;
@@ -202,7 +206,8 @@ class LocklessUpdater2 {
     }
 
     void SetState(const T& state) {
-        int writeIndex = ((Count.fetch_add(1) >> 1) + 1) & 1;
+        const int index = Count.fetch_add(1);
+        const int writeIndex = ((index >> 1) + 1) & 1;
 
         Slots[writeIndex] = state;
 
@@ -210,7 +215,10 @@ class LocklessUpdater2 {
         // can be reordered with a memory operation occurring after the fence.
         std::atomic_thread_fence(std::memory_order_release);
         // atomic increment
-        Count.fetch_add(1);
+        if (Count.fetch_add(1) != index + 1) {
+            // We can uncomment this out once we fix the multi-producer issues in Runtime Service.
+            // OVR_FAIL("SetState: Detected multiple producers");
+        }
     }
 
     std::atomic<int> Count;
@@ -225,6 +233,7 @@ struct LocklessDataReaderState {
 
 struct LocklessDataWriterState {
     int32_t WriteIndex = 0;
+    int32_t OriginalWriteIndex = 0;
 };
 
 class LocklessDataHelper {
@@ -321,7 +330,8 @@ class LocklessDataHelper {
     }
 
     inline void SetDataBegin(LocklessDataWriterState& writer) {
-        writer.WriteIndex = ((Count.fetch_add(1) >> 1) + 1) & 1;
+        writer.OriginalWriteIndex = Count.fetch_add(1);
+        writer.WriteIndex = ((writer.OriginalWriteIndex >> 1) + 1) & 1;
     }
 
     inline void
@@ -336,7 +346,9 @@ class LocklessDataHelper {
         // can be reordered with a memory operation occurring after the fence.
         std::atomic_thread_fence(std::memory_order_release);
         // atomic increment
-        Count.fetch_add(1);
+        if (Count.fetch_add(1) != writer.OriginalWriteIndex + 1) {
+            OVR_FAIL("SetDataEnd: Detected multiple producers");
+        }
     }
 
     inline void SetData(uint8_t** buffers, const uint8_t* data, const int32_t size) {

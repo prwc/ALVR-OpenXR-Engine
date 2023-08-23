@@ -126,19 +126,16 @@ void XrApp::HandleAndroidCmd(struct android_app* app, int32_t cmd) {
         case APP_CMD_DESTROY: {
             ALOGV("onDestroy()");
             ALOGV("    APP_CMD_DESTROY");
-            NativeWindow = NULL;
             break;
         }
         case APP_CMD_INIT_WINDOW: {
             ALOGV("surfaceCreated()");
             ALOGV("    APP_CMD_INIT_WINDOW");
-            NativeWindow = app->window;
             break;
         }
         case APP_CMD_TERM_WINDOW: {
             ALOGV("surfaceDestroyed()");
             ALOGV("    APP_CMD_TERM_WINDOW");
-            NativeWindow = NULL;
             break;
         }
     }
@@ -562,6 +559,22 @@ std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> XrApp::GetSugg
     return suggestedBindings;
 }
 
+void XrApp::SuggestInteractionProfileBindings(
+    const std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> allSuggestedBindings) {
+    // Best practice is for apps to suggest bindings for *ALL* interaction profiles
+    // that the app supports. Loop over all interaction profiles we support and suggest
+    // bindings:
+    for (auto& [interactionProfilePath, bindings] : allSuggestedBindings) {
+        XrInteractionProfileSuggestedBinding suggestedBindings = {
+            XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+        suggestedBindings.interactionProfile = interactionProfilePath;
+        suggestedBindings.suggestedBindings = (const XrActionSuggestedBinding*)bindings.data();
+        suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
+
+        OXR(xrSuggestInteractionProfileBindings(Instance, &suggestedBindings));
+    }
+}
+
 const void* XrApp::GetInstanceCreateInfoNextChain() {
     return nullptr;
 }
@@ -838,18 +851,7 @@ bool XrApp::Init(const xrJava& context) {
     const std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> allSuggestedBindings =
         GetSuggestedBindings(GetInstance());
 
-    // Best practice is for apps to suggest bindings for *ALL* interaction profiles
-    // that the app supports. Loop over all interaction profiles we support and suggest
-    // bindings:
-    for (auto& [interactionProfilePath, bindings] : allSuggestedBindings) {
-        XrInteractionProfileSuggestedBinding suggestedBindings = {
-            XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
-        suggestedBindings.interactionProfile = interactionProfilePath;
-        suggestedBindings.suggestedBindings = (const XrActionSuggestedBinding*)bindings.data();
-        suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
-
-        OXR(xrSuggestInteractionProfileBindings(Instance, &suggestedBindings));
-    }
+    SuggestInteractionProfileBindings(allSuggestedBindings);
 
     FileSys = std::unique_ptr<OVRFW::ovrFileSys>(ovrFileSys::Create(context));
     if (FileSys) {

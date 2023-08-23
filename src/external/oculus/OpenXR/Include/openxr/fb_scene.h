@@ -230,6 +230,20 @@ static const XrSemanticLabelsSupportFlagsFB
 
 #endif // XR_FB_scene_SPEC_VERSION == 2
 
+// Planned additions for spec version 4
+#if XR_FB_scene_SPEC_VERSION == 3
+#undef XR_FB_scene_SPEC_VERSION
+#define XR_FB_scene_SPEC_VERSION 4
+
+// When this flag is set in XrSemanticLabelsSupportInfoFB::flags, the system may return
+// INVISIBLE_WALL_FACE instead of WALL_FACE to represent an invisible wall that is used to
+// conceptually separate a space (e.g., separate a living space from a kitchen space in an open
+// floor plan house even though there is no real wall between the two spaces) instead of a real
+// wall. Otherwise, the system returns WALL_FACE to represent both an invisible and real wall.
+static const XrSemanticLabelsSupportFlagsFB
+    XR_SEMANTIC_LABELS_SUPPORT_ACCEPT_INVISIBLE_WALL_FACE_BIT_FB = 0x00000004;
+
+#endif // XR_FB_scene_SPEC_VERSION == 3
 
 
 #ifdef __cplusplus

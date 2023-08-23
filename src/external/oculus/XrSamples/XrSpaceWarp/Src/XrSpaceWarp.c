@@ -2150,7 +2150,6 @@ ovrApp
 
 typedef struct {
     ovrEgl Egl;
-    ANativeWindow* NativeWindow;
     bool Resumed;
     bool Focused;
 
@@ -2182,7 +2181,6 @@ typedef struct {
 } ovrApp;
 
 static void ovrApp_Clear(ovrApp* app) {
-    app->NativeWindow = NULL;
     app->Resumed = false;
     app->Focused = false;
     app->Instance = XR_NULL_HANDLE;
@@ -2217,7 +2215,6 @@ static void ovrApp_Destroy(ovrApp* app) {
 static void ovrApp_HandleSessionStateChanges(ovrApp* app, XrSessionState state) {
     if (state == XR_SESSION_STATE_READY) {
         assert(app->Resumed);
-        assert(app->NativeWindow != NULL);
         assert(app->SessionActive == false);
 
         XrSessionBeginInfo sessionBeginInfo = {XR_TYPE_SESSION_BEGIN_INFO};
@@ -2420,19 +2417,16 @@ static void app_handle_cmd(struct android_app* app, int32_t cmd) {
         case APP_CMD_DESTROY: {
             ALOGV("onDestroy()");
             ALOGV("    APP_CMD_DESTROY");
-            appState->NativeWindow = NULL;
             break;
         }
         case APP_CMD_INIT_WINDOW: {
             ALOGV("surfaceCreated()");
             ALOGV("    APP_CMD_INIT_WINDOW");
-            appState->NativeWindow = app->window;
             break;
         }
         case APP_CMD_TERM_WINDOW: {
             ALOGV("surfaceDestroyed()");
             ALOGV("    APP_CMD_TERM_WINDOW");
-            appState->NativeWindow = NULL;
             break;
         }
     }
@@ -3620,7 +3614,7 @@ void android_main(struct android_app* app) {
                 XrPosef p;
                 XrPosef_Multiply(&p, &InvXrSpacePoseInWorld, &quad_layer_left.pose);
                 quad_layer_left.pose = p;
-                    
+
             }
             quad_layer_left.size = size;
             appState.Layers[appState.LayerCount++].Quad = quad_layer_left;

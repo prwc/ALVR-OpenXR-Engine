@@ -111,7 +111,6 @@ struct App {
     Egl egl;
 
 #if defined(XR_USE_PLATFORM_ANDROID)
-    ANativeWindow* NativeWindow;
     bool Resumed;
 #endif // defined(XR_USE_PLATFORM_ANDROID)
     bool ShouldExit;
