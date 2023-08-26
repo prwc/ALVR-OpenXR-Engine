@@ -6,7 +6,7 @@
 #include "geometry.h"
 #include "graphicsplugin.h"
 
-#if defined(XR_USE_GRAPHICS_API_D3D12) && !defined(MISSING_DIRECTX_COLORS)
+#if defined(XR_USE_GRAPHICS_API_D3D12)
 #include <type_traits>
 #include <array>
 #include <map>

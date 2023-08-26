@@ -239,10 +239,8 @@ if(WIN32)
     endif()
     target_link_libraries(alxr_engine ole32)
     if(MSVC)
-        # Right now can't build this on MinGW because of directxcolors, etc.
+        # Right now can't build this on MinGW because of directxcolors, directxmath, etc.
         target_link_libraries(alxr_engine dxguid d3d11 d3d12 d3dcompiler dxgi)
-    else()
-        target_compile_definitions(alxr_engine PRIVATE MISSING_DIRECTX_COLORS)
     endif()
 endif()
 
