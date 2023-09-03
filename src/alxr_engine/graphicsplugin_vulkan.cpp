@@ -1815,6 +1815,8 @@ struct PipelineLayout {
         Clear();
         m_vkDevice = device;
         m_vkinstance = vkinstance;
+        static_assert(sizeof(MultiViewProjectionUniform) <= 128);
+        static_assert(sizeof(ViewProjectionUniform) <= 128);
         // MVP matrix is a push_constant
         const VkPushConstantRange pcr {
             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
@@ -1871,18 +1873,19 @@ struct PipelineLayout {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .pNext = &ycbcrConverInfo,
             .flags = 0,            
-            .magFilter = VK_FILTER_LINEAR,
-            .minFilter = VK_FILTER_LINEAR,
-            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+            .magFilter = conversionInfo.chromaFilter,
+            .minFilter = conversionInfo.chromaFilter,
+            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
             .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
             .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
             .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
             .mipLodBias = 0.0f,            
             .anisotropyEnable = VK_FALSE,
+            .maxAnisotropy = 1.0f,
             .compareEnable = VK_FALSE,
-            .compareOp = VK_COMPARE_OP_ALWAYS,
+            .compareOp = VK_COMPARE_OP_NEVER,
             .minLod = 0.0f,
-            .maxLod = 1.0f,
+            .maxLod = 0.0f,
             .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK,
             .unnormalizedCoordinates = VK_FALSE,
         };
@@ -1905,13 +1908,10 @@ struct PipelineLayout {
         };
         CHECK_VKCMD(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout));
 
-        static_assert(sizeof(MultiViewProjectionUniform) <= 128);
-        static_assert(sizeof(ViewProjectionUniform) <= 128);
-        // MVP matrix is a push_constant
-        const VkPushConstantRange pcr {
+        constexpr const VkPushConstantRange pcr {
             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
             .offset = 0,
-            .size = (std::uint32_t)(isMultiview ? sizeof(MultiViewProjectionUniform) : sizeof(ViewProjectionUniform)),
+            .size = (std::uint32_t)sizeof(std::uint32_t),
         };
         CHECK(pcr.size <= 128);
         const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {
@@ -1919,8 +1919,8 @@ struct PipelineLayout {
             .pNext = nullptr,
             .setLayoutCount = 1,
             .pSetLayouts = &descriptorSetLayout,
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &pcr
+            .pushConstantRangeCount = isMultiview ? 0u : 1u,
+            .pPushConstantRanges = isMultiview ? nullptr : &pcr,
         };
         CHECK_VKCMD(vkCreatePipelineLayout(m_vkDevice, &pipelineLayoutCreateInfo, nullptr, &layout));
     }
@@ -1949,7 +1949,7 @@ struct Pipeline {
     //void Dynamic(VkDynamicState state) { dynamicStateEnables.emplace_back(state); }
 
     void Create(VkDevice device, VkExtent2D size, const PipelineLayout& layout, const RenderPass& rp, const ShaderProgram& sp,
-                const VertexBufferBase& vb) {
+                const VertexBufferBase* vb = nullptr) {
         m_vkDevice = device;
 
         const VkPipelineDynamicStateCreateInfo dynamicState {
@@ -1962,10 +1962,10 @@ struct Pipeline {
         const VkPipelineVertexInputStateCreateInfo vi {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             .pNext = nullptr,
-            .vertexBindingDescriptionCount = 1,
-            .pVertexBindingDescriptions = &vb.bindDesc,
-            .vertexAttributeDescriptionCount = (uint32_t)vb.attrDesc.size(),
-            .pVertexAttributeDescriptions = vb.attrDesc.data()
+            .vertexBindingDescriptionCount = vb ? 1u : 0u,
+            .pVertexBindingDescriptions = vb ? &vb->bindDesc : nullptr,
+            .vertexAttributeDescriptionCount = vb ? (uint32_t)vb->attrDesc.size() : 0u,
+            .pVertexAttributeDescriptions = vb ? vb->attrDesc.data() : nullptr,
         };
 
         constexpr const VkPipelineInputAssemblyStateCreateInfo ia {
@@ -2226,7 +2226,7 @@ struct SwapchainImageContext {
         
         depthBuffer.Create(m_vkDevice, memAllocator, depthFormat, swapchainCreateInfo);
         rp.Create(m_vkDevice, colorFormat, depthFormat, arraySize);
-        pipe.Create(m_vkDevice, size, layout, rp, sp, vb);
+        pipe.Create(m_vkDevice, size, layout, rp, sp, &vb);
 
         swapchainImages.resize(capacity);
         renderTarget.resize(capacity);
@@ -3069,15 +3069,6 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
         }
 
         if (!m_videoCpyCmdBuffer.Init(m_vkDevice, m_queueFamilyIndexVideoCpy)) THROW("Failed to create command buffer");
-
-        m_quadBuffer.Init(m_vkDevice, &m_memAllocator,
-            { {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::QuadVertex, position)},
-             {1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Geometry::QuadVertex, uv)} });
-        const std::uint32_t quadIndexCount = sizeof(Geometry::QuadIndices) / sizeof(Geometry::QuadIndices[0]);
-        const std::uint32_t quadVertexCount = sizeof(Geometry::QuadVertices) / sizeof(Geometry::QuadVertices[0]);
-        m_quadBuffer.Create(quadIndexCount, quadVertexCount);
-        m_quadBuffer.UpdateIndices(Geometry::QuadIndices.data(), quadIndexCount, 0);
-        m_quadBuffer.UpdateVertices(Geometry::QuadVertices.data(), quadVertexCount, 0);
     }
 
     using CodeBuffer = ShaderProgram::CodeBuffer;
@@ -3672,8 +3663,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
                 swapChainInfo.size,
                 m_videoStreamLayout,
                 swapChainInfo.rp,
-                videoShader,
-                m_quadBuffer
+                videoShader
             );
             // null-out pSpecializationInfo as it refers to local stack vars.
             fragShaderInfo.pSpecializationInfo = nullptr;
@@ -4354,12 +4344,8 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             vkCmdBindPipeline(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_videoStreamPipelines[static_cast<std::size_t>(newMode)].pipe);
             vkCmdBindDescriptorSets(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_videoStreamLayout.layout, 0, 1, m_descriptorSets.data(), 0, nullptr);
 
-            // Bind index and vertex buffers
-            vkCmdBindIndexBuffer(m_cmdBuffer.buf, m_quadBuffer.idxBuf, 0, VK_INDEX_TYPE_UINT16);
-            constexpr static const VkDeviceSize offset = 0;
-            vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &m_quadBuffer.vtxBuf, &offset);
+            vkCmdDraw(m_cmdBuffer.buf, 3, 1, 0, 0);
 
-            vkCmdDrawIndexed(m_cmdBuffer.buf, m_quadBuffer.count.idx, 1, 0, 0, 0);
             vkCmdEndRenderPass(m_cmdBuffer.buf);
         });
     }
@@ -4397,15 +4383,9 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             vkCmdBindPipeline(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_videoStreamPipelines[static_cast<std::size_t>(mode)].pipe);
             vkCmdBindDescriptorSets(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_videoStreamLayout.layout, 0, 1, m_descriptorSets.data(), 0, nullptr);
 
-            // Bind index and vertex buffers
-            vkCmdBindIndexBuffer(m_cmdBuffer.buf, m_quadBuffer.idxBuf, 0, VK_INDEX_TYPE_UINT16);
-            constexpr static const VkDeviceSize offset = 0;
-            vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &m_quadBuffer.vtxBuf, &offset);
+            vkCmdPushConstants(m_cmdBuffer.buf, m_videoStreamLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(std::uint32_t), &viewID);
+            vkCmdDraw(m_cmdBuffer.buf, 3, 1, 0, 0);
 
-            const ViewProjectionUniform mvp1{ .ViewID = viewID };
-            vkCmdPushConstants(m_cmdBuffer.buf, m_videoStreamLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ViewProjectionUniform), &mvp1);
-
-            vkCmdDrawIndexed(m_cmdBuffer.buf, m_quadBuffer.count.idx, 1, 0, 0, 0);
             vkCmdEndRenderPass(m_cmdBuffer.buf);
         });
     }
@@ -4472,7 +4452,6 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
     using VideoShaderMap  = std::array<VideoShaderList, size_t(VideoFragShaderType::TypeCount)>;
     VideoShaderMap m_videoShaders {};
     
-    VertexBuffer<Geometry::QuadVertex> m_quadBuffer{};
     PipelineLayout m_videoStreamLayout{};
     using PipelineList = std::array<Pipeline, size_t(PassthroughMode::TypeCount)>;
     PipelineList m_videoStreamPipelines{};

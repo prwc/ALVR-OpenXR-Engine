@@ -6,34 +6,40 @@
 #endif
 #pragma vertex
 
+#ifndef ENABLE_MULTIVEW_EXT
 layout (std140, push_constant) uniform buf
 {
-#ifdef ENABLE_MULTIVEW_EXT
-    mat4 mvp[2];
-#else
-    mat4 mvp;
     uint ViewID;
-#endif
 } ubuf;
+#endif
 
 #ifdef ENABLE_MULTIVEW_EXT
-    #define VS_GET_VIEW_INDEX(input) gl_ViewIndex
-    #define VS_GET_VIEW_PROJ(input) input.mvp[gl_ViewIndex]
+    #define VS_GET_VIEW_INDEX() gl_ViewIndex
 #else
-    #define VS_GET_VIEW_INDEX(input) input.ViewID
-    #define VS_GET_VIEW_PROJ(input) input.mvp
+    #define VS_GET_VIEW_INDEX() ubuf.ViewID
 #endif
 
-#ifdef ENABLE_MVP_TRANSFORM
-    #define VS_MVP_TRANSFORM(input, pos) VS_GET_VIEW_PROJ(input) * vec4(pos, 1.0)
-#else
-    #define VS_MVP_TRANSFORM(input, pos) vec4(pos, 1.0)
-#endif
+// screen--space triangle
+const vec2 TrianglePositions[3] = vec2[](
+    vec2(-1.0f, -1.0f),
+    vec2(3.0f, -1.0f),
+    vec2(-1.0f, 3.0f)
+);
 
-layout (location = 0) in vec3 Position;
-layout (location = 1) in vec2 UV;
-            
-layout (location = 0) out vec2 oUV;            
+const vec2 UVs[2][3] = vec2[][](
+    vec2[](
+        vec2(0.0f, 0.0f),
+        vec2(1.0f, 0.0f),
+        vec2(0.0f, 2.0f)
+    ),
+    vec2[](
+        vec2(0.5f, 0.0f),
+        vec2(1.5f, 0.0f),
+        vec2(0.5f, 2.0f)
+    )
+);
+
+layout (location = 0) out vec2 outUV;            
 out gl_PerVertex
 {
     vec4 gl_Position;
@@ -41,11 +47,6 @@ out gl_PerVertex
 
 void main()
 {
-    vec2 ouv = UV;
-    if (VS_GET_VIEW_INDEX(ubuf) > 0) {
-        ouv.x += 0.5f;
-    }
-    oUV = ouv;
-    gl_Position = VS_MVP_TRANSFORM(ubuf, Position);
-    gl_Position.y = -gl_Position.y;
+    outUV = UVs[VS_GET_VIEW_INDEX()][gl_VertexIndex];
+    gl_Position = vec4(TrianglePositions[gl_VertexIndex], 0.0, 1.0);
 }
