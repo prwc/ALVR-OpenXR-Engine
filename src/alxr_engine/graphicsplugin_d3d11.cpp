@@ -205,22 +205,6 @@ struct D3D11GraphicsPlugin final : public IGraphicsPlugin {
                 m_videoPixelShader[shaderIndex++].ReleaseAndGetAddressOf()));
         }
 
-        constexpr static const D3D11_INPUT_ELEMENT_DESC vertexDesc[] = {
-            {"POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
-            {"TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D11_APPEND_ALIGNED_ELEMENT, D3D11_INPUT_PER_VERTEX_DATA, 0},
-        };
-        CHECK_HRCMD(m_device->CreateInputLayout(vertexDesc, (UINT)std::size(vertexDesc), m_coreShaders.videoVS.data(), m_coreShaders.videoVS.size(), &m_quadInputLayout));
-
-        using namespace Geometry;
-
-        const D3D11_SUBRESOURCE_DATA vertexBufferData{ QuadVertices.data() };
-        const CD3D11_BUFFER_DESC vertexBufferDesc(QuadVerticesSize, D3D11_BIND_VERTEX_BUFFER);
-        CHECK_HRCMD(m_device->CreateBuffer(&vertexBufferDesc, &vertexBufferData, m_quadVertexBuffer.ReleaseAndGetAddressOf()));
-
-        const D3D11_SUBRESOURCE_DATA indexBufferData{ QuadIndices.data() };
-        const CD3D11_BUFFER_DESC indexBufferDesc(QuadIndicesSize, D3D11_BIND_INDEX_BUFFER);
-        CHECK_HRCMD(m_device->CreateBuffer(&indexBufferDesc, &indexBufferData, m_quadIndexBuffer.ReleaseAndGetAddressOf()));
-
         // Create the sample state
         const D3D11_SAMPLER_DESC sampDesc {
             .Filter = D3D11_FILTER_MIN_MAG_MIP_LINEAR,
@@ -488,17 +472,9 @@ struct D3D11GraphicsPlugin final : public IGraphicsPlugin {
             const std::array<ID3D11SamplerState*, 2> samplers = { m_lumaSampler.Get(), m_chromaSampler.Get() };
             m_deviceContext->PSSetSamplers(0, (UINT)samplers.size(), samplers.data());
 
-            using namespace Geometry;
-            // Set cube primitive data.
-            constexpr static const UINT strides[] = { sizeof(QuadVertex) };
-            constexpr static const UINT offsets[] = { 0 };
-            ID3D11Buffer* const vertexBuffers[] = { m_quadVertexBuffer.Get() };
-            m_deviceContext->IASetVertexBuffers(0, (UINT)std::size(vertexBuffers), vertexBuffers, strides, offsets);
-            m_deviceContext->IASetIndexBuffer(m_quadIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
             m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            m_deviceContext->IASetInputLayout(m_quadInputLayout.Get());
-
-            m_deviceContext->DrawIndexedInstanced((UINT)QuadIndices.size(), 2, 0, 0, 0);
+            m_deviceContext->IASetInputLayout(nullptr);
+            m_deviceContext->DrawInstanced(3u, 2u, 0u, 0u);
         });
     }
 
@@ -1023,17 +999,9 @@ struct D3D11GraphicsPlugin final : public IGraphicsPlugin {
             const std::array<ID3D11SamplerState*, 2> samplers = { m_lumaSampler.Get(), m_chromaSampler.Get() };
             m_deviceContext->PSSetSamplers(0, (UINT)samplers.size(), samplers.data());
 
-            using namespace Geometry;
-            // Set cube primitive data.
-            constexpr static const UINT strides[] = { sizeof(QuadVertex) };
-            constexpr static const UINT offsets[] = { 0 };
-            ID3D11Buffer* const vertexBuffers[] = { m_quadVertexBuffer.Get() };
-            m_deviceContext->IASetVertexBuffers(0, (UINT)std::size(vertexBuffers), vertexBuffers, strides, offsets);
-            m_deviceContext->IASetIndexBuffer(m_quadIndexBuffer.Get(), DXGI_FORMAT_R16_UINT, 0);
             m_deviceContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-            m_deviceContext->IASetInputLayout(m_quadInputLayout.Get());
-
-            m_deviceContext->DrawIndexed((UINT)QuadIndices.size(), 0, 0);
+            m_deviceContext->IASetInputLayout(nullptr);
+            m_deviceContext->Draw(3, 0);
         });
     }
 
@@ -1094,9 +1062,6 @@ struct D3D11GraphicsPlugin final : public IGraphicsPlugin {
     ComPtr<ID3D11SamplerState> m_chromaSampler;
     ComPtr<ID3D11VertexShader> m_videoVertexShader;
     std::array<ComPtr<ID3D11PixelShader>,VideoPShader::TypeCount> m_videoPixelShader;
-    ComPtr<ID3D11InputLayout> m_quadInputLayout;
-    ComPtr<ID3D11Buffer> m_quadVertexBuffer;
-    ComPtr<ID3D11Buffer> m_quadIndexBuffer;
 
     D3D11FenceEvent                 m_texRendereComplete{};
     D3D11FenceEvent                 m_texCopy{};

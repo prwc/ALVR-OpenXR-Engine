@@ -546,37 +546,6 @@ struct D3D12GraphicsPlugin final : public IGraphicsPlugin {
             cmdList->CopyBufferRegion(m_cubeIndexBuffer.Get(), 0, cubeIndexBufferUpload.Get(), 0, sizeof(Geometry::c_cubeIndices));
         }
 
-        // screen quad ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-        using namespace Geometry;
-        ComPtr<ID3D12Resource> quadVertexBufferUpload;
-        m_quadVertexBuffer = CreateBuffer(m_device.Get(), QuadVerticesSize, D3D12_HEAP_TYPE_DEFAULT);
-        {
-            quadVertexBufferUpload = CreateBuffer(m_device.Get(), QuadVerticesSize, D3D12_HEAP_TYPE_UPLOAD);
-
-            void* data = nullptr;
-            const D3D12_RANGE readRange{ 0, 0 };
-            CHECK_HRCMD(quadVertexBufferUpload->Map(0, &readRange, &data));
-            std::memcpy(data, QuadVertices.data(), QuadVerticesSize);
-            quadVertexBufferUpload->Unmap(0, nullptr);
-
-            cmdList->CopyBufferRegion(m_quadVertexBuffer.Get(), 0, quadVertexBufferUpload.Get(), 0, QuadVerticesSize);
-        }
-
-        ComPtr<ID3D12Resource> quadIndexBufferUpload;
-        m_quadIndexBuffer = CreateBuffer(m_device.Get(), QuadIndicesSize, D3D12_HEAP_TYPE_DEFAULT);
-        {
-            quadIndexBufferUpload = CreateBuffer(m_device.Get(), QuadIndicesSize, D3D12_HEAP_TYPE_UPLOAD);
-
-            void* data = nullptr;
-            const D3D12_RANGE readRange{ 0, 0 };
-            CHECK_HRCMD(quadIndexBufferUpload->Map(0, &readRange, &data));
-            memcpy(data, QuadIndices.data(), QuadIndicesSize);
-            quadIndexBufferUpload->Unmap(0, nullptr);
-
-            cmdList->CopyBufferRegion(m_quadIndexBuffer.Get(), 0, quadIndexBufferUpload.Get(), 0, QuadIndicesSize);
-        }
-        // screen quad ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
         CHECK_HRCMD(cmdList->Close());
         ID3D12CommandList* cmdLists[] = { cmdList.Get() };
         m_cmdQueue->ExecuteCommandLists((UINT)std::size(cmdLists), cmdLists);
@@ -754,7 +723,10 @@ struct D3D12GraphicsPlugin final : public IGraphicsPlugin {
             const CD3DX12_DEPTH_STENCIL_DESC desc(depthStencilState);
             pipelineStateStream.DepthStencilState = desc;
         }
-        pipelineStateStream.InputLayout = { inputElementDescs.data(), (UINT)inputElementDescs.size() };
+        pipelineStateStream.InputLayout = { 
+            inputElementDescs.size() == 0 ? nullptr : inputElementDescs.data(),
+            (UINT)inputElementDescs.size()
+        };
         pipelineStateStream.IBStripCutValue = D3D12_INDEX_BUFFER_STRIP_CUT_VALUE_0xFFFF;
         pipelineStateStream.PrimitiveTopologyType = D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE;
         pipelineStateStream.DSVFormat = DXGI_FORMAT_D32_FLOAT;
@@ -858,19 +830,10 @@ struct D3D12GraphicsPlugin final : public IGraphicsPlugin {
             return iter->second[VideoPipelineIndex(is3PlaneFormat, newMode)].Get();
         }
 
-        constexpr static const std::array<const D3D12_INPUT_ELEMENT_DESC, 2> InputElementDescs {
-            D3D12_INPUT_ELEMENT_DESC {
-                "POSITION", 0, DXGI_FORMAT_R32G32B32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
-                 D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
-            },
-            D3D12_INPUT_ELEMENT_DESC {
-                "TEXCOORD", 0, DXGI_FORMAT_R32G32_FLOAT, 0, D3D12_APPEND_ALIGNED_ELEMENT,
-                D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0
-            },
-        };
+        constexpr static const std::array<const D3D12_INPUT_ELEMENT_DESC, 0> EmptyInputElementDescs {};
         const auto makePipeline = [&, this](const ShaderByteCodeList<2>& shaders) -> ComPtr<ID3D12PipelineState>
         {
-            return MakePipelineState(swapchainFormat, shaders, InputElementDescs);
+            return MakePipelineState(swapchainFormat, shaders, EmptyInputElementDescs);
         };
         
         const auto videoShaderBCodes = m_coreShaders.GetVideoByteCodes(m_fovDecodeParams != nullptr);
@@ -1635,16 +1598,10 @@ struct D3D12GraphicsPlugin final : public IGraphicsPlugin {
             const D3D12_CPU_DESCRIPTOR_HANDLE renderTargets[] = { renderTargetView };
             cmdList->OMSetRenderTargets((UINT)std::size(renderTargets), renderTargets, true, &depthStencilView);
 
-            using namespace Geometry;
-            const D3D12_VERTEX_BUFFER_VIEW vertexBufferView[] = {{ m_quadVertexBuffer->GetGPUVirtualAddress(), QuadVerticesSize, sizeof(QuadVertex)} };
-            cmdList->IASetVertexBuffers(0, (UINT)std::size(vertexBufferView), vertexBufferView);
-
-            const D3D12_INDEX_BUFFER_VIEW indexBufferView{ m_quadIndexBuffer->GetGPUVirtualAddress(), QuadIndicesSize, DXGI_FORMAT_R16_UINT };
-            cmdList->IASetIndexBuffer(&indexBufferView);
             cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
             // Draw Video Quad
-            cmdList->DrawIndexedInstanced((UINT)QuadIndices.size(), 1, 0, 0, 0);
+            cmdList->DrawInstanced(3, 1, 0, 0);
         }, RenderPipelineType::Video, newMode);
     }
 
@@ -1695,16 +1652,10 @@ struct D3D12GraphicsPlugin final : public IGraphicsPlugin {
             const D3D12_CPU_DESCRIPTOR_HANDLE renderTargets[] = { renderTargetView };
             cmdList->OMSetRenderTargets((UINT)std::size(renderTargets), renderTargets, true, &depthStencilView);
 
-            using namespace Geometry;
-            const D3D12_VERTEX_BUFFER_VIEW vertexBufferView[] = {{ m_quadVertexBuffer->GetGPUVirtualAddress(), QuadVerticesSize, sizeof(QuadVertex)} };
-            cmdList->IASetVertexBuffers(0, (UINT)std::size(vertexBufferView), vertexBufferView);
-
-            const D3D12_INDEX_BUFFER_VIEW indexBufferView{ m_quadIndexBuffer->GetGPUVirtualAddress(), QuadIndicesSize, DXGI_FORMAT_R16_UINT };
-            cmdList->IASetIndexBuffer(&indexBufferView);
             cmdList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
 
             // Draw Video Quad
-            cmdList->DrawIndexedInstanced((UINT)QuadIndices.size(), 1, 0, 0, 0);
+            cmdList->DrawInstanced(3, 1, 0, 0);
         }, RenderPipelineType::Video, newMode);
     }
 
@@ -1794,9 +1745,6 @@ struct D3D12GraphicsPlugin final : public IGraphicsPlugin {
     std::atomic<bool>              m_is3PlaneFormat{ false };
     NV12Texture                    m_videoTexUploadBuffers{};
     //std::mutex                     m_renderMutex{};
-
-    ComPtr<ID3D12Resource>         m_quadVertexBuffer{};
-    ComPtr<ID3D12Resource>         m_quadIndexBuffer{};
 
     ComPtr<ID3D12CommandAllocator> m_videoTexCmdAllocator{};
     ComPtr<ID3D12CommandQueue>     m_videoTexCmdCpyQueue{};
