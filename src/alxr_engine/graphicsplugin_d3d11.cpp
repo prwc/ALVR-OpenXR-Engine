@@ -510,10 +510,10 @@ struct D3D11GraphicsPlugin final : public IGraphicsPlugin {
         renderFn();
     }
 
-    inline std::size_t ClearColorIndex(const PassthroughMode ptMode) const {
-        static_assert(ALXR::ClearColors.size() >= 4);
-        static_assert(ALXR::VideoClearColors.size() >= 4);
-        return ptMode == PassthroughMode::None ? m_clearColorIndex : 3;
+    inline std::size_t ClearColorIndex(const PassthroughMode /*ptMode*/) const {
+        static_assert(ALXR::ClearColors.size() >= 3);
+        static_assert(ALXR::VideoClearColors.size() >= 3);
+        return m_clearColorIndex;
     }
 
     virtual void RenderView
@@ -1006,6 +1006,10 @@ struct D3D11GraphicsPlugin final : public IGraphicsPlugin {
     }
 
     inline void SetEnvironmentBlendMode(const XrEnvironmentBlendMode newMode) {
+        static_assert(XR_ENVIRONMENT_BLEND_MODE_OPAQUE == 1);
+        static_assert(ALXR::ClearColors.size() >= 3);
+        static_assert(ALXR::VideoClearColors.size() >= 3);
+        assert(newMode > 0 && newMode < 4);
         m_clearColorIndex = newMode-1;
     }
 

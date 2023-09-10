@@ -131,49 +131,6 @@ inline VkResult CheckVkResult(VkResult res, const char* originator = nullptr, co
 #define CHECK_VKCMD(cmd) CheckVkResult(cmd, #cmd, FILE_AND_LINE);
 #define CHECK_VKRESULT(res, cmdStr) CheckVkResult(res, cmdStr, FILE_AND_LINE);
 
-#ifdef USE_ONLINE_VULKAN_SHADERC
-constexpr char VertexShaderGlsl[] =
-    R"_(
-    #version 430
-    #extension GL_ARB_separate_shader_objects : enable
-
-    layout (std140, push_constant) uniform buf
-    {
-        mat4 mvp;
-    } ubuf;
-
-    layout (location = 0) in vec3 Position;
-    layout (location = 1) in vec3 Color;
-
-    layout (location = 0) out vec4 oColor;
-    out gl_PerVertex
-    {
-        vec4 gl_Position;
-    };
-
-    void main()
-    {
-        oColor.rgba  = Color.rgba;
-        gl_Position = ubuf.mvp * Position;
-    }
-)_";
-
-constexpr char FragmentShaderGlsl[] =
-    R"_(
-    #version 430
-    #extension GL_ARB_separate_shader_objects : enable
-
-    layout (location = 0) in vec4 oColor;
-
-    layout (location = 0) out vec4 FragColor;
-
-    void main()
-    {
-        FragColor = oColor;
-    }
-)_";
-#endif  // USE_ONLINE_VULKAN_SHADERC
-
 struct MemoryAllocator {
     void Init(VkPhysicalDevice physicalDevice, VkDevice device) {
         m_physicalDevice = physicalDevice;
@@ -3074,10 +3031,6 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
     using CodeBuffer = ShaderProgram::CodeBuffer;
 
     void InitializeResources() {
-#ifdef USE_ONLINE_VULKAN_SHADERC
-        auto vertexSPIRV = CompileGlslShader("vertex", shaderc_glsl_default_vertex_shader, VertexShaderGlsl);
-        auto fragmentSPIRV = CompileGlslShader("fragment", shaderc_glsl_default_fragment_shader, FragmentShaderGlsl);
-#else
 
         CodeBuffer vertexSPIRV, fragmentSPIRV;
         if (IsMultiViewEnabled()) {
@@ -3100,7 +3053,6 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
                     #include "shaders/lobby_frag.spv"
                 SPV_SUFFIX;
         }
-#endif
 
         if (vertexSPIRV.empty()) THROW("Failed to compile vertex shader");
         if (fragmentSPIRV.empty()) THROW("Failed to compile fragment shader");
@@ -3248,9 +3200,9 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             .stencil = 0
         }
     };
-    constexpr static const std::array<const ClearValueT, 4> ConstClearValues{
+    constexpr static const std::array<const ClearValueT, 3> ConstClearValues{
         OpaqueClear {
-            VkClearValue {.color {.float32 = { DarkGraySlate[0], DarkGraySlate[1], DarkGraySlate[2], 1.0f}}},
+            VkClearValue {.color {.float32 = { DarkGraySlate[0], DarkGraySlate[1], DarkGraySlate[2], 0.2f}}},
             ClearDepthStencilValue
         },
         AdditiveClear {
@@ -3258,19 +3210,21 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             ClearDepthStencilValue
         },
         AlphaBlendClear {
-            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.5f }}},
-            ClearDepthStencilValue
-        },
-        OpaqueClear { // for XR_FB_passthrough / Passthrough Modes.
-            VkClearValue {.color {.float32 = { DarkGraySlate[0], DarkGraySlate[1], DarkGraySlate[2], 0.2f}}},
+            // set the alpha channel to zero to show passthrough and render elements on top.
+            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.0f }}},
             ClearDepthStencilValue
         },
     };
-    static_assert(ConstClearValues.size() >= 4);
+    static_assert(ConstClearValues.size() >= 3);
 
-    constexpr static const std::array<const ClearValueT, 4> VideoClearValues{
+    constexpr static const std::array<const ClearValueT, 3> VideoClearValues{
         OpaqueClear {
-            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 1.0f }}},
+            //
+            // Typically the alpha channel is ignored for XR_ENVIRONMENT_BLEND_MODE_OPAQUE but
+            // for runtimes which only support passthrough via explicit extensions such as XR_FB_passthrough & XR_HTC_passthrough
+            // and only have the an Opaque blend, the alpha channel is relevent/used in this case.
+            // 
+            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.2f }}},
             ClearDepthStencilValue
         },
         AdditiveClear {
@@ -3278,18 +3232,18 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             ClearDepthStencilValue
         },
         AlphaBlendClear {
-            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.5f }}},
-            ClearDepthStencilValue
-        },
-        OpaqueClear { // for XR_FB_passthrough / Passthrough Modes.
-            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.2f}}},
+            //
+            // set the alpha channel to zero to show passthrough, if a video frame isn't rendered for whatever reason
+            // only the passthrough feed will show rather than jarring random black-opaque frames popping in
+            //
+            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.0f }}},
             ClearDepthStencilValue
         },
     };
-    static_assert(VideoClearValues.size() >= 4);
+    static_assert(VideoClearValues.size() >= 3);
 
-    inline std::size_t ClearValueIndex(const PassthroughMode ptMode) const {       
-        return ptMode == PassthroughMode::None ? m_clearColorIndex : 3u;
+    inline std::size_t ClearValueIndex(const PassthroughMode /*ptMode*/) const {       
+        return m_clearColorIndex;
     }
 
     void RenderMultiView
@@ -4391,6 +4345,8 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
     }
 
     virtual inline void SetEnvironmentBlendMode(const XrEnvironmentBlendMode newMode) override {
+        static_assert(XR_ENVIRONMENT_BLEND_MODE_OPAQUE == 1);
+        assert(newMode > 0 && newMode < 4);
         m_clearColorIndex = (newMode - 1);
     }
 

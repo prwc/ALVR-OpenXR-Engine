@@ -516,6 +516,11 @@ struct OpenXrProgram final : IOpenXrProgram {
         Log::Write(Log::Level::Verbose, "OpenXrProgram Destroyed.");
     }
 
+    static constexpr const std::array<const XrEnvironmentBlendMode, 2> NonOpaqueBlendModes = {
+        XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND,
+        XR_ENVIRONMENT_BLEND_MODE_ADDITIVE
+    };
+
     using ExtensionMap = std::unordered_map<std::string_view, bool>;
     ExtensionMap m_availableSupportedExtMap = {
 #ifdef XR_USE_PLATFORM_UWP
@@ -684,8 +689,10 @@ struct OpenXrProgram final : IOpenXrProgram {
         }();
         m_graphicsPlugin->SetEnableLinearizeRGB(enableSRGBLinearization);
 #ifdef XR_USE_OXR_PICO_ANY_VERSION
-        m_graphicsPlugin->SetMaskModeParams({ 0.11f, 0.11f, 0.11f });
-        m_graphicsPlugin->SetBlendModeParams(0.62f);
+        if (IsPrePicoPUI<5, 8>()) {
+            m_graphicsPlugin->SetMaskModeParams({ 0.11f, 0.11f, 0.11f });
+            m_graphicsPlugin->SetBlendModeParams(0.62f);
+        }
 #endif
         m_graphicsPlugin->SetCmdBufferWaitNextFrame(!IsRuntime(OxrRuntimeType::MagicLeap));
     }
@@ -869,16 +876,22 @@ struct OpenXrProgram final : IOpenXrProgram {
 
         LogViewConfigurations();
 
-        const auto blendModes = GetEnvironmentBlendModes(m_viewConfigType);
-        if (std::find(blendModes.begin(), blendModes.end(), m_environmentBlendMode) == blendModes.end() && !blendModes.empty()) {
+        m_availableBlendModes = GetEnvironmentBlendModes(m_viewConfigType, false);
+        if (std::find(m_availableBlendModes.begin(), m_availableBlendModes.end(), m_environmentBlendMode) == m_availableBlendModes.end() && !m_availableBlendModes.empty()) {
             Log::Write(Log::Level::Info, Fmt
             (
                 "Requested environment blend mode (%s) is not available, using first available mode (%s)",
                 to_string(m_environmentBlendMode),
-                to_string(blendModes[0])
+                to_string(m_availableBlendModes[0])
             ));
-            m_environmentBlendMode = blendModes[0];
+            m_environmentBlendMode = m_availableBlendModes[0];
         }
+
+        if (!HasOpaqueEnvBlendMode()) {
+            assert(m_environmentBlendMode.load() != XR_ENVIRONMENT_BLEND_MODE_OPAQUE);
+            m_currentPTMode.store(ALXR::PassthroughMode::BlendLayer);
+        }
+        Log::Write(Log::Level::Info, Fmt("Initial passthrough mode is %u", m_currentPTMode.load()));
 
         // The graphics API can initialize the graphics device now that the systemId and instance
         // handle are available.
@@ -1611,8 +1624,8 @@ struct OpenXrProgram final : IOpenXrProgram {
             .type = XR_TYPE_SYSTEM_PROPERTIES,
             .next = &passthroughSystemProperties
         };
-        CHECK_XRCMD(xrGetSystemProperties(m_instance, m_systemId, &systemProperties));
-        if (passthroughSystemProperties.supportsPassthrough == XR_FALSE) {
+        if (XR_FAILED(xrGetSystemProperties(m_instance, m_systemId, &systemProperties)) ||
+            passthroughSystemProperties.supportsPassthrough == XR_FALSE) {
             Log::Write(Log::Level::Warning, Fmt("%s is not enabled/supported.", XR_FB_PASSTHROUGH_EXTENSION_NAME));
             return false;
         }
@@ -1696,16 +1709,31 @@ struct OpenXrProgram final : IOpenXrProgram {
         InitializeHTCPassthroughAPI();
     }
 
+    bool HasOpaqueEnvBlendMode() const {
+        return std::find(m_availableBlendModes.begin(), m_availableBlendModes.end(), XR_ENVIRONMENT_BLEND_MODE_OPAQUE) != m_availableBlendModes.end();
+    }
+
+    std::optional<XrEnvironmentBlendMode> GetPassthroughEnvBlendMode() const {
+        for (const auto nonOpaqueMode : NonOpaqueBlendModes) {
+            if (std::find(m_availableBlendModes.begin(), m_availableBlendModes.end(), nonOpaqueMode) != m_availableBlendModes.end()) {
+                return { nonOpaqueMode };
+            }
+        }
+        return {};
+    }
+
     inline bool IsPassthroughSupported() const {
+        if (m_options && m_options->NoPassthrough)
+            return false;
         if (m_ptLayerData.reconPassthroughLayer != XR_NULL_HANDLE)
+            return true;
+        if (m_pfnCreatePassthroughHTC != nullptr)
             return true;
 #ifdef XR_USE_OXR_PICO_ANY_VERSION
         if (m_pfnInvokeFunctionsPICO != nullptr)
-            return m_options == nullptr ? true : !m_options->NoPassthrough;
-#endif
-        if (m_pfnCreatePassthroughHTC != nullptr)
             return true;
-        return false;
+#endif
+        return GetPassthroughEnvBlendMode().has_value();
     }
 
     std::atomic<ALXR::PassthroughMode> m_currentPTMode{ ALXR::PassthroughMode::None };
@@ -1726,7 +1754,7 @@ struct OpenXrProgram final : IOpenXrProgram {
 
         // When enabled, clear color must be rgba == 0x00000000 (same as additive blend mode).
         const auto newBlendMode = enable ?
-            XR_ENVIRONMENT_BLEND_MODE_ADDITIVE : m_environmentBlendMode;
+            XR_ENVIRONMENT_BLEND_MODE_ADDITIVE : m_environmentBlendMode.load();
         graphicsPluginPtr->SetEnvironmentBlendMode(newBlendMode);
 
         XrBool32 enableSeethroughBackground = enable ? XR_TRUE : XR_FALSE;
@@ -1741,14 +1769,20 @@ struct OpenXrProgram final : IOpenXrProgram {
     }
 #endif
 
-    void StartPassthroughMode() {
+    bool StartPassthroughMode() {
         if (!IsPassthroughSupported())
-            return;
+            return false;
 
         if (m_ptLayerData.reconPassthroughLayer != XR_NULL_HANDLE) {
-            CHECK_XRCMD(m_pfnPassthroughStartFB(m_ptLayerData.passthrough));
-            CHECK_XRCMD(m_pfnPassthroughLayerResumeFB(m_ptLayerData.reconPassthroughLayer));
-            Log::Write(Log::Level::Info, "Passthrough (Layer) is started/resumed.");
+            if (XR_FAILED(m_pfnPassthroughStartFB(m_ptLayerData.passthrough))) {
+                Log::Write(Log::Level::Warning, "[XR_FB_passthrough] Failed to start passthrough.");
+                return false;
+            }
+            if (XR_FAILED(m_pfnPassthroughLayerResumeFB(m_ptLayerData.reconPassthroughLayer))) {
+                Log::Write(Log::Level::Warning, "[XR_FB_passthrough] Failed to resumed passthrough layer.");
+                return false;
+            }
+            Log::Write(Log::Level::Info, "[XR_FB_passthrough] Passthrough (Layer) is started/resumed.");
 
             constexpr const XrPassthroughStyleFB style{
                 .type = XR_TYPE_PASSTHROUGH_STYLE_FB,
@@ -1756,53 +1790,91 @@ struct OpenXrProgram final : IOpenXrProgram {
                 .textureOpacityFactor = 0.5f,
                 .edgeColor = { 0.0f, 0.0f, 0.0f, 0.0f },
             };
-            CHECK_XRCMD(m_pfnPassthroughLayerSetStyleFB(m_ptLayerData.reconPassthroughLayer, &style));
-            return;
+            const bool result = XR_SUCCEEDED(m_pfnPassthroughLayerSetStyleFB(m_ptLayerData.reconPassthroughLayer, &style));
+            Log::Write(Log::Level::Verbose, Fmt("[XR_FB_passthrough] Passthrough layer style %s set.", result ? "successfully" : "failed to be"));
+            return result;
         }
 
-#ifdef XR_USE_OXR_PICO_ANY_VERSION
-        if (m_pfnInvokeFunctionsPICO) {
-            SetPICOSeeThroughBackground(true);
-            Log::Write(Log::Level::Info, "Passthrough (Layer) is started/resumed.");
-            return;
-        }
-#endif
-
-        if (m_ptLayerData.passthroughHTC == XR_NULL_HANDLE) {
+        if (m_pfnCreatePassthroughHTC && m_ptLayerData.passthroughHTC == XR_NULL_HANDLE) {
             constexpr const XrPassthroughCreateInfoHTC createInfo {
                 .type = XR_TYPE_PASSTHROUGH_CREATE_INFO_HTC,
                 .next = nullptr,
                 .form = XR_PASSTHROUGH_FORM_PLANAR_HTC,
             };
-            assert(m_pfnCreatePassthroughHTC != nullptr);
-            CHECK_XRCMD(m_pfnCreatePassthroughHTC(m_session, &createInfo, &m_ptLayerData.passthroughHTC));
+            const bool result =  XR_SUCCEEDED(m_pfnCreatePassthroughHTC(m_session, &createInfo, &m_ptLayerData.passthroughHTC));
+            Log::Write(Log::Level::Info, Fmt("[XR_HTC_passthrough] Passthrough %s started/resumed.", result ? "successfully" : "failed to be"));
+            return result;
         }
+
+#ifdef XR_USE_OXR_PICO_ANY_VERSION
+        if (IsPrePicoPUI<5,8>() && m_pfnInvokeFunctionsPICO) {
+            const bool result = SetPICOSeeThroughBackground(true);
+            Log::Write(Log::Level::Info, Fmt("[XR_PICO_boundary(_ext)] Passthrough (Layer) %s started/resumed.", result ? "successfully" : "failed to be"));
+            return result;
+        }
+#endif
+
+        if (m_environmentBlendMode == XR_ENVIRONMENT_BLEND_MODE_OPAQUE) {
+            const auto ptEnvBlendMode = GetPassthroughEnvBlendMode();
+            if (!ptEnvBlendMode.has_value())
+                return false;
+            const auto graphicsPluginPtr = m_graphicsPlugin;
+            if (graphicsPluginPtr == nullptr)
+                return false;
+            graphicsPluginPtr->SetEnvironmentBlendMode(ptEnvBlendMode.value());
+            m_environmentBlendMode.store(ptEnvBlendMode.value());
+            Log::Write(Log::Level::Info, Fmt("Enviroment blend mode set to %d for passthrough modes.", ptEnvBlendMode.value()));
+            return true;
+        }
+
+        return false;
     }
 
-    void StopPassthroughMode() {
+    bool StopPassthroughMode() {
         if (!IsPassthroughModeEnabled())
-            return;
+            return false;
         assert(IsPassthroughSupported());
         m_currentPTMode.store(ALXR::PassthroughMode::None);
     /////////////////////////////////////////////////
         Log::Write(Log::Level::Info, "Passthrough (Layer) is stopped/paused.");
         if (m_ptLayerData.reconPassthroughLayer != XR_NULL_HANDLE) {
-            CHECK_XRCMD(m_pfnPassthroughLayerPauseFB(m_ptLayerData.reconPassthroughLayer));
-            CHECK_XRCMD(m_pfnPassthroughPauseFB(m_ptLayerData.passthrough));
-            return;
+            if (XR_FAILED(m_pfnPassthroughLayerPauseFB(m_ptLayerData.reconPassthroughLayer))) {
+                Log::Write(Log::Level::Warning, "[XR_FB_passthrough] Failed to pause passthrough layer.");
+            }
+            if (XR_FAILED(m_pfnPassthroughPauseFB(m_ptLayerData.passthrough))) {
+                Log::Write(Log::Level::Warning, "[XR_FB_passthrough] Failed to pause/stop passthrough.");
+                return false;
+            }
+            return true;
         }
-        if (m_ptLayerData.passthroughHTC != XR_NULL_HANDLE) {
-            assert(m_pfnDestroyPassthroughHTC != nullptr);
-            CHECK_XRCMD(m_pfnDestroyPassthroughHTC(m_ptLayerData.passthroughHTC));
+
+        if (m_ptLayerData.passthroughHTC != XR_NULL_HANDLE && m_pfnDestroyPassthroughHTC) {
+            const bool result = XR_SUCCEEDED(m_pfnDestroyPassthroughHTC(m_ptLayerData.passthroughHTC));
             m_ptLayerData.passthroughHTC = XR_NULL_HANDLE;
-            return;
+            if (!result)
+                Log::Write(Log::Level::Warning, "[XR_HTC_passthrough] Failed to pause/stop passthrough.");
+            return result;
         }
+
 #ifdef XR_USE_OXR_PICO_ANY_VERSION
-        if (m_pfnInvokeFunctionsPICO) {
-            SetPICOSeeThroughBackground(false);
-            return;
+        if (IsPrePicoPUI<5, 8>() && m_pfnInvokeFunctionsPICO) {
+            const bool result = SetPICOSeeThroughBackground(false);
+            Log::Write(Log::Level::Info, Fmt("[XR_PICO_boundary(_ext)] Passthrough (Layer) %s paused/stopped.", result ? "successfully" : "failed to be"));
+            return result;
         }
 #endif
+
+        if (m_environmentBlendMode != XR_ENVIRONMENT_BLEND_MODE_OPAQUE && HasOpaqueEnvBlendMode()) {
+            const auto graphicsPluginPtr = m_graphicsPlugin;
+            if (graphicsPluginPtr == nullptr)
+                return false;
+            graphicsPluginPtr->SetEnvironmentBlendMode(XR_ENVIRONMENT_BLEND_MODE_OPAQUE);
+            m_environmentBlendMode.store(XR_ENVIRONMENT_BLEND_MODE_OPAQUE);
+            Log::Write(Log::Level::Info, "Enviroment blend mode set to OPAQUE for normal renader mode (no passthrough).");
+            return true;
+        }
+
+        return false;
     }
 
     void TogglePassthroughMode(const ALXR::PassthroughMode newMode) {
@@ -1817,6 +1889,7 @@ struct OpenXrProgram final : IOpenXrProgram {
         }
         /////////////////////////////////////////////////
         m_currentPTMode.store(newMode);
+        Log::Write(Log::Level::Info, Fmt("Passthrough mode changed from %u to %u", lastMode, newMode));
     }
 
     void SetPerformanceLevels() {
@@ -1825,15 +1898,21 @@ struct OpenXrProgram final : IOpenXrProgram {
 
         if (IsExtEnabled(XR_EXT_PERFORMANCE_SETTINGS_EXTENSION_NAME)) {
             PFN_xrPerfSettingsSetPerformanceLevelEXT setPerfLevel = nullptr;
-            CHECK_XRCMD(xrGetInstanceProcAddr
+            if (XR_FAILED(xrGetInstanceProcAddr
             (
                 m_instance,
                 "xrPerfSettingsSetPerformanceLevelEXT",
                 reinterpret_cast<PFN_xrVoidFunction*>(&setPerfLevel)
-            ));
-            CHECK(setPerfLevel != nullptr);
-            CHECK_XRCMD(setPerfLevel(m_session, XR_PERF_SETTINGS_DOMAIN_CPU_EXT, XR_PERF_SETTINGS_LEVEL_SUSTAINED_HIGH_EXT));
-            CHECK_XRCMD(setPerfLevel(m_session, XR_PERF_SETTINGS_DOMAIN_GPU_EXT, XR_PERF_SETTINGS_LEVEL_BOOST_EXT));
+            ))) {
+                Log::Write(Log::Level::Warning, "xrGetInstanceProcAddr failed to get address for xrPerfSettingsSetPerformanceLevelEXT.");
+                setPerfLevel = nullptr;
+            }
+            if (setPerfLevel) {
+                if (XR_FAILED(setPerfLevel(m_session, XR_PERF_SETTINGS_DOMAIN_CPU_EXT, XR_PERF_SETTINGS_LEVEL_SUSTAINED_HIGH_EXT)))
+                    Log::Write(Log::Level::Warning, "Failed to set CPU performance level");
+                if (XR_FAILED(setPerfLevel(m_session, XR_PERF_SETTINGS_DOMAIN_GPU_EXT, XR_PERF_SETTINGS_LEVEL_BOOST_EXT)))
+                    Log::Write(Log::Level::Warning, "Failed to set GPU performance level");
+            }
         }
 #ifdef XR_USE_OXR_PICO_V4
         if (IsExtEnabled(XR_PICO_PERFORMANCE_SETTINGS_EXTENSION_NAME)) {
@@ -1863,12 +1942,16 @@ struct OpenXrProgram final : IOpenXrProgram {
             return false;
         
         PFN_xrSetAndroidApplicationThreadKHR setAndroidAppThreadFn = nullptr;
-        CHECK_XRCMD(xrGetInstanceProcAddr
+        if (XR_FAILED(xrGetInstanceProcAddr
         (
             m_instance,
             "xrSetAndroidApplicationThreadKHR",
             reinterpret_cast<PFN_xrVoidFunction*>(&setAndroidAppThreadFn)
-        ));
+        ))) {
+            Log::Write(Log::Level::Warning, "xrGetInstanceProcAddr failed to get address for xrSetAndroidApplicationThreadKHR.");
+            setAndroidAppThreadFn = nullptr;
+            return false;
+        }
         Log::Write(Log::Level::Info, Fmt("Setting android app thread, type: %lu, thread-id: %d", threadType, threadId));
         const auto result = setAndroidAppThreadFn(m_session, static_cast<XrAndroidThreadTypeKHR>(threadType), threadId);
         if (XR_FAILED(result)) {
@@ -2592,6 +2675,7 @@ struct OpenXrProgram final : IOpenXrProgram {
         std::uint32_t layerCount = 0;
         std::array<const XrCompositionLayerBaseHeader*, 2> layers{};
         std::array<XrCompositionLayerProjectionView,2> projectionLayerViews;
+        const auto currentEnvBlendMode = m_environmentBlendMode.load();
         if (frameState.shouldRender == XR_TRUE)
         {
             XrCompositionLayerFlags ptRenderLayerFlags = 0;
@@ -2605,6 +2689,9 @@ struct OpenXrProgram final : IOpenXrProgram {
                 if (m_ptLayerData.passthroughHTC != XR_NULL_HANDLE) {
                     passthroughLayerHTC = MakeCompositionLayerPassthroughHTC();
                     layers[layerCount++] = reinterpret_cast<const XrCompositionLayerBaseHeader*>(&passthroughLayerHTC);
+                    ptRenderLayerFlags = XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
+                }
+                if (currentEnvBlendMode == XR_ENVIRONMENT_BLEND_MODE_ALPHA_BLEND) {
                     ptRenderLayerFlags = XR_COMPOSITION_LAYER_UNPREMULTIPLIED_ALPHA_BIT;
                 }
             }
@@ -2637,7 +2724,7 @@ struct OpenXrProgram final : IOpenXrProgram {
             .displayTime = UseNetworkPredicatedDisplayTime() ?
                 predictedDisplayTime : frameState.predictedDisplayTime,
             //.displayTime = frameState.predictedDisplayTime,
-            .environmentBlendMode = m_environmentBlendMode,
+            .environmentBlendMode = currentEnvBlendMode,
             .layerCount = layerCount,
             .layers = layers.data()
         };
@@ -3575,7 +3662,8 @@ struct OpenXrProgram final : IOpenXrProgram {
     XrSpace m_viewSpace{ XR_NULL_HANDLE };
     XrFormFactor m_formFactor{XR_FORM_FACTOR_HEAD_MOUNTED_DISPLAY};
     XrViewConfigurationType m_viewConfigType{XR_VIEW_CONFIGURATION_TYPE_PRIMARY_STEREO};
-    XrEnvironmentBlendMode m_environmentBlendMode{ XR_ENVIRONMENT_BLEND_MODE_OPAQUE };
+    XrEnvironmentBlendModeList m_availableBlendModes {};
+    std::atomic<XrEnvironmentBlendMode> m_environmentBlendMode{ XR_ENVIRONMENT_BLEND_MODE_OPAQUE };
     XrSystemId m_systemId{XR_NULL_SYSTEM_ID};
 
     std::vector<XrViewConfigurationView> m_configViews;
