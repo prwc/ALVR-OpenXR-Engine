@@ -128,6 +128,7 @@ bool alxr_init(const ALXRClientCtx* rCtx, /*[out]*/ ALXRSystemProperties* system
         options->firmwareVersion = { fmVersion.major, fmVersion.minor, fmVersion.patch };
         options->TrackingServerPortNo = static_cast<std::uint16_t>(ctx.trackingServerPortNo);
         options->SimulateHeadless = ctx.simulateHeadless;
+        options->PassthroughMode = ctx.passthroughMode;
         if (options->GraphicsPlugin.empty())
             options->GraphicsPlugin = graphics_api_str(ctx.graphicsApi);
         if (options->EnableHeadless())

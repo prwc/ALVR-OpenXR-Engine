@@ -2020,6 +2020,11 @@ struct OpenXrProgram final : IOpenXrProgram {
             referenceSpaceCreateInfo = GetXrReferenceSpaceCreateInfo("View");
             CHECK_XRCMD(xrCreateReferenceSpace(m_session, &referenceSpaceCreateInfo, &m_viewSpace));
         }
+
+        if (m_options && IsPassthroughSupported()) {
+            const auto newPtMode = static_cast<ALXR::PassthroughMode>(m_options->PassthroughMode);
+            TogglePassthroughMode(newPtMode);
+        }
     }
 
     void ClearSwapchains()

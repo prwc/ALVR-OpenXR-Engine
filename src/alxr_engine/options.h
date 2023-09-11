@@ -119,6 +119,8 @@ struct Options {
 
     FirmwareVersion firmwareVersion{};
 
+    ALXRPassthroughMode PassthroughMode = ALXRPassthroughMode::None;
+
     ALXRFacialExpressionType FacialTracking = ALXRFacialExpressionType::Auto;
     ALXREyeTrackingType      EyeTracking = ALXREyeTrackingType::Auto;
 
