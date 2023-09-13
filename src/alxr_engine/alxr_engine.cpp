@@ -113,6 +113,10 @@ bool alxr_init(const ALXRClientCtx* rCtx, /*[out]*/ ALXRSystemProperties* system
         assert(options->AppSpace == "Stage");
         assert(options->ViewConfiguration == "Stereo");
         options->DisableLinearizeSrgb = ctx.disableLinearizeSrgb;
+#ifdef XR_USE_OXR_LYNX
+#pragma message ("Force disable sRGB gamma correction for Lynx-R1 runtime bug.")
+        options->DisableLinearizeSrgb = true;
+#endif
         options->DisableSuggestedBindings = ctx.noSuggestedBindings;
         options->NoServerFramerateLock = ctx.noServerFramerateLock;
         options->NoFrameSkip = ctx.noFrameSkip;

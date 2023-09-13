@@ -122,6 +122,7 @@ option(USE_OCULUS_OXR_EXT_HEADERS "Use the Oculus Mobile OpenXR SDK extension HE
 option(USE_OCULUS_MOBILE_LOADER "Links to the Oculus Mobile OpenXR SDK to use this loader (BUILD_LOADER will be ignored)" OFF)
 option(USE_PICO_MOBILE_LOADER "Links to the Pico 4/Neo 3 OpenXR SDK (PUI >= 5.2.x) to use this loader (BUILD_LOADER will be ignored)" OFF)
 option(USE_PICO_MOBILE_V4_LOADER "Links to the Pico 4/Neo 3 OpenXR SDK (pre PUI 5.2.x) to use this loader (BUILD_LOADER will be ignored)" OFF)
+option(USE_LYNX_LOADER "Links to the Lynx R-1 loader (BUILD_LOADER will be ignored)" OFF)
 
 if(WIN32)
     set(OPENXR_DEBUG_POSTFIX d CACHE STRING "OpenXR loader debug postfix.")
@@ -763,7 +764,7 @@ if (USE_OCULUS_MOBILE_LOADER AND ANDROID)
     )
     add_definitions(-DXR_USE_OXR_OCULUS)
 elseif (USE_PICO_MOBILE_LOADER AND ANDROID)
-    message(STATUS "Using Pico 4/Neo 3 Mobile OpenXR (PUI >= 5.2.x) Loader.")
+    message(NOTICE "Using Pico 4/Neo 3 Mobile OpenXR (PUI >= 5.2.x) Loader.")
     set(PICO_OPENXR_MOBILE_SDK ${PROJECT_SOURCE_DIR}/src/external/pico)
     add_library(openxr_loader SHARED IMPORTED)
     set_property(
@@ -782,7 +783,7 @@ elseif (USE_PICO_MOBILE_LOADER AND ANDROID)
     )
     add_definitions(-DXR_USE_OXR_PICO -DXR_USE_OXR_PICO_ANY_VERSION)
 elseif (USE_PICO_MOBILE_V4_LOADER AND ANDROID)
-    message(STATUS "Using Pico 4/Neo 3 Mobile OpenXR (Pre 5.2.x) Loader.")
+    message(NOTICE "Using Pico 4/Neo 3 Mobile OpenXR (Pre 5.2.x) Loader.")
     set(PICO_OPENXR_MOBILE_SDK ${PROJECT_SOURCE_DIR}/src/external/pico-4.x/OpenXR)
     add_library(openxr_loader SHARED IMPORTED)
     set_property(
@@ -800,6 +801,25 @@ elseif (USE_PICO_MOBILE_V4_LOADER AND ANDROID)
             ${PICO_OPENXR_MOBILE_SDK}/Libs/Android/${ANDROID_ABI}/libopenxr_loader.so
     )
     add_definitions(-DXR_USE_OXR_PICO_V4 -DXR_USE_OXR_PICO_ANY_VERSION)
+elseif (USE_LYNX_LOADER AND ANDROID)
+    message(NOTICE "Using Lynx R-1 Loader.")
+    set(LYNX_SDK ${PROJECT_SOURCE_DIR}/src/external/lynx)
+    add_library(openxr_loader SHARED IMPORTED)
+    set_property(
+            TARGET
+            openxr_loader
+            PROPERTY
+            INTERFACE_INCLUDE_DIRECTORIES
+            ${LYNX_SDK}/include
+    )
+    set_property(
+            TARGET
+            openxr_loader
+            PROPERTY
+            IMPORTED_LOCATION
+            "${LYNX_SDK}/libs/arm64-v8a/libopenxr_loader.so"
+    )
+    add_definitions(-DXR_USE_OXR_LYNX)
 else()
     if(BUILD_LOADER)
         add_subdirectory(loader)

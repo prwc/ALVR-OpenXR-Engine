@@ -685,7 +685,7 @@ struct OpenXrProgram final : IOpenXrProgram {
         const bool enableSRGBLinearization = [this]() {
             if (IsPrePicoPUI<5,4>())
                 return false;
-            return !m_options->DisableLinearizeSrgb;// || IsRuntime(OxrRuntimeType::HTCWave));
+            return !m_options->DisableLinearizeSrgb;
         }();
         m_graphicsPlugin->SetEnableLinearizeRGB(enableSRGBLinearization);
 #ifdef XR_USE_OXR_PICO_ANY_VERSION
