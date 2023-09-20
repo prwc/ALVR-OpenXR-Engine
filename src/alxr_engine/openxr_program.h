@@ -36,6 +36,7 @@ enum class OxrRuntimeType
     Pico,
     HTCWave,
     MagicLeap,
+    SnapdragonMonado,
     Unknown,
 ////////////////////////
     TypeCount
@@ -50,6 +51,7 @@ constexpr inline std::string_view ToString(const OxrRuntimeType t) {
     case OxrRuntimeType::Pico:      return "Pico";
     case OxrRuntimeType::HTCWave:   return "VIVE WAVE";
     case OxrRuntimeType::MagicLeap: return "MAGICLEAP";
+    case OxrRuntimeType::SnapdragonMonado: return "Snapdragon";
     default: return "Unknown";
     }
 }

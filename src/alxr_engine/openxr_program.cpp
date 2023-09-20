@@ -2570,7 +2570,8 @@ struct OpenXrProgram final : IOpenXrProgram {
     inline bool UseNetworkPredicatedDisplayTime() const
     {
         return !IsRuntime(OxrRuntimeType::SteamVR) &&
-               !IsRuntime(OxrRuntimeType::Monado);
+               !IsRuntime(OxrRuntimeType::Monado) &&
+               !IsRuntime(OxrRuntimeType::SnapdragonMonado);
     }
 
     inline XrCompositionLayerPassthroughFB MakeCompositionLayerPassthroughFB() const {
