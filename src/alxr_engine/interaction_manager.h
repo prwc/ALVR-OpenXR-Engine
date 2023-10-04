@@ -95,7 +95,7 @@ struct InteractionManager {
     XrPath GetXrPath(const InteractionProfile& profile) const;
     XrPath GetXrInputPath(const InteractionProfile& profile, const std::size_t hand, const char* const str) const;
     XrPath GetXrOutputPath(const InteractionProfile& profile, const std::size_t hand, const char* const str) const;
-    XrPath GetCurrentProfilePath() const;
+    XrPath GetCurrentProfilePath(const std::size_t hand) const;
     inline ALXR::SpaceLoc GetSpaceLocation
     (
         const std::size_t hand,
@@ -116,7 +116,7 @@ struct InteractionManager {
     using ControllerInfoList = std::array<ControllerInfo, Side::COUNT>;
     void PollActions(ControllerInfoList& controllerInfo);
 
-    void SetActiveProfile(const XrPath profilePath);
+    void SetActiveProfile(const std::array<XrPath,2>& profilePaths);
     void SetActiveFromCurrentProfile();
     void ApplyHapticFeedback(const HapticsFeedback& hapticFeedback);
 
@@ -151,8 +151,9 @@ private:
 #endif
 
 
-    using InteractionProfilePtr = std::atomic<const InteractionProfile*>;
-    InteractionProfilePtr m_activeProfile{ nullptr };
+    using InteractionProfilePtr     = std::atomic<const InteractionProfile*>;
+    using InteractionProfilePtrList = std::array<InteractionProfilePtr, 2>;
+    InteractionProfilePtrList m_activeProfiles{ nullptr, nullptr };
 
     using HandPathList   = std::array<XrPath, Side::COUNT>;
     using HandSpaceList  = std::array<XrSpace, Side::COUNT>;
@@ -254,7 +255,9 @@ inline InteractionManager::~InteractionManager() {
 
 inline void InteractionManager::Clear() {
 
-    m_activeProfile.store(nullptr);
+    for (auto& activeProfile : m_activeProfiles) {
+        activeProfile.store(nullptr);
+    }
     Log::Write(Log::Level::Verbose, "Destroying Hand Action Spaces");
     for (auto hand : { Side::LEFT, Side::RIGHT }) {
         if (m_handSpace[hand] != XR_NULL_HANDLE) {
@@ -309,21 +312,19 @@ inline XrPath InteractionManager::GetXrOutputPath(const InteractionProfile& prof
     return GetXrPath(fullPath.c_str());
 }
 
-inline XrPath InteractionManager::GetCurrentProfilePath() const
+inline XrPath InteractionManager::GetCurrentProfilePath(const std::size_t hand) const
 {
     if (m_session == XR_NULL_HANDLE)
         return XR_NULL_PATH;
-    for (const auto hand : { Side::LEFT, Side::RIGHT }) {
-        const auto handPath = m_handSubactionPath[hand];
-        XrInteractionProfileState ps{
-            .type = XR_TYPE_INTERACTION_PROFILE_STATE,
-            .next = nullptr,
-            .interactionProfile = XR_NULL_PATH
-        };
-        if (XR_SUCCEEDED(xrGetCurrentInteractionProfile(m_session, handPath, &ps)) &&
-            ps.interactionProfile != XR_NULL_PATH) {
-            return ps.interactionProfile;
-        }
+    const auto handPath = m_handSubactionPath[hand];
+    XrInteractionProfileState ps{
+        .type = XR_TYPE_INTERACTION_PROFILE_STATE,
+        .next = nullptr,
+        .interactionProfile = XR_NULL_PATH
+    };
+    if (XR_SUCCEEDED(xrGetCurrentInteractionProfile(m_session, handPath, &ps)) &&
+        ps.interactionProfile != XR_NULL_PATH) {
+        return ps.interactionProfile;
     }
     return XR_NULL_PATH;
 }
@@ -579,7 +580,11 @@ inline void InteractionManager::PollActions(InteractionManager::ControllerInfoLi
     if (m_eyeGazeInteraction)
         m_eyeGazeInteraction->PollActions();
 
-    const auto activeProfilePtr = m_activeProfile.load();
+    const std::array<const ALXR::InteractionProfile* const, 2> activeProfilePtrs = {
+        m_activeProfiles[Side::LEFT].load(),
+        m_activeProfiles[Side::RIGHT].load(),
+    };
+
     for (const auto hand : { Side::LEFT, Side::RIGHT })
     {
         XrActionStateGetInfo getInfo{
@@ -596,6 +601,7 @@ inline void InteractionManager::PollActions(InteractionManager::ControllerInfoLi
         if (poseState.isActive == XR_TRUE)
             controllerInfo.enabled = true;
 
+        const auto activeProfilePtr = activeProfilePtrs[hand];
         if (activeProfilePtr == nullptr)
             continue;
         const auto forEachButton = [this, &getInfo](/*const*/ auto& actionMap, const ALXR::InputMap& inputMap, auto&& fn) -> void
@@ -699,10 +705,18 @@ inline void InteractionManager::PollActions(InteractionManager::ControllerInfoLi
             controllerInfo.enabled = true;
     }
     
-    if (activeProfilePtr) {
-        const auto& activeProfile = *activeProfilePtr;
-        PollPassthrougMode(activeProfile);
-        PollQuitAction(activeProfile);
+    //
+    // TODO: This code currently assume the same interaction profile for both hands,
+    //       needs to change to support systems that can support mixed profiles per hand
+    //       (.e.g `XR_EXT_hand_interaction` for hand and a controller-based profile on the other).
+    //
+    for (const auto activeProfilePtr : activeProfilePtrs) {
+        if (activeProfilePtr) {
+            const auto& activeProfile = *activeProfilePtr;
+            PollPassthrougMode(activeProfile);
+            PollQuitAction(activeProfile);
+            return;
+        }
     }
 }
 
@@ -826,10 +840,12 @@ inline void InteractionManager::ApplyHapticFeedback(const HapticsFeedback& hapti
 {
     if (m_session == XR_NULL_HANDLE)
         return;
-    const auto activeProfilePtr = m_activeProfile.load();
+
+    const size_t hand = hapticFeedback.alxrPath == m_alxrPaths.right_haptics ? 1 : 0;
+    const auto activeProfilePtr = m_activeProfiles[hand].load();
     if (activeProfilePtr == nullptr || !activeProfilePtr->hapticPath)
         return;
-    const size_t hand = hapticFeedback.alxrPath == m_alxrPaths.right_haptics ? 1 : 0;
+
     const XrHapticVibration vibration{
         .type = XR_TYPE_HAPTIC_VIBRATION,
         .next = nullptr,
@@ -853,28 +869,35 @@ inline void InteractionManager::RequestExitSession()
     CHECK_XRCMD(xrRequestExitSession(m_session));
 }
 
-inline void InteractionManager::SetActiveProfile(const XrPath newProfilePath)
+inline void InteractionManager::SetActiveProfile(const std::array<XrPath,2>& newProfilePaths)
 {
-    const auto newProfileItr = std::find_if
-    (
-        ALXR::InteractionProfileMap.begin(),
-        ALXR::InteractionProfileMap.end(),
-        [&](const ALXR::InteractionProfile& ip) { return newProfilePath == GetXrPath(ip.path); }
-    );
-    const auto* const newProfile = newProfileItr == ALXR::InteractionProfileMap.end() ?
-        nullptr : &*newProfileItr;
-    assert(newProfile != &ALXR::EyeGazeProfile);
-    m_activeProfile.store(newProfile);
+    for (std::size_t idx = 0; idx < newProfilePaths.size(); ++idx) {
+        const auto newProfilePath = newProfilePaths[idx];
+        const auto newProfileItr = std::find_if
+        (
+            ALXR::InteractionProfileMap.begin(),
+            ALXR::InteractionProfileMap.end(),
+            [&](const ALXR::InteractionProfile& ip) { return newProfilePath == GetXrPath(ip.path); }
+        );
+        const auto* const newProfile = newProfileItr == ALXR::InteractionProfileMap.end() ?
+            nullptr : &*newProfileItr;
+        assert(newProfile != &ALXR::EyeGazeProfile);
+        m_activeProfiles[idx].store(newProfile);
 
-    Log::Write(Log::Level::Info, "Interaction Profile Changed");
-    if (newProfile)
-        Log::Write(Log::Level::Info, Fmt("\tNew selected profile: \"%s\"", newProfile->path));
-    else
-        Log::Write(Log::Level::Info, "No new profile selected.");
+        Log::Write(Log::Level::Info, Fmt("Interaction Profile Changed for hand-index: %u", (std::uint32_t)idx));
+        if (newProfile)
+            Log::Write(Log::Level::Info, Fmt("\tNew selected profile: \"%s\"", newProfile->path));
+        else
+            Log::Write(Log::Level::Info, "\tNo new profile active/hand is not active.");
+    }
 }
 
 inline void InteractionManager::SetActiveFromCurrentProfile() {
-    SetActiveProfile(GetCurrentProfilePath());
+    const std::array<XrPath, 2> profilePaths = {
+        GetCurrentProfilePath(Side::LEFT),
+        GetCurrentProfilePath(Side::RIGHT),
+    };
+    SetActiveProfile(profilePaths);
 }
 
 inline void InteractionManager::LogActionSourceName(XrAction action, const char* const actionName) const
@@ -933,6 +956,8 @@ inline void InteractionManager::LogActions() const {
     for (const auto& [k, v] : m_boolToScalarActionMap)
         LogActionSourceName(v.xrAction, v.localizedName);
     for (const auto& [k, v] : m_scalarActionMap)
+        LogActionSourceName(v.xrAction, v.localizedName);
+    for (const auto& [k, v] : m_scalarToBoolActionMap)
         LogActionSourceName(v.xrAction, v.localizedName);
     for (const auto& [k, v] : m_vector2fActionMap)
         LogActionSourceName(v.xrAction, v.localizedName);
