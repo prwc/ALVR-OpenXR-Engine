@@ -17,6 +17,8 @@ LOCAL_C_INCLUDES := \
 # 
 LOCAL_SRC_FILES		:= 	../../../Src/main.cpp \
                         ../../../Src/ModelRenderer.cpp \
+						../../../Src/EnvironmentRenderer.cpp \
+						../../../Src/SkyboxRenderer.cpp \
 
 # include default libraries
 LOCAL_LDLIBS 			:= -llog -landroid -lGLESv3 -lEGL

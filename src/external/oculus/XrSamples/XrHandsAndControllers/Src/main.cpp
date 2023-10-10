@@ -20,6 +20,8 @@ Copyright   :   Copyright (c) Meta Platforms, Inc. and affiliates.
 #include "Render/GlGeometry.h"
 #include "XrApp.h"
 #include "ActionSetDisplayPanel.h"
+#include "SkyboxRenderer.h"
+#include "EnvironmentRenderer.h"
 #include "GUI/VRMenuObject.h"
 
 #include "OVR_Math.h"
@@ -294,6 +296,15 @@ class XrHandsAndControllersSampleApp : public OVRFW::XrApp {
             return false;
         }
 
+        auto fileSys = std::unique_ptr<OVRFW::ovrFileSys>(OVRFW::ovrFileSys::Create(*context));
+
+        if( fileSys ) {
+            std::string environmentPath = "apk:///assets/SmallRoom.gltf.ovrscene";
+            environmentRenderer_.Init(environmentPath, fileSys.get());
+            std::string skyboxPath = "apk:///assets/Skybox.gltf.ovrscene";
+            skyboxRenderer_.Init(skyboxPath, fileSys.get());
+        }
+
         // Inspect hand tracking system properties
         XrSystemHandTrackingPropertiesEXT handTrackingSystemProperties{
             XR_TYPE_SYSTEM_HAND_TRACKING_PROPERTIES_EXT};
@@ -498,7 +509,7 @@ class XrHandsAndControllersSampleApp : public OVRFW::XrApp {
         CreateSampleDescriptionPanel();
 
         /// Disable scene navigation
-        GetScene().SetFootPos({0.0f, 0.0f, 0.0f});
+        GetScene().SetFootPos({10.0f, 0.0f, 0.0f});
         this->FreeMove = false;
 
         // Init objects that need OpenXR Session
@@ -646,15 +657,15 @@ class XrHandsAndControllersSampleApp : public OVRFW::XrApp {
             ui_.AddHitTestRay(FromXrPosef(aimRightLocation_.pose), click);
         }
 
-            // Check validity of detached grip locations
-            if ((gripDetachedLeftLocation_.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) !=
-                0) {
-                controllerRenderL_.Update(FromXrPosef(gripDetachedLeftLocation_.pose));
-            }
-            if ((gripDetachedRightLocation_.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) !=
-                0) {
-                controllerRenderR_.Update(FromXrPosef(gripDetachedRightLocation_.pose));
-            }
+        // Check validity of detached grip locations
+        if ((gripDetachedLeftLocation_.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) !=
+            0) {
+            controllerRenderL_.Update(FromXrPosef(gripDetachedLeftLocation_.pose));
+        }
+        if ((gripDetachedRightLocation_.locationFlags & XR_SPACE_LOCATION_POSITION_VALID_BIT) !=
+            0) {
+            controllerRenderR_.Update(FromXrPosef(gripDetachedRightLocation_.pose));
+        }
 
         for (auto& panelPair : actionSetPanels_) {
             panelPair.second.Update();
@@ -665,6 +676,9 @@ class XrHandsAndControllersSampleApp : public OVRFW::XrApp {
     }
 
     virtual void Render(const OVRFW::ovrApplFrameIn& in, OVRFW::ovrRendererOutput& out) override {
+        skyboxRenderer_.Render(out.Surfaces);
+        environmentRenderer_.Render(out.Surfaces);
+
         ui_.Render(in, out);
 
        /// Render controllers
@@ -724,6 +738,8 @@ class XrHandsAndControllersSampleApp : public OVRFW::XrApp {
     }
 
     virtual void SessionEnd() override {
+        environmentRenderer_.Shutdown();
+        skyboxRenderer_.Shutdown();
         controllerRenderL_.Shutdown();
         controllerRenderR_.Shutdown();
         cursorBeamRenderer_.Shutdown();
@@ -999,7 +1015,7 @@ class XrHandsAndControllersSampleApp : public OVRFW::XrApp {
         }
 
         OXR(xrGetCurrentInteractionProfile(GetSession(), rightHandPath_, &ipState));
-        if (locationsL.isActive &&
+        if (locationsR.isActive &&
             (ipState.interactionProfile == 0 ||
              ipState.interactionProfile == msftHandInteractionProfile_)) {
             handTrackedR_ = true;
@@ -1075,6 +1091,8 @@ class XrHandsAndControllersSampleApp : public OVRFW::XrApp {
     // Controllers
     OVRFW::ControllerRenderer controllerRenderL_;
     OVRFW::ControllerRenderer controllerRenderR_;
+    OVRFW::EnvironmentRenderer environmentRenderer_;
+    OVRFW::SkyboxRenderer skyboxRenderer_;
     OVRFW::SimpleBeamRenderer cursorBeamRenderer_;
     OVRFW::TinyUI ui_;
 

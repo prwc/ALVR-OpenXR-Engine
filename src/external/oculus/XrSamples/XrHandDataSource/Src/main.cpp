@@ -13,11 +13,17 @@ Copyright   :   Copyright (c) Facebook Technologies, LLC and its affiliates. All
 #include <iomanip>
 #include <sstream>
 
+#include "Model/ModelDef.h"
+#include "Model/ModelFile.h"
+#include "Model/ModelFileLoading.h"
+#include "OVR_FileSys.h"
 #include "XrApp.h"
 
 #include "Input/HandRenderer.h"
 #include "Input/TinyUI.h"
 #include "ModelRenderer.h"
+#include "EnvironmentRenderer.h"
+#include "SkyboxRenderer.h"
 #include "Render/GeometryRenderer.h"
 #include "Render/SimpleBeamRenderer.h"
 
@@ -30,7 +36,7 @@ Copyright   :   Copyright (c) Facebook Technologies, LLC and its affiliates. All
 class XrHandDataSourceApp : public OVRFW::XrApp {
    public:
     XrHandDataSourceApp() : OVRFW::XrApp() {
-        BackgroundColor = OVR::Vector4f(0.60f, 0.95f, 0.4f, 1.0f);
+        BackgroundColor = OVR::Vector4f(0.3372549f, 0.345098f, 0.4f, 0.3686274f);
     }
 
     // Returns a list of OpenXr extensions needed for this app
@@ -99,6 +105,15 @@ class XrHandDataSourceApp : public OVRFW::XrApp {
                 }
             });
 
+        auto fileSys = std::unique_ptr<OVRFW::ovrFileSys>(OVRFW::ovrFileSys::Create(*context));
+
+        if( fileSys ) {
+            std::string environmentPath = "apk:///assets/SmallRoom.gltf.ovrscene";
+            environmentRenderer_.Init(environmentPath, fileSys.get());
+            std::string skyboxPath = "apk:///assets/Skybox.gltf.ovrscene";
+            skyboxRenderer.Init(skyboxPath, fileSys.get());
+        }
+
         return true;
     }
 
@@ -144,6 +159,8 @@ class XrHandDataSourceApp : public OVRFW::XrApp {
 
         controllerRenderL_.Shutdown();
         controllerRenderR_.Shutdown();
+        skyboxRenderer.Shutdown();
+        environmentRenderer_.Shutdown();
         beamRenderer_.Shutdown();
         handRendererL_.Shutdown();
         handRendererR_.Shutdown();
@@ -219,14 +236,14 @@ class XrHandDataSourceApp : public OVRFW::XrApp {
 
         /// UI
         ui_.HitTestDevices().clear();
-        if (handR_->AreLocationsActive() && (!renderTrackedRemotes_ || !handR_->OnController())) {
+        if (handDataTypeNatural_ && handR_->AreLocationsActive()) {
             ui_.AddHitTestRay(FromXrPosef(handR_->AimPose()), handR_->IndexPinching());
         } else if (in.RightRemoteTracked) {
             const bool didPinch = in.RightRemoteIndexTrigger > 0.25f;
             ui_.AddHitTestRay(in.RightRemotePointPose, didPinch);
         }
 
-        if (handL_->AreLocationsActive() && (!renderTrackedRemotes_ || !handL_->OnController())) {
+        if (handDataTypeNatural_ && handL_->AreLocationsActive()) {
             ui_.AddHitTestRay(FromXrPosef(handL_->AimPose()), handL_->IndexPinching());
         } else if (in.LeftRemoteTracked) {
             const bool didPinch = in.LeftRemoteIndexTrigger > 0.25f;
@@ -239,13 +256,15 @@ class XrHandDataSourceApp : public OVRFW::XrApp {
 
     // Render eye buffers while running
     virtual void Render(const OVRFW::ovrApplFrameIn& in, OVRFW::ovrRendererOutput& out) override {
+        // Render the environment first, to place behind all other surfaces.
+        skyboxRenderer.Render(out.Surfaces);
+        environmentRenderer_.Render(out.Surfaces);
+
         /// Render UI
         ui_.Render(in, out);
 
-
         /// Render beams
         beamRenderer_.Render(in, out);
-
 
         if (handL_->AreLocationsActive() && handL_->IsPositionValid()) {
             /// Render solid Hands
@@ -276,6 +295,8 @@ class XrHandDataSourceApp : public OVRFW::XrApp {
    private:
     OVRFW::ModelRenderer controllerRenderL_;
     OVRFW::ModelRenderer controllerRenderR_;
+    OVRFW::EnvironmentRenderer environmentRenderer_;
+    OVRFW::SkyboxRenderer skyboxRenderer;
 
     OVRFW::TinyUI ui_;
     OVRFW::SimpleBeamRenderer beamRenderer_;

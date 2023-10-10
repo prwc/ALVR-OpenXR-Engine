@@ -182,6 +182,7 @@ struct ModelMaterial {
           normalTextureWrapper(nullptr),
           occlusionTextureWrapper(nullptr),
           emissiveTextureWrapper(nullptr),
+          detailTextureWrapper(nullptr),
           baseColorFactor(1.0f, 1.0f, 1.0f, 1.0f),
           emmisiveFactor(0.0f, 0.0f, 0.0f),
           metallicFactor(1.0f),
@@ -200,6 +201,7 @@ struct ModelMaterial {
     const ModelTextureWrapper* normalTextureWrapper;
     const ModelTextureWrapper* occlusionTextureWrapper;
     const ModelTextureWrapper* emissiveTextureWrapper;
+    const ModelTextureWrapper* detailTextureWrapper;
     OVR::Vector4f baseColorFactor;
     OVR::Vector3f emmisiveFactor;
     float metallicFactor;

@@ -101,7 +101,11 @@ class XrKeyboardApp : public OVRFW::XrApp {
         bigText_ = ui_.AddLabel("OpenXR Keyboard", {0.1f, -0.25f, -2.0f}, {1300.0f, 100.0f});
         systemText_ = ui_.AddLabel("No System Keyboard", {0.1f, -0.5f, -2.0f}, {1300.0f, 100.0f});
         ui_.AddToggleButton(
-            "Keys Only", "Full Model", &useKeyLabelsOnly_, {0.1f, 0.0f, -1.9f}, {500.0f, 100.0f});
+            "Use Passthrough Window",
+            "Use Model with Passthrough Hands",
+            &usePassthroughWindow_,
+            {0.1f, 0.0f, -1.9f},
+            {500.0f, 100.0f});
         connectionRequiredButton_ = ui_.AddButton(
             "Toggle Require Keyboard Connected", {0.1f, 0.25f, -1.9f}, {500.0f, 100.0f}, [=]() {
                 bool currentState = keyboard_->RequireKeyboardConnectedToTrack();
@@ -181,7 +185,8 @@ class XrKeyboardApp : public OVRFW::XrApp {
         handMaskRendererL_.Init(handL_->IsLeft() /*leftHand*/);
         handMaskRendererR_.Init(handR_->IsLeft() /*leftHand*/);
 
-        gr_.Init(OVRFW::BuildTesselatedQuadDescriptor(4, 4, true));
+        gr_.Init(OVRFW::BuildTesselatedQuadDescriptor(
+            4, 4, false /*twoSided*/)); // quad in XY plane, facing +Z
         gr_.DiffuseColor = {1.0f, 1.0f, 1.0f, 1.0f};
         gr_.ChannelControl = {0, 1, 0, 1};
         gr_.AmbientLightColor = {1, 1, 1};
@@ -229,9 +234,7 @@ class XrKeyboardApp : public OVRFW::XrApp {
         XrTime predictedDisplayTime = ToXrTime(in.PredictedDisplayTime);
 
         /// Toggle visualizations together
-        usePassthroughHandLayer_ = !useKeyLabelsOnly_;
-
-        if (usePassthroughHandLayer_) {
+        if (!usePassthroughWindow_) {
             /// render hand presence using a hand mask layer
             renderRealPassthroughLayerUnder_ = false;
             renderRealPassthroughLayerOver_ = true;
@@ -325,13 +328,16 @@ class XrKeyboardApp : public OVRFW::XrApp {
             }
             axisRenderer_.Update(keyboardPoses);
 
-            /// update cut out plane pose for key label
+            /// update cut out plane pose
             OVR::Posef planePose = pose_;
             planePose.Translation.y -= 0.02f;
-            planePose.Rotation *= OVR::Quatf({1.0f, 0.0f, 0.0f}, OVR::DegreeToRad(90.0f));
+            planePose.Rotation *= OVR::Quatf({1.0f, 0.0f, 0.0f}, OVR::DegreeToRad(-90.0f));
             gr_.SetPose(planePose);
-            const float scale = 2.0f;
-            gr_.SetScale({dimensions_.x, dimensions_.z * scale, dimensions_.z * scale});
+            const float padding = 0.1f; // provide some padding
+            gr_.SetScale(
+                {(dimensions_.x * 0.5f) + padding,
+                 (dimensions_.z * 0.5f) + padding,
+                 1.0f});
             gr_.Update();
         } else {
             renderKeyboard_ = false;
@@ -360,7 +366,7 @@ class XrKeyboardApp : public OVRFW::XrApp {
 
             /// Send the transform to the planar layer, (hand layer ignores it)
             OVR::Posef passthroughPose = pose_;
-            if (useKeyLabelsOnly_) {
+            if (usePassthroughWindow_) {
                 passthroughPose.Translation.y += (dimensions_.y / 2.0f);
             }
             passthrough_->SetTransform(
@@ -418,12 +424,12 @@ class XrKeyboardApp : public OVRFW::XrApp {
     // Render eye buffers while running
     virtual void Render(const OVRFW::ovrApplFrameIn& in, OVRFW::ovrRendererOutput& out) override {
         /// Render plane
-        if (useKeyLabelsOnly_ && renderKeyboard_) {
+        if (usePassthroughWindow_ && renderKeyboard_) {
             gr_.Render(out.Surfaces);
         }
 
         /// configure hand mask rendering
-        const float kMaskSize = useKeyLabelsOnly_ ? 0.0125f : 0.0175f;
+        const float kMaskSize = usePassthroughWindow_ ? 0.0125f : 0.0175f;
         handMaskRendererL_.AlphaMaskSize = kMaskSize;
         handMaskRendererR_.AlphaMaskSize = kMaskSize;
 
@@ -438,7 +444,7 @@ class XrKeyboardApp : public OVRFW::XrApp {
             }
 
             /// Always render the keyboard at the LKG location ...
-            keyboardRenderer_.UseSolidTexture = !useKeyLabelsOnly_;
+            keyboardRenderer_.ShowModel = !usePassthroughWindow_;
             /// Opacity fade when losing tracking
             keyboardRenderer_.Opacity = keyboardOpacity_;
             keyboardRenderer_.Render(out.Surfaces);
@@ -448,9 +454,9 @@ class XrKeyboardApp : public OVRFW::XrApp {
         beamRenderer_.Render(in, out);
 
         /// Rendering a blend of hand mask and solid hands
-        /// keep hands semi-transparent for regular mask, solid for key lablel
-        const float HandMaskBlendFactor = useKeyLabelsOnly_ ? 1.0f : 0.4f;
-        const float HandFadeIntensity = useKeyLabelsOnly_ ? 1.0f : 0.75f;
+        /// keep hands semi-transparent for regular mask, solid for passthrough window
+        const float HandMaskBlendFactor = usePassthroughWindow_ ? 1.0f : 0.4f;
+        const float HandFadeIntensity = usePassthroughWindow_ ? 1.0f : 0.75f;
         const float HandBlendFactor = 1.0f;
 
         renderPassthroughHands_ = false;
@@ -462,7 +468,7 @@ class XrKeyboardApp : public OVRFW::XrApp {
                 pose_.Translation);
 
             /// only render hand mask when we are using a planar layer
-            if (renderKeyboard_ && usePassthroughHandLayer_ == false) {
+            if (renderKeyboard_ && usePassthroughWindow_) {
                 /// ... and render the cutout mask
                 handMaskRendererL_.LayerBlend = (MaskBlend)*HandMaskBlendFactor;
                 handMaskRendererL_.FadeIntensity = HandFadeIntensity;
@@ -491,7 +497,7 @@ class XrKeyboardApp : public OVRFW::XrApp {
                 pose_.Translation);
 
             /// only render hand mask when we are using a planar layer
-            if (renderKeyboard_ && usePassthroughHandLayer_ == false) {
+            if (renderKeyboard_ && usePassthroughWindow_) {
                 /// ... and render the cutout mask
                 handMaskRendererR_.LayerBlend = (MaskBlend)*HandMaskBlendFactor;
                 handMaskRendererR_.FadeIntensity = HandFadeIntensity;
@@ -601,8 +607,8 @@ class XrKeyboardApp : public OVRFW::XrApp {
     }
 
     const XrPassthroughLayerFB& GetLayer() const {
-        return usePassthroughHandLayer_ ? passthrough_->GetHandsLayer()
-                                        : passthrough_->GetProjectedLayer();
+        return usePassthroughWindow_ ? passthrough_->GetProjectedLayer()
+                                     : passthrough_->GetHandsLayer();
     }
 
     void SetTrackingRequired(
@@ -696,10 +702,9 @@ class XrKeyboardApp : public OVRFW::XrApp {
     /// state
     bool renderKeyboard_ = false;
     bool renderPassthroughHands_ = false;
-    bool usePassthroughHandLayer_ = true;
-    bool useKeyLabelsOnly_ = false;
+    bool usePassthroughWindow_ = false;
 
-    /// geometry renderer for key label effect
+    /// geometry renderer for passthrough cutout
     OVRFW::GeometryRenderer gr_;
 
     // system keyboard info text;

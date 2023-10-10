@@ -12,6 +12,10 @@ Authors     :   Jonathan E. Wright
 #if !defined(OVRLib_Log_h)
 #define OVRLib_Log_h
 
+#include <atomic>
+#include <chrono>
+#include <memory>
+
 #include "OVR_Types.h"
 #include "OVR_Std.h"
 #include <stdlib.h>
@@ -68,6 +72,35 @@ inline void LogWithTag(const int prio, const char* tag, const char* fmt, ...) {
 #warning "LogWithTag not implemented for this given OVR_OS_"
 #endif
 }
+
+/// The log timer is copied from XR_LOG's log timer
+namespace {
+struct OVR_LogTimer {
+    explicit constexpr OVR_LogTimer(std::chrono::steady_clock::duration duration)
+        : nextLogTime_(std::chrono::steady_clock::time_point::min().time_since_epoch().count()),
+          duration_(duration.count()) {}
+
+    bool OVR_shouldLogNow() {
+        const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+        auto nextLogTime = nextLogTime_.load(std::memory_order_relaxed);
+        // It is possible that multiple shouldLogNow() calls observe nextLogTime <= now
+        // simultaneously, the compare-exchange however will only succeed for one of them.
+        return nextLogTime <= now &&
+            nextLogTime_.compare_exchange_strong(
+                nextLogTime, now + duration_, std::memory_order_relaxed);
+    }
+
+   private:
+    std::atomic<std::chrono::steady_clock::duration::rep> nextLogTime_;
+    const std::chrono::steady_clock::duration::rep duration_;
+};
+
+template <typename T1, typename T2>
+bool OVR_shouldLogNow(T1 nanoseconds, T2 dummyLambda) {
+    static OVR_LogTimer timer{std::chrono::steady_clock::duration(nanoseconds)};
+    return timer.OVR_shouldLogNow();
+}
+} // namespace
 
 // Strips the directory and extension from fileTag to give a concise log tag
 inline void FilePathToTag(const char* filePath, char* strippedTag, const int strippedTagSize) {
@@ -340,5 +373,14 @@ static inline std::string ovrLogConvertPrintfToString(const char* format, ...) {
             OVR_WARN(__VA_ARGS__);      \
         }                               \
     }
+
+#define OVR_LOG_EVERY_N_SEC(n, ...)                                                       \
+    OVR_LOG_IF(                                                                           \
+        (n) == 0 ? true : OVR_shouldLogNow(static_cast<long long>(1.0e9 * (n)), []() {}), \
+        __VA_ARGS__)
+#define OVR_WARN_EVERY_N_SEC(n, ...)                                                      \
+    OVR_WARN_IF(                                                                          \
+        (n) == 0 ? true : OVR_shouldLogNow(static_cast<long long>(1.0e9 * (n)), []() {}), \
+        __VA_ARGS__)
 
 #endif // OVRLib_Log_h

@@ -978,6 +978,22 @@ bool LoadModelFile_glTF_Json(
                                     &modelFile.TextureWrappers[index];
                             }
 
+                            // detailTexture
+                            const OVR::JsonReader detailTexture =
+                                material.GetChildByName("detailTexture");
+                            if (detailTexture.IsObject()) {
+                                int index = detailTexture.GetChildInt32ByName("index", -1);
+                                if (index < 0 ||
+                                    index >= static_cast<int>(modelFile.TextureWrappers.size())) {
+                                    ALOGW(
+                                        "Error: Invalid texture index in gltfMaterial '%s'",
+                                        newGltfMaterial.name.c_str());
+                                    loaded = false;
+                                }
+                                newGltfMaterial.detailTextureWrapper =
+                                    &modelFile.TextureWrappers[index];
+                            }
+
                             modelFile.Materials.push_back(newGltfMaterial);
                         }
                     }
@@ -1111,13 +1127,14 @@ bool LoadModelFile_glTF_Json(
                                         loaded = false;
                                     }
 
+                                    // Reduced severity to warning: this doesn't break most data
+                                    // types, but can cause unexpected results.
                                     if (modelFile.Accessors[indicesIndex].componentType !=
                                         GL_UNSIGNED_SHORT) {
                                         ALOGW(
-                                            "Error: Currently, only componentType of %d supported for indices, %d requested",
+                                            "Warning: Currently, only componentType of %d supported for indices, %d requested",
                                             GL_UNSIGNED_SHORT,
                                             modelFile.Accessors[indicesIndex].componentType);
-                                        loaded = false;
                                     }
 
                                     if (loaded) {
@@ -1226,6 +1243,14 @@ bool LoadModelFile_glTF_Json(
                                                     "ProgBaseColorEmissivePBR";
                                             }
                                         } else {
+                                            if (newGltfSurface.material->detailTextureWrapper !=
+                                                nullptr) {
+                                                newGltfSurface.surfaceDef.graphicsCommand
+                                                    .Textures[1] =
+                                                    newGltfSurface.material->detailTextureWrapper
+                                                        ->image->texid;
+                                            }
+
                                             if (skinned) {
                                                 if (programs.ProgSkinnedBaseColorPBR == nullptr) {
                                                     ALOGE_FAIL("No ProgSkinnedBaseColorPBR set");

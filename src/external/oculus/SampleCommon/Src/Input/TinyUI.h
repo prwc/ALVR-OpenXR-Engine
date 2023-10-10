@@ -96,7 +96,7 @@ class TinyUI {
    public:
     /// style
     OVR::Vector4f BackgroundColor = {0.0f, 0.0f, 0.1f, 1.0f};
-    OVR::Vector4f HoverColor = {0.4f, 0.4f, 0.4f, 1.0f};
+    OVR::Vector4f HoverColor = {0.1f, 0.1f, 0.2f, 1.0f};
     OVR::Vector4f HighlightColor = {0.8f, 1.0f, 0.8f, 1.0f};
 
    protected:

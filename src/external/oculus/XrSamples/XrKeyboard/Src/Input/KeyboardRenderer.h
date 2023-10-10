@@ -49,8 +49,8 @@ class KeyboardRenderer {
     OVR::Vector3f SpecularLightDirection;
     OVR::Vector3f SpecularLightColor;
     OVR::Vector3f AmbientLightColor;
-    bool UseSolidTexture = true;
     float Opacity = 1.0f;
+    bool ShowModel = true;
 
    private:
     float AlphaBlendFactor = 1.0f;

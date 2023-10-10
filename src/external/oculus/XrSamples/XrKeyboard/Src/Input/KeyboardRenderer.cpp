@@ -188,9 +188,7 @@ void KeyboardRenderer::Update(const OVR::Posef& pose, const OVR::Vector3f& scale
 }
 
 void KeyboardRenderer::Render(std::vector<ovrDrawSurface>& surfaceList) {
-    /// toggle alpha override
-    AlphaBlendFactor = UseSolidTexture ? 1.0f : 0.0f;
-    if (KeyboardModel != nullptr) {
+    if (ShowModel && KeyboardModel != nullptr) {
         for (auto& model : KeyboardModel->Models) {
             ovrDrawSurface controllerSurface;
             controllerSurface.surface = &(model.surfaces[0].surfaceDef);

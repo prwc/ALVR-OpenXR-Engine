@@ -414,6 +414,14 @@ ovr_GetStaticMethodID(JNIEnv* jni, jclass jniclass, const char* name, const char
     }
     return method;
 }
+inline jfieldID
+ovr_GetStaticFieldID(JNIEnv* jni, jclass jniclass, const char* name, const char* signature) {
+    const jfieldID field = jni->GetStaticFieldID(jniclass, name, signature);
+    if (!field) {
+        OVR_FAIL("couldn't get %s, %s", name, signature);
+    }
+    return field;
+}
 
 // Get the code path of the current package.
 inline const char* ovr_GetPackageCodePath(
@@ -709,6 +717,14 @@ ovr_GetGlobalClassReference(JNIEnv* jni, jobject activityObject, const char* cla
 }
 inline jmethodID
 ovr_GetStaticMethodID(JNIEnv* jni, jclass jniclass, const char* name, const char* signature) {
+    OVR_UNUSED(jni);
+    OVR_UNUSED(jniclass);
+    OVR_UNUSED(name);
+    OVR_UNUSED(signature);
+    return nullptr;
+}
+inline jfieldID
+ovr_GetStaticFieldID(JNIEnv* jni, jclass jniclass, const char* name, const char* signature) {
     OVR_UNUSED(jni);
     OVR_UNUSED(jniclass);
     OVR_UNUSED(name);

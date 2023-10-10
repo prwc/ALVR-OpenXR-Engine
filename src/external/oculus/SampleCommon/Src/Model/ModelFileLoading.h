@@ -65,5 +65,4 @@ ModelFile* LoadModelFile_glB(
     const ModelGlPrograms& programs,
     const MaterialParms& materialParms,
     ModelGeo* outModelGeo = NULL);
-
 } // namespace OVRFW
