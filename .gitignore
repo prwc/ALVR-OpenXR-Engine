@@ -81,3 +81,7 @@ local.properties
 
 # uneeded external lfs bin
 *.glb
+clang-format-patches/
+
+# Key stores
+*.jks
