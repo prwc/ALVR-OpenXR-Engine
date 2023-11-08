@@ -14,7 +14,6 @@ Authors     :   John Kearney
 #include <array>
 
 #include "XrApp.h"
-#include <openxr/fb_body_tracking.h>
 #include <openxr/fb_eye_tracking_social.h>
 
 

@@ -96,8 +96,10 @@ class JavaObject {
             OVR_LOG("JNI exception before DeleteLocalRef!");
             Jni->ExceptionClear();
         }
-        OVR_ASSERT(Jni != NULL && Object != NULL);
-        Jni->DeleteLocalRef(Object);
+        OVR_ASSERT(Jni != NULL);
+        if (Object != NULL) {
+            Jni->DeleteLocalRef(Object);
+        }
         if (Jni->ExceptionOccurred()) {
             OVR_LOG("JNI exception occurred calling DeleteLocalRef!");
             Jni->ExceptionClear();

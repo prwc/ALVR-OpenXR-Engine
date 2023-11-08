@@ -9,7 +9,6 @@ Copyright   :   Copyright (c) Facebook Technologies, LLC and its affiliates. All
 #pragma once
 
 
-#include <openxr/extx1_hand_tracking_data_source.h>
 #include "xr_helper.h"
 
 #include <array>
@@ -43,13 +42,13 @@ class XrHandHelper : public XrHelper {
             createInfo.handJointSet = XR_HAND_JOINT_SET_DEFAULT_EXT;
             createInfo.hand = isLeft_ ? XR_HAND_LEFT_EXT : XR_HAND_RIGHT_EXT;
 
-            std::array<XrHandTrackingDataSourceEXTX1, 2> dataSources = {
-                XR_HAND_TRACKING_DATA_SOURCE_UNOBSTRUCTED_EXTX1,
-                XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXTX1,
+            std::array<XrHandTrackingDataSourceEXT, 2> dataSources = {
+                XR_HAND_TRACKING_DATA_SOURCE_UNOBSTRUCTED_EXT,
+                XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXT,
             };
 
-            XrHandTrackingDataSourceInfoEXTX1 usageInfo{
-                XR_TYPE_HAND_TRACKING_DATA_SOURCE_INFO_EXTX1};
+            XrHandTrackingDataSourceInfoEXT usageInfo{
+                XR_TYPE_HAND_TRACKING_DATA_SOURCE_INFO_EXT};
             usageInfo.requestedDataSourceCount = (uint32_t)dataSources.size();
             usageInfo.requestedDataSources = dataSources.data();
 
@@ -112,8 +111,12 @@ class XrHandHelper : public XrHelper {
 
     virtual bool Update(XrSpace currentSpace, XrTime predictedDisplayTime) override {
         if (xrLocateHandJointsEXT_) {
+            /// data source (hands or controllers)
+            XrHandTrackingDataSourceStateEXT dataSourceState_{
+                XR_TYPE_HAND_TRACKING_DATA_SOURCE_STATE_EXT};
+            dataSourceState_.next = nullptr;
             /// aim
-            aimState_.next = nullptr;
+            aimState_.next = &dataSourceState_;
             /// scale
             scale_.next = &aimState_;
             scale_.sensorOutput = 1.0f;
@@ -124,16 +127,12 @@ class XrHandHelper : public XrHelper {
             locations_.next = &scale_;
             locations_.jointCount = XR_HAND_JOINT_COUNT_EXT;
             locations_.jointLocations = jointLocations_;
+
             XrHandJointsLocateInfoEXT locateInfo{XR_TYPE_HAND_JOINTS_LOCATE_INFO_EXT};
             locateInfo.baseSpace = currentSpace;
             locateInfo.time = predictedDisplayTime;
-            XrHandTrackingDataSourceStateEXTX1 dataSourceState{
-                XR_TYPE_HAND_TRACKING_DATA_SOURCE_STATE_EXTX1};
-            aimState_.next = &dataSourceState;
-
             XrHandJointsMotionRangeInfoEXT motionRangeInfo{
                 XR_TYPE_HAND_JOINTS_MOTION_RANGE_INFO_EXT};
-
             if (handDataTypeNatural_) {
                 motionRangeInfo.handJointsMotionRange =
                     XR_HAND_JOINTS_MOTION_RANGE_UNOBSTRUCTED_EXT;
@@ -141,16 +140,14 @@ class XrHandHelper : public XrHelper {
                 motionRangeInfo.handJointsMotionRange =
                     XR_HAND_JOINTS_MOTION_RANGE_CONFORMING_TO_CONTROLLER_EXT;
             }
-
             locateInfo.next = &motionRangeInfo;
 
             if (oxr(xrLocateHandJointsEXT_(handTracker_, &locateInfo, &locations_))) {
                 onController_ = false;
 
-                if (dataSourceState.dataSource == XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXTX1) {
+                if (dataSourceState_.dataSource == XR_HAND_TRACKING_DATA_SOURCE_CONTROLLER_EXT) {
                     onController_ = true;
                 }
-
                 return true;
             } else {
                 return false;
@@ -166,7 +163,7 @@ class XrHandHelper : public XrHelper {
             XR_FB_HAND_TRACKING_MESH_EXTENSION_NAME,
             XR_FB_HAND_TRACKING_AIM_EXTENSION_NAME,
             XR_EXT_HAND_JOINTS_MOTION_RANGE_EXTENSION_NAME,
-            XR_EXTX1_HAND_TRACKING_DATA_SOURCE_EXTENSION_NAME};
+            XR_EXT_HAND_TRACKING_DATA_SOURCE_EXTENSION_NAME};
     }
 
    public:
@@ -210,6 +207,9 @@ class XrHandHelper : public XrHelper {
     }
     bool IndexPinching() const {
         return (aimState_.status & XR_HAND_TRACKING_AIM_INDEX_PINCHING_BIT_FB) != 0;
+    }
+    bool IsDominant() const {
+        return (aimState_.status & XR_HAND_TRACKING_AIM_DOMINANT_HAND_BIT_FB) != 0;
     }
     const XrHandTrackingAimStateFB& AimState() const {
         return aimState_;

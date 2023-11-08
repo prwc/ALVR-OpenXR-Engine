@@ -19,9 +19,10 @@ class ActionSetDisplayPanel {
     void AddPoseAction(XrAction action, const char* actionName);
 
     void Update();
+    void UpdateAllLabelRotation(OVR::Quatf const& rot);
 
    private:
-    VRMenuObject* CreateActionLabel(const char* actionName);
+    std::pair<VRMenuObject*, VRMenuObject*> CreateActionLabel(const char* actionName);
     std::string ListBoundSources(XrAction action);
     OVR::Vector3f GetNextLabelLocation();
     OVR::Vector3f GetNextStateLabelLocation();
@@ -31,6 +32,7 @@ class ActionSetDisplayPanel {
     std::vector<std::pair<XrAction, VRMenuObject*>> floatActions_{};
     std::vector<std::pair<XrAction, VRMenuObject*>> vec2Actions_{};
     std::vector<std::pair<XrAction, VRMenuObject*>> poseActions_{};
+    std::vector<VRMenuObject*> labels_{};
     XrSession Session;
     XrInstance Instance;
     OVRFW::TinyUI* ui_;

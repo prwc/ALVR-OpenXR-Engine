@@ -47,6 +47,7 @@ PFN_xrGetDeviceSampleRateFB xrGetDeviceSampleRateFB = nullptr;
 #include "Input/AxisRenderer.h"
 #include "Render/SimpleBeamRenderer.h"
 
+
 class XrControllersApp : public OVRFW::XrApp {
    public:
     XrControllersApp() : OVRFW::XrApp() {
@@ -736,6 +737,7 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
             /// Trigger Value
             triggerValueL_ = GetActionStateBoolean(triggerValueAction_, LeftHandPath).currentState;
             triggerValueR_ = GetActionStateBoolean(triggerValueAction_, RightHandPath).currentState;
+
             /// Trigger Touch
             triggerTouchL_ = GetActionStateBoolean(triggerTouchAction_, LeftHandPath).currentState;
             triggerTouchR_ = GetActionStateBoolean(triggerTouchAction_, RightHandPath).currentState;
@@ -1129,6 +1131,10 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
             v.append = XR_TRUE;
             OXR(xrApplyHapticFeedback(Session, &hai, (const XrHapticBaseHeader*)&v));
             samplesUsed = *(v.samplesConsumed);
+            if (samplesUsed == 0) {
+                ALOG("No samples used; stopping logging.");
+                break;
+            }
             totalSamplesUsed += samplesUsed;
             ALOG("Haptics PCM Buffer Count Output: %d", *(v.samplesConsumed));
         }

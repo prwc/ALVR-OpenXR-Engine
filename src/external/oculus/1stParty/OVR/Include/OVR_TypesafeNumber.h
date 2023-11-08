@@ -68,9 +68,18 @@ class TypesafeNumberT {
     // type would break type safety.
     T& operator=(T const value) = delete;
 
+    // It IS ok to assign to the UniqueType, however, since that should only contain
+    // values within the range of the underlying type. This allows us to write more
+    // natural code such as:
+    // if (myTypesafeNumber == UniqueType::kInvalidValue) {
+    TypesafeNumberT& operator=(UniqueType const& value);
+
     TypesafeNumberT& operator=(TypesafeNumberT const& rhs);
 
     // comparison operators
+    bool operator==(UniqueType const& rhs) const;
+    bool operator!=(UniqueType const& rhs) const;
+
     bool operator==(TypesafeNumberT const& rhs) const;
     bool operator!=(TypesafeNumberT const& rhs) const;
 
@@ -131,11 +140,28 @@ inline TypesafeNumberT<T, UniqueType, InitialValue>::TypesafeNumberT(TypesafeNum
 
 template <typename T, typename UniqueType, UniqueType InitialValue>
 inline TypesafeNumberT<T, UniqueType, InitialValue>&
+TypesafeNumberT<T, UniqueType, InitialValue>::operator=(UniqueType const& value) {
+    this->Value = value;
+    return *this;
+}
+
+template <typename T, typename UniqueType, UniqueType InitialValue>
+inline TypesafeNumberT<T, UniqueType, InitialValue>&
 TypesafeNumberT<T, UniqueType, InitialValue>::operator=(TypesafeNumberT const& rhs) {
     if (&rhs != this) {
         this->Value = rhs.Value;
     }
     return *this;
+}
+
+template <typename T, typename UniqueType, UniqueType InitialValue>
+inline bool TypesafeNumberT<T, UniqueType, InitialValue>::operator==(UniqueType const& rhs) const {
+    return this->Value == rhs;
+}
+
+template <typename T, typename UniqueType, UniqueType InitialValue>
+inline bool TypesafeNumberT<T, UniqueType, InitialValue>::operator!=(UniqueType const& rhs) const {
+    return !operator==(rhs);
 }
 
 template <typename T, typename UniqueType, UniqueType InitialValue>

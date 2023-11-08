@@ -10,7 +10,6 @@ Sample app for FB_body_tracking
 #include <cstdio>
 
 #include "XrApp.h"
-#include <openxr/fb_body_tracking.h>
 
 #include "Input/SkeletonRenderer.h"
 #include "Input/ControllerRenderer.h"

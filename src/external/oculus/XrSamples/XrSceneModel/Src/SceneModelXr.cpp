@@ -493,10 +493,6 @@ struct ovrApp {
     OVR::Vector3f StageBounds;
     // Provided by SceneModelGl, which is not aware of VrApi or OpenXR
     ovrAppRenderer AppRenderer;
-    // 3D point input in base space for user surface creation.
-    std::vector<OVR::Vector3f> ManualPointInput;
-
-    std::map<XrAsyncRequestIdFB, XrSpace> DestroySpaceEventMap;
 
     std::unordered_set<std::string> UuidSet;
 };
@@ -1056,6 +1052,7 @@ static void app_handle_cmd(struct android_app* androidApp, int32_t cmd) {
         case APP_CMD_DESTROY: {
             ALOGV("onDestroy()");
             ALOGV("    APP_CMD_DESTROY");
+            app.Clear();
             break;
         }
         case APP_CMD_INIT_WINDOW: {

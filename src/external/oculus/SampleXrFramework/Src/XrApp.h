@@ -430,6 +430,8 @@ class XrApp {
         const std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>>
             allSuggestedBindings);
 
+    virtual void PreWaitFrame(XrFrameWaitInfo& waitFrameInfo) {}
+
     /// Xr Helpers
     XrInstance& GetInstance() {
         return Instance;
@@ -498,6 +500,9 @@ class XrApp {
 
     // Called one time when the applicatoin process exits
     void Shutdown(const xrJava& context);
+
+    // Called on each Shutdown, reset all member variable to initial state
+    void Clear();
 
     // Called to handle any lifecycle state changes. This will call
     // AppPaused() and AppResumed()
@@ -602,6 +607,7 @@ class XrApp {
     bool isOverlay_ = false;
     bool IsAppFocused = false;
     bool RunWhilePaused = false;
+    bool ShouldRender = true;
 };
 
 } // namespace OVRFW

@@ -2,4 +2,4 @@ rootProject.projectDir = new File(settingsDir, '../../../..')
 rootProject.name = "XrAppBase"
 
 include ':', \
-	'XrSamples:XrAppBase:Projects:Android'
+    'XrSamples:XrAppBase:Projects:Android'

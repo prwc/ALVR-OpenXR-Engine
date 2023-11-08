@@ -1892,54 +1892,6 @@ bool LoadModelFile_glTF_Json(
                                 loaded = false;
                             } // END ANIMATION CHANNELS
 
-                            if (loaded) { // ANIMATION TIMELINES
-                                // create the timelines
-                                for (int i = 0; i < static_cast<int>(modelFile.Animations.size());
-                                     i++) {
-                                    for (int j = 0; j <
-                                         static_cast<int>(modelFile.Animations[i].samplers.size());
-                                         j++) {
-                                        // if there isn't already a timeline with this accessor,
-                                        // create a new one.
-                                        ModelAnimationSampler& sampler =
-                                            modelFile.Animations[i].samplers[j];
-                                        bool foundTimeLine = false;
-                                        for (int timeLineIndex = 0; timeLineIndex <
-                                             static_cast<int>(modelFile.AnimationTimeLines.size());
-                                             timeLineIndex++) {
-                                            if (modelFile.AnimationTimeLines[timeLineIndex]
-                                                    .accessor == sampler.input) {
-                                                foundTimeLine = true;
-                                                sampler.timeLineIndex = timeLineIndex;
-                                                break;
-                                            }
-                                        }
-
-                                        if (!foundTimeLine) {
-                                            ModelAnimationTimeLine timeline;
-                                            timeline.Initialize(sampler.input);
-                                            if (static_cast<int>(
-                                                    modelFile.AnimationTimeLines.size()) == 0) {
-                                                modelFile.animationStartTime = timeline.startTime;
-                                                modelFile.animationEndTime = timeline.endTime;
-                                            } else {
-                                                modelFile.animationStartTime = std::min<float>(
-                                                    modelFile.animationStartTime,
-                                                    timeline.startTime);
-                                                modelFile.animationEndTime = std::max<float>(
-                                                    modelFile.animationEndTime, timeline.endTime);
-                                            }
-
-                                            modelFile.AnimationTimeLines.push_back(timeline);
-                                            sampler.timeLineIndex =
-                                                static_cast<int>(
-                                                    modelFile.AnimationTimeLines.size()) -
-                                                1;
-                                        }
-                                    }
-                                }
-                            } // END ANIMATION TIMELINES
-
                             animationCount++;
                         } else {
                             ALOGW("bad animation object in animations");
@@ -1948,6 +1900,47 @@ bool LoadModelFile_glTF_Json(
                     }
                 }
             } // END ANIMATIONS
+
+            if (loaded) { // ANIMATION TIMELINES
+                // create the timelines
+                for (int i = 0; i < static_cast<int>(modelFile.Animations.size()); i++) {
+                    for (int j = 0; j < static_cast<int>(modelFile.Animations[i].samplers.size());
+                         j++) {
+                        // if there isn't already a timeline with this accessor,
+                        // create a new one.
+                        ModelAnimationSampler& sampler = modelFile.Animations[i].samplers[j];
+                        bool foundTimeLine = false;
+                        for (int timeLineIndex = 0;
+                             timeLineIndex < static_cast<int>(modelFile.AnimationTimeLines.size());
+                             timeLineIndex++) {
+                            if (modelFile.AnimationTimeLines[timeLineIndex].accessor ==
+                                sampler.input) {
+                                foundTimeLine = true;
+                                sampler.timeLineIndex = timeLineIndex;
+                                break;
+                            }
+                        }
+
+                        if (!foundTimeLine) {
+                            ModelAnimationTimeLine timeline;
+                            timeline.Initialize(sampler.input);
+                            if (static_cast<int>(modelFile.AnimationTimeLines.size()) == 0) {
+                                modelFile.animationStartTime = timeline.startTime;
+                                modelFile.animationEndTime = timeline.endTime;
+                            } else {
+                                modelFile.animationStartTime = std::min<float>(
+                                    modelFile.animationStartTime, timeline.startTime);
+                                modelFile.animationEndTime =
+                                    std::max<float>(modelFile.animationEndTime, timeline.endTime);
+                            }
+
+                            modelFile.AnimationTimeLines.push_back(timeline);
+                            sampler.timeLineIndex =
+                                static_cast<int>(modelFile.AnimationTimeLines.size()) - 1;
+                        }
+                    }
+                }
+            } // END ANIMATION TIMELINES
 
             if (loaded) { // SKINS
                 LOGV("Loading skins");

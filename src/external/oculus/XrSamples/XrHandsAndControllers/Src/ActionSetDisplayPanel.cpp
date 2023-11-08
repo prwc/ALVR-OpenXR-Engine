@@ -11,31 +11,44 @@ ActionSetDisplayPanel::ActionSetDisplayPanel(
     OVRFW::TinyUI* ui,
     OVR::Vector3f topLeftLocation)
     : Session{session}, Instance{instance}, ui_{ui}, topLeftLocation_{topLeftLocation} {
-    ui_->AddLabel(
+    auto label = ui_->AddLabel(
         title, GetNextLabelLocation() + OVR::Vector3f{0, kHeaderHeight_, 0.00}, {widthPx_, 45.0f});
+    labels_.push_back(label);
 }
 
 void ActionSetDisplayPanel::AddBoolAction(XrAction action, const char* actionName) {
-    auto actionStateLabel = CreateActionLabel(actionName);
+    auto labelPair = CreateActionLabel(actionName);
+    auto headerLabel = labelPair.first;
+    auto actionStateLabel = labelPair.second;
     boolActions_.push_back({action, actionStateLabel});
+    labels_.push_back(headerLabel);
 }
 
 void ActionSetDisplayPanel::AddFloatAction(XrAction action, const char* actionName) {
-    auto actionStateLabel = CreateActionLabel(actionName);
+    auto labelPair = CreateActionLabel(actionName);
+    auto headerLabel = labelPair.first;
+    auto actionStateLabel = labelPair.second;
     floatActions_.push_back({action, actionStateLabel});
+    labels_.push_back(headerLabel);
 }
 
 void ActionSetDisplayPanel::AddVec2Action(XrAction action, const char* actionName) {
-    auto actionStateLabel = CreateActionLabel(actionName);
+    auto labelPair = CreateActionLabel(actionName);
+    auto headerLabel = labelPair.first;
+    auto actionStateLabel = labelPair.second;
     vec2Actions_.push_back({action, actionStateLabel});
+    labels_.push_back(headerLabel);
 }
 
 void ActionSetDisplayPanel::AddPoseAction(XrAction action, const char* actionName) {
-    auto actionStateLabel = CreateActionLabel(actionName);
+    auto labelPair = CreateActionLabel(actionName);
+    auto headerLabel = labelPair.first;
+    auto actionStateLabel = labelPair.second;
     poseActions_.push_back({action, actionStateLabel});
+    labels_.push_back(headerLabel);
 }
 
-VRMenuObject* ActionSetDisplayPanel::CreateActionLabel(const char* actionName) {
+std::pair<VRMenuObject*, VRMenuObject*> ActionSetDisplayPanel::CreateActionLabel(const char* actionName) {
     auto label = ui_->AddLabel(actionName, GetNextLabelLocation(), {widthPx_, 45.0f});
     auto stateLabel = ui_->AddLabel("state", GetNextStateLabelLocation(), {widthPx_, 250.0f});
 
@@ -45,11 +58,11 @@ VRMenuObject* ActionSetDisplayPanel::CreateActionLabel(const char* actionName) {
     label->SetFontParms(fontParams);
     label->SetTextLocalPosition({-0.45f * width_, 0, 0});
     stateLabel->SetFontParms(fontParams);
-    stateLabel->SetTextLocalPosition({-0.45f * width_, 0, 0});
+    stateLabel->SetTextLocalPosition({-0.47f * width_, -0.02f * height_, 0});
 
     label->SetColor({0.2, 0.2, 0.2, 1.0});
     elements_++;
-    return stateLabel;
+    return std::make_pair(label, stateLabel);
 }
 
 OVR::Vector3f ActionSetDisplayPanel::GetNextLabelLocation() {
@@ -81,8 +94,11 @@ void ActionSetDisplayPanel::Update() {
             state.changedSinceLastSync ? "True " : "False",
             state.isActive ? "True " : "False",
             state.lastChangeTime / (1000 * 1000)); // convert from ns to ms
+        label->SetSurfaceColor(
+            0, state.isActive ? OVR::Vector4f(0., 0.1, 0., 1.) : OVR::Vector4f(0.05, 0.05, 0.05, 1.));
         label->SetSelected(state.currentState);
     }
+
     for (auto& pair : floatActions_) {
         XrAction action = pair.first;
         VRMenuObject* label = pair.second;
@@ -102,6 +118,8 @@ void ActionSetDisplayPanel::Update() {
             state.changedSinceLastSync ? "True " : "False",
             state.isActive ? "True " : "False",
             state.lastChangeTime / (1000 * 1000)); // convert from ns to ms
+            label->SetSurfaceColor(
+                0, state.isActive ? OVR::Vector4f(0., 0.1, 0., 1.) : OVR::Vector4f(0.05, 0.05, 0.05, 1.));
     }
 
     for (auto& pair : vec2Actions_) {
@@ -116,7 +134,7 @@ void ActionSetDisplayPanel::Update() {
         OXR(xrGetActionStateVector2f(Session, &getInfo, &state));
 
         label->SetText(
-            "currentState: (%0.3f, %0.3f) | changedSinceLastSync: %s\n"
+            "currentState: (%0.2f, %0.2f) | changedSinceLastSync: %s\n"
             "isActive: %s     | lastChangeTime: %ldms\n" +
                 bindingText,
             state.currentState.x,
@@ -124,6 +142,8 @@ void ActionSetDisplayPanel::Update() {
             state.changedSinceLastSync ? "True " : "False",
             state.isActive ? "True " : "False",
             state.lastChangeTime / (1000 * 1000)); // convert from ns to ms
+            label->SetSurfaceColor(
+                0, state.isActive ? OVR::Vector4f(0., 0.1, 0., 1.) : OVR::Vector4f(0.05, 0.05, 0.05, 1.));
     }
 
     for (auto& pair : poseActions_) {
@@ -138,8 +158,34 @@ void ActionSetDisplayPanel::Update() {
         OXR(xrGetActionStatePose(Session, &getInfo, &state));
 
         label->SetText("isActive: %s\n" + bindingText, state.isActive ? "True " : "False");
+        label->SetSurfaceColor(
+            0, state.isActive ? OVR::Vector4f(0., 0.1, 0., 1.) : OVR::Vector4f(0.05, 0.05, 0.05, 1.));
+    }
+}
 
-        // TODO: Add calls to xrLocateSpace to get the actual data
+void ActionSetDisplayPanel::UpdateAllLabelRotation(OVR::Quatf const& rot) {
+    for (auto& label : labels_) {
+        label->SetLocalRotation(rot);
+
+    }
+    for (auto& pair : boolActions_) {
+        VRMenuObject* label = pair.second;
+        label->SetLocalRotation(rot);
+    }
+
+    for (auto& pair : floatActions_) {
+        VRMenuObject* label = pair.second;
+        label->SetLocalRotation(rot);
+    }
+
+    for (auto& pair : vec2Actions_) {
+        VRMenuObject* label = pair.second;
+        label->SetLocalRotation(rot);
+    }
+
+    for (auto& pair : poseActions_) {
+        VRMenuObject* label = pair.second;
+        label->SetLocalRotation(rot);
     }
 }
 

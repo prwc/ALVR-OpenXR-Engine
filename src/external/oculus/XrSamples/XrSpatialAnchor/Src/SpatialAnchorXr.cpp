@@ -1073,6 +1073,7 @@ static void app_handle_cmd(struct android_app* androidApp, int32_t cmd) {
         case APP_CMD_DESTROY: {
             ALOGV("onDestroy()");
             ALOGV("    APP_CMD_DESTROY");
+            app.Clear();
             break;
         }
         case APP_CMD_INIT_WINDOW: {

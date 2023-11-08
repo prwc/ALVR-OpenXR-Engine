@@ -2417,6 +2417,7 @@ static void app_handle_cmd(struct android_app* app, int32_t cmd) {
         case APP_CMD_DESTROY: {
             ALOGV("onDestroy()");
             ALOGV("    APP_CMD_DESTROY");
+            ovrApp_Clear(appState);
             break;
         }
         case APP_CMD_INIT_WINDOW: {
