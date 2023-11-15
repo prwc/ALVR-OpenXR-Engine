@@ -445,19 +445,25 @@ struct OpenXrProgram final : IOpenXrProgram {
         if (eyeTrackerFB_ != XR_NULL_HANDLE)
         {
             Log::Write(Log::Level::Verbose, "Destroying EyeTracker");
+            assert(m_xrDestroyEyeTrackerFB_ != nullptr);
             m_xrDestroyEyeTrackerFB_(eyeTrackerFB_);
+            eyeTrackerFB_ = XR_NULL_HANDLE;
         }
 
         if (faceTrackerFB_ != XR_NULL_HANDLE)
         {
             Log::Write(Log::Level::Verbose, "Destroying FaceTracker");
+            assert(m_xrDestroyFaceTrackerFB_ != nullptr);
             m_xrDestroyFaceTrackerFB_(faceTrackerFB_);
+            faceTrackerFB_ = XR_NULL_HANDLE;
         }
 
-        for (auto facialTracker : m_facialTrackersHTC) {
+        for (auto& facialTracker : m_facialTrackersHTC) {
             if (facialTracker != XR_NULL_HANDLE) {
                 Log::Write(Log::Level::Verbose, "Destroying FacialTrackerHTC");
+                assert(m_xrDestroyFacialTrackerHTC != nullptr);
                 m_xrDestroyFacialTrackerHTC(facialTracker);
+                facialTracker = XR_NULL_HANDLE;
             }
         }
 
@@ -3457,7 +3463,7 @@ struct OpenXrProgram final : IOpenXrProgram {
                     .type = XR_TYPE_EYE_GAZES_FB,
                     .next = nullptr
                 };
-                assert(eyeTrackerFB_ != XR_NULL_HANDLE && m_xrGetFaceExpressionWeightsFB_ != nullptr);
+                assert(eyeTrackerFB_ != XR_NULL_HANDLE && m_xrGetEyeGazesFB_ != nullptr);
                 m_xrGetEyeGazesFB_(eyeTrackerFB_, &gazesInfo, &eyeGazes);
 
                 newPacket.eyeTrackerType = ALXREyeTrackingType::FBEyeTrackingSocial;
