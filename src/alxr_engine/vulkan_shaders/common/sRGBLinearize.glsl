@@ -12,5 +12,5 @@ vec4 sRGBToLinearRGB(vec4 srgba)
     const vec3 srgb = srgba.rgb;
     const vec3 lower = srgb * delta3;
     const vec3 upper = pow((srgb + offset3) * alpha3, gamma3);
-    return vec4(mix(upper, lower, lessThan(srgb, theta3)), srgba.a);
+    return vec4(mix(lower, upper, greaterThan(srgb, theta3)), srgba.a);
 }

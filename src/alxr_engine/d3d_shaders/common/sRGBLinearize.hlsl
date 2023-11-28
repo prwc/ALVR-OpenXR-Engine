@@ -32,5 +32,5 @@ float3 sRGBToLinearRGB(float3 srgb)
     static const float3 gamma3  = float3(2.4, 2.4, 2.4);
     const float3 lower = srgb * delta3;
     const float3 upper = pow((srgb + offset3) * alpha3, gamma3);
-    return lerp(upper, lower, srgb < theta3);
+    return lerp(lower, upper, srgb > theta3);
 }
