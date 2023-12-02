@@ -15,6 +15,8 @@ CMakeFiles
 *.tar.gz
 *.log
 pregen/
+sources-jar/
+docs-jar/
 generated-includes
 cmake_install.cmake
 cmake_uninstall.cmake
@@ -61,7 +63,7 @@ local.properties
 !.azure-pipelines/nuget/NugetTemplate/build
 !.clang-format
 !.clang-tidy
-!.cmake-format.json
+!.cmake-format.py
 !.editorconfig
 !.git-blame-ignore-revs
 !.git-keep
@@ -74,6 +76,7 @@ local.properties
 !.markdownlint.yaml
 !.proclamation.json
 !.reuse
+!/.env
 
 # Output artifact
 *.aar
@@ -82,6 +85,7 @@ local.properties
 # uneeded external lfs bin
 *.glb
 clang-format-patches/
+/*.jar
 
 # Key stores
 *.jks
