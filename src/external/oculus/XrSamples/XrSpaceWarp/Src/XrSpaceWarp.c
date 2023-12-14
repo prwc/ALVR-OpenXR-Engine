@@ -70,7 +70,6 @@ typedef void(GL_APIENTRY* PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC)(
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
-#include <openxr/openxr_oculus.h>
 #include <openxr/openxr_oculus_helpers.h>
 
 #define MATH_PI 3.14159265358979323846f
@@ -1236,6 +1235,10 @@ static bool ovrFramebuffer_Create(
         // Motion Vector depth construction
         swapChainCreateInfo.usageFlags =
             XR_SWAPCHAIN_USAGE_SAMPLED_BIT | XR_SWAPCHAIN_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+
+        frameBuffer->MotionVectorDepthSwapChain.Width = swapChainCreateInfo.width;
+        frameBuffer->MotionVectorDepthSwapChain.Height = swapChainCreateInfo.height;
+
         swapChainCreateInfo.format = mvDepthFormat;
         OXR(xrCreateSwapchain(
             session, &swapChainCreateInfo, &frameBuffer->MotionVectorDepthSwapChain.Handle));
@@ -2059,7 +2062,10 @@ static void RenderScene(
 
             // Current controller pose
             XrPosef poseInWorld;
-            XrPosef_Multiply(&poseInWorld, &sceneMatrices->XrSpacePoseInWorld, &scene->SceneTransform.TrackedController[i].Pose);
+            XrPosef_Multiply(
+                &poseInWorld,
+                &sceneMatrices->XrSpacePoseInWorld,
+                &scene->SceneTransform.TrackedController[i].Pose);
             XrMatrix4x4f pose;
             XrMatrix4x4f_CreateFromRigidTransform(&pose, &poseInWorld);
 
@@ -2076,7 +2082,8 @@ static void RenderScene(
 
             // Previous controller pose
             if (prevFrameSceneTransform->TrackedController[i].Active) {
-                XrPosef_Multiply(&poseInWorld,
+                XrPosef_Multiply(
+                    &poseInWorld,
                     &prevFrameSceneMatrices->XrSpacePoseInWorld,
                     &prevFrameSceneTransform->TrackedController[i].Pose);
                 XrMatrix4x4f_CreateFromRigidTransform(&pose, &poseInWorld);
@@ -2599,7 +2606,8 @@ void android_main(struct android_app* app) {
     xrGetInstanceProcAddr(
         XR_NULL_HANDLE, "xrInitializeLoaderKHR", (PFN_xrVoidFunction*)&xrInitializeLoaderKHR);
     if (xrInitializeLoaderKHR != NULL) {
-        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
+        XrLoaderInitInfoAndroidKHR loaderInitializeInfoAndroid = {
+            XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
         loaderInitializeInfoAndroid.applicationVM = app->activity->vm;
         loaderInitializeInfoAndroid.applicationContext = app->activity->clazz;
         xrInitializeLoaderKHR((XrLoaderInitInfoBaseHeaderKHR*)&loaderInitializeInfoAndroid);
@@ -2788,7 +2796,8 @@ void android_main(struct android_app* app) {
         "xrGetOpenGLESGraphicsRequirementsKHR",
         (PFN_xrVoidFunction*)(&pfnGetOpenGLESGraphicsRequirementsKHR)));
 
-    XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR};
+    XrGraphicsRequirementsOpenGLESKHR graphicsRequirements = {
+        XR_TYPE_GRAPHICS_REQUIREMENTS_OPENGL_ES_KHR};
     OXR(pfnGetOpenGLESGraphicsRequirementsKHR(appState.Instance, systemId, &graphicsRequirements));
 
     // Create the EGL Context
@@ -2813,7 +2822,8 @@ void android_main(struct android_app* app) {
     appState.SystemId = systemId;
 
     // Create the OpenXR Session.
-    XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingAndroidGLES = {XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
+    XrGraphicsBindingOpenGLESAndroidKHR graphicsBindingAndroidGLES = {
+        XR_TYPE_GRAPHICS_BINDING_OPENGL_ES_ANDROID_KHR};
     graphicsBindingAndroidGLES.display = appState.Egl.Display;
     graphicsBindingAndroidGLES.config = appState.Egl.Config;
     graphicsBindingAndroidGLES.context = appState.Egl.Context;
@@ -3032,7 +3042,8 @@ void android_main(struct android_app* app) {
         bindings[currBinding++] =
             ActionSuggestedBinding(dummyAction, "/user/hand/right/input/system/click");
 
-        XrInteractionProfileSuggestedBinding suggestedBindings = {XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+        XrInteractionProfileSuggestedBinding suggestedBindings = {
+            XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
         suggestedBindings.suggestedBindings = bindings;
         suggestedBindings.countSuggestedBindings = currBinding;
 
@@ -3090,7 +3101,8 @@ void android_main(struct android_app* app) {
             }
         }
 
-        XrInteractionProfileSuggestedBinding suggestedBindings = {XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+        XrInteractionProfileSuggestedBinding suggestedBindings = {
+            XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
         suggestedBindings.interactionProfile = interactionProfilePath;
         suggestedBindings.suggestedBindings = bindings;
         suggestedBindings.countSuggestedBindings = currBinding;
@@ -3115,7 +3127,8 @@ void android_main(struct android_app* app) {
             gripPoseAction,
         };
         for (size_t i = 0; i < sizeof(actionsToEnumerate) / sizeof(actionsToEnumerate[0]); ++i) {
-            XrBoundSourcesForActionEnumerateInfo enumerateInfo = {XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO};
+            XrBoundSourcesForActionEnumerateInfo enumerateInfo = {
+                XR_TYPE_BOUND_SOURCES_FOR_ACTION_ENUMERATE_INFO};
             enumerateInfo.action = actionsToEnumerate[i];
 
             // Get Count
@@ -3131,7 +3144,8 @@ void android_main(struct android_app* app) {
                 OXR(xrEnumerateBoundSourcesForAction(
                     appState.Session, &enumerateInfo, 16, &countOutput, actionPathsBuffer));
                 for (uint32_t a = 0; a < countOutput; ++a) {
-                    XrInputSourceLocalizedNameGetInfo nameGetInfo = {XR_TYPE_INPUT_SOURCE_LOCALIZED_NAME_GET_INFO};
+                    XrInputSourceLocalizedNameGetInfo nameGetInfo = {
+                        XR_TYPE_INPUT_SOURCE_LOCALIZED_NAME_GET_INFO};
                     nameGetInfo.sourcePath = actionPathsBuffer[a];
                     nameGetInfo.whichComponents = XR_INPUT_SOURCE_LOCALIZED_NAME_USER_PATH_BIT |
                         XR_INPUT_SOURCE_LOCALIZED_NAME_INTERACTION_PROFILE_BIT |
@@ -3328,7 +3342,8 @@ void android_main(struct android_app* app) {
             XrPosef xfWorldFromEye;
             XrPosef_Multiply(&xfWorldFromEye, &xfWorldFromHead, &xfHeadFromEye);
             XrPosef renderViewTransform = XrPosef_Inverse(xfWorldFromEye);
-            XrMatrix4x4f_CreateFromRigidTransform(&sceneMatrices.ViewMatrix[eye], &renderViewTransform);
+            XrMatrix4x4f_CreateFromRigidTransform(
+                &sceneMatrices.ViewMatrix[eye], &renderViewTransform);
 
             const XrFovf fov = projections[eye].fov;
             XrMatrix4x4f_CreateProjectionFov(
@@ -3424,11 +3439,17 @@ void android_main(struct android_app* app) {
                         appState.Scene.SceneTransform.CubeTransforms[instance].m[2 * 4 + 2] = 1;
                         appState.Scene.SceneTransform.CubeTransforms[instance].m[2 * 4 + 3] = 0;
 
+                        // Only translate the cube on the Y axis follwing a sin curve
+                        // a * sin(b * time + offset).
+                        // a for distance the cube travels
+                        // b for speed the cube travels
+                        // offset is set to y * 0.3 + z * 0.17 + x * 0.7 to make cube move with a small delay
+                        // based on the location to produce the waving motion
                         appState.Scene.SceneTransform.CubeTransforms[instance].m[3 * 4 + 0] =
                             (x - 0.5f * CUBE_COUNT_DIMENSION) * CUBE_SCALE - CUBE_SCALE / 2;
                         appState.Scene.SceneTransform.CubeTransforms[instance].m[3 * 4 + 1] =
                             (y - 0.5f * CUBE_COUNT_DIMENSION) * CUBE_SCALE - CUBE_SCALE / 2 +
-                            sin(timeInSeconds + y * 0.3 + z * 0.17 + x * 0.7);
+                            3.0f * sin(8.0f * timeInSeconds + y * 0.3 + z * 0.17 + x * 0.7);
                         appState.Scene.SceneTransform.CubeTransforms[instance].m[3 * 4 + 2] =
                             (z - 0.5f * CUBE_COUNT_DIMENSION) * CUBE_SCALE - CUBE_SCALE / 2;
                         appState.Scene.SceneTransform.CubeTransforms[instance].m[3 * 4 + 3] = 1.0f;
@@ -3442,9 +3463,11 @@ void android_main(struct android_app* app) {
         // in a depth consistent order.
 
         XrCompositionLayerProjectionView projection_layer_elements[2] = {
-            {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}, {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}};
+            {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW},
+            {XR_TYPE_COMPOSITION_LAYER_PROJECTION_VIEW}};
         XrCompositionLayerSpaceWarpInfoFB proj_spacewarp_views[2] = {
-            {XR_TYPE_COMPOSITION_LAYER_SPACE_WARP_INFO_FB}, {XR_TYPE_COMPOSITION_LAYER_SPACE_WARP_INFO_FB}};
+            {XR_TYPE_COMPOSITION_LAYER_SPACE_WARP_INFO_FB},
+            {XR_TYPE_COMPOSITION_LAYER_SPACE_WARP_INFO_FB}};
 
         appState.LayerCount = 0;
         memset(appState.Layers, 0, sizeof(ovrCompositorLayer_Union) * ovrMaxLayerCount);
@@ -3615,7 +3638,6 @@ void android_main(struct android_app* app) {
                 XrPosef p;
                 XrPosef_Multiply(&p, &InvXrSpacePoseInWorld, &quad_layer_left.pose);
                 quad_layer_left.pose = p;
-
             }
             quad_layer_left.size = size;
             appState.Layers[appState.LayerCount++].Quad = quad_layer_left;

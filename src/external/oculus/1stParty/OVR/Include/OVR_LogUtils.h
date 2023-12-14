@@ -212,8 +212,14 @@ inline void LogWithFileTag(const int prio, const char* fileTag, const char* fmt,
 
 #define OVR_LOG(...) LogWithFileTag(0, __FILE__, __VA_ARGS__)
 #define OVR_WARN(...) LogWithFileTag(0, __FILE__, __VA_ARGS__)
-#define OVR_ERROR(...) \
+
+// This used to be called OVR_ERROR, but it would crash on mobile devices,
+// but not on Windows. This was surprising to many devs and has led to multiple serious incidents.
+// Please do not use this function. Be more explicit about the intended behavior, and use FAIL or
+// WARN instead.
+#define OVR_ERROR_CRASH_MOBILE_USE_WARN_OR_FAIL(...) \
     { LogWithFileTag(0, __FILE__, __VA_ARGS__); }
+
 #define OVR_FAIL(...)                             \
     {                                             \
         LogWithFileTag(0, __FILE__, __VA_ARGS__); \
@@ -234,8 +240,14 @@ inline void LogWithFileTag(const int prio, const char* fileTag, const char* fmt,
 #ifdef OVR_LOG_TAG
 #define OVR_LOG(...) ((void)LogWithTag(ANDROID_LOG_INFO, OVR_LOG_TAG, __VA_ARGS__))
 #define OVR_WARN(...) ((void)LogWithTag(ANDROID_LOG_WARN, OVR_LOG_TAG, __VA_ARGS__))
-#define OVR_ERROR(...) \
+
+// This used to be called OVR_ERROR, but it would crash on mobile devices,
+// but not on Windows. This was surprising to many devs and has led to multiple serious incidents.
+// Please do not use this function. Be more explicit about the intended behavior, and use FAIL or
+// WARN instead.
+#define OVR_ERROR_CRASH_MOBILE_USE_WARN_OR_FAIL(...) \
     { (void)LogWithTag(ANDROID_LOG_ERROR, OVR_LOG_TAG, __VA_ARGS__); }
+
 #define OVR_FAIL(...)                                                  \
     {                                                                  \
         (void)LogWithTag(ANDROID_LOG_ERROR, OVR_LOG_TAG, __VA_ARGS__); \
@@ -244,8 +256,14 @@ inline void LogWithFileTag(const int prio, const char* fileTag, const char* fmt,
 #else
 #define OVR_LOG(...) LogWithFileTag(ANDROID_LOG_INFO, __FILE__, __VA_ARGS__)
 #define OVR_WARN(...) LogWithFileTag(ANDROID_LOG_WARN, __FILE__, __VA_ARGS__)
-#define OVR_ERROR(...) \
+
+// This used to be called OVR_ERROR, but it would crash on mobile devices,
+// but not on Windows. This was surprising to many devs and has led to multiple serious incidents.
+// Please do not use this function. Be more explicit about the intended behavior, and use FAIL or
+// WARN instead.
+#define OVR_ERROR_CRASH_MOBILE_USE_WARN_OR_FAIL(...) \
     { LogWithFileTag(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__); }
+
 #define OVR_FAIL(...)                                             \
     {                                                             \
         LogWithFileTag(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__); \
@@ -327,9 +345,17 @@ static inline std::string ovrLogConvertPrintfToString(const char* format, ...) {
 
 #define OVR_LOG(...) XLOG(INFO, ovrLogConvertPrintfToString(__VA_ARGS__))
 #define OVR_WARN(...) XLOG(WARN, ovrLogConvertPrintfToString(__VA_ARGS__))
-#define OVR_ERROR(...) XLOG(ERR, ovrLogConvertPrintfToString(__VA_ARGS__))
+
+// This used to be called OVR_ERROR, but it would crash on mobile devices,
+// but not on Windows. This was surprising to many devs and has led to multiple serious incidents.
+// Please do not use this function. Be more explicit about the intended behavior, and use FAIL or
+// WARN instead.
+#define OVR_ERROR_CRASH_MOBILE_USE_WARN_OR_FAIL(...) \
+    XLOG(ERR, ovrLogConvertPrintfToString(__VA_ARGS__))
+
 #define OVR_FAIL(...) XLOG(FATAL, ovrLogConvertPrintfToString(__VA_ARGS__))
 #define OVR_LOG_WITH_TAG(__tag__, ...) OVR_LOG(__VA_ARGS__)
+#define OVR_WARN_WITH_TAG(__tag__, ...) OVR_WARN(__VA_ARGS__)
 #define OVR_ASSERT_WITH_TAG(__expr__, __tag__)           \
     {                                                    \
         if (!(__expr__)) {                               \

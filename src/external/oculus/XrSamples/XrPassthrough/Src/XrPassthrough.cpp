@@ -1003,7 +1003,7 @@ int main() {
         ALOGV("Created stage space");
     }
 
-    auto projections = new XrView[NUM_EYES];
+    XrView projections[NUM_EYES];
     for (int eye = 0; eye < NUM_EYES; eye++) {
         projections[eye] = XrView{XR_TYPE_VIEW};
     }
@@ -1519,10 +1519,7 @@ int main() {
 
     AppInput_shutdown();
 
-    delete[] projections;
-
-    app.egl.DestroyContext();
-
+    OXR(xrDestroySwapchain(app.ColorSwapChain));
     OXR(xrDestroySpace(app.HeadSpace));
     OXR(xrDestroySpace(app.LocalSpace));
     // StageSpace is optional.
@@ -1532,6 +1529,7 @@ int main() {
     OXR(xrDestroySession(app.Session));
     OXR(xrDestroyInstance(app.Instance));
 
+	app.egl.DestroyContext();
 #if defined(XR_USE_PLATFORM_ANDROID)
     (*androidApp->activity->vm).DetachCurrentThread();
 #endif // defined(XR_USE_PLATFORM_ANDROID)

@@ -28,6 +28,7 @@ import java.util.List;
 public class MainActivity extends android.app.NativeActivity {
   private static final String PERMISSION_EYE_TRACKING = "com.oculus.permission.EYE_TRACKING";
   private static final String PERMISSION_FACE_TRACKING = "com.oculus.permission.FACE_TRACKING";
+  private static final String PERMISSION_RECORD_AUDIO = "android.permission.RECORD_AUDIO";
   private static final int REQUEST_CODE_PERMISSION_EYE_AND_FACE_TRACKING = 1;
 
   static {
@@ -53,6 +54,9 @@ public class MainActivity extends android.app.NativeActivity {
     }
     if (checkSelfPermission(PERMISSION_FACE_TRACKING) != PackageManager.PERMISSION_GRANTED) {
       permissionsToRequest.add(PERMISSION_FACE_TRACKING);
+    }
+    if (checkSelfPermission(PERMISSION_RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+      permissionsToRequest.add(PERMISSION_RECORD_AUDIO);
     }
 
     if (!permissionsToRequest.isEmpty()) {

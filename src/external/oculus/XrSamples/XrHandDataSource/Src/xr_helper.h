@@ -18,7 +18,6 @@ Copyright   :   Copyright (c) Facebook Technologies, LLC and its affiliates. All
 #endif
 
 #include <openxr/openxr.h>
-#include <openxr/openxr_oculus.h>
 #include <openxr/openxr_platform.h>
 
 #include <cstdint>

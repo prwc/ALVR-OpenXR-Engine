@@ -86,7 +86,6 @@ typedef void(GL_APIENTRY* PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC)(
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
-#include <openxr/openxr_oculus.h>
 #include <openxr/openxr_oculus_helpers.h>
 
 #define MATH_PI 3.14159265358979323846f
