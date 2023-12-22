@@ -963,72 +963,70 @@ struct OpenXrProgram final : IOpenXrProgram {
     }
 
 #ifdef XR_USE_PLATFORM_WIN32
-    static inline std::uint64_t ToTimeUs(const LARGE_INTEGER& ctr)
+    static inline std::int64_t ToTimeNs(const LARGE_INTEGER& ctr)
     {
         const std::int64_t freq = _Query_perf_frequency(); // doesn't change after system boot
-        const std::int64_t whole = (ctr.QuadPart / freq) * std::micro::den;
-        const std::int64_t part = (ctr.QuadPart % freq) * std::micro::den / freq;
-        return static_cast<std::uint64_t>(whole + part);
+        const std::int64_t whole = (ctr.QuadPart / freq) * std::nano::den;
+        const std::int64_t part = (ctr.QuadPart % freq) * std::nano::den / freq;
+        return (whole + part);
     }
 #else
-    static inline std::uint64_t ToTimeUs(const struct timespec& ts)
+    static inline std::int64_t ToTimeNs(const struct timespec& ts)
     {
-        return (ts.tv_sec * 1000000) + (ts.tv_nsec / 1000);
+        return (ts.tv_sec * 1000000000ll) + ts.tv_nsec;
     }
 #endif
 
-    inline std::uint64_t FromXrTimeUs(const XrTime xrt, const std::uint64_t defaultVal = std::uint64_t(-1)) const
+    inline std::int64_t FromXrTimeNs(const XrTime xrt) const
     {
 #ifdef XR_USE_PLATFORM_WIN32
         if (m_pfnConvertTimeToWin32PerformanceCounterKHR == nullptr)
-            return defaultVal;
+            return static_cast<std::int64_t>(xrt);
         LARGE_INTEGER ctr;
-        if (m_pfnConvertTimeToWin32PerformanceCounterKHR(m_instance, xrt, &ctr) == XR_ERROR_TIME_INVALID)
-            return defaultVal;
-        return ToTimeUs(ctr);
+        if (XR_FAILED(m_pfnConvertTimeToWin32PerformanceCounterKHR(m_instance, xrt, &ctr)))
+            return static_cast<std::int64_t>(xrt);
+        return ToTimeNs(ctr);
 #else
         if (m_pfnConvertTimeToTimespecTimeKHR == nullptr)
-            return defaultVal;
+            return static_cast<std::int64_t>(xrt);
         struct timespec ts;
-        if (m_pfnConvertTimeToTimespecTimeKHR(m_instance, xrt, &ts) == XR_ERROR_TIME_INVALID)
-            return defaultVal;
-        return ToTimeUs(ts);
+        if (XR_FAILED(m_pfnConvertTimeToTimespecTimeKHR(m_instance, xrt, &ts)))
+            return static_cast<std::int64_t>(xrt);
+        return ToTimeNs(ts);
 #endif
     }
 
-    virtual inline std::tuple<XrTime, std::uint64_t> XrTimeNow() const override
+    virtual inline std::tuple<XrTime, std::int64_t> XrTimeNow() const override
     {
+        static_assert(sizeof(XrTime) == sizeof(std::int64_t) && std::is_signed<XrTime>::value);
 #ifdef XR_USE_PLATFORM_WIN32
-        if (m_pfnConvertWin32PerformanceCounterToTimeKHR == nullptr)
-            return { -1, std::uint64_t(-1) };
         LARGE_INTEGER ctr;
         QueryPerformanceCounter(&ctr);
+        const std::int64_t ctrNs = ToTimeNs(ctr);
+        if (m_pfnConvertWin32PerformanceCounterToTimeKHR == nullptr)
+            return { static_cast<XrTime>(ctrNs), ctrNs };
         XrTime xrTimeNow;
-        if (m_pfnConvertWin32PerformanceCounterToTimeKHR(m_instance, &ctr, &xrTimeNow) == XR_ERROR_TIME_INVALID)
-            return { -1, std::uint64_t(-1) };
-        return { xrTimeNow, ToTimeUs(ctr) };
+        if (XR_FAILED(m_pfnConvertWin32PerformanceCounterToTimeKHR(m_instance, &ctr, &xrTimeNow)))
+            return { static_cast<XrTime>(ctrNs), ctrNs };
+        return { xrTimeNow, ctrNs };
 #else
-        if (m_pfnConvertTimespecTimeToTimeKHR == nullptr)
-            return { -1, std::uint64_t(-1) };
         struct timespec ts;
         if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
-            return { -1, std::uint64_t(-1) };
-
-        XrTime xrTimeNow;
-        if (IsPrePicoPUI<5,4>()) {
+            return { 0,0 };
+        const std::int64_t tsNs = ToTimeNs(ts);
+        if (IsPrePicoPUI<5,4>() || m_pfnConvertTimespecTimeToTimeKHR == nullptr) {
             // 
-            // As of writing, there are bugs in Pico's OXR runtime with either/both:
+            // There are bugs in Pico's OXR runtime in firmware versions < v5.4 with either/both:
             //      * xrLocateSpace for controller action spaces not working with any other times beyond XrFrameState::predicateDisplayTime (and zero, in a non-conforming way).
             //      * xrConvertTimeToTimespecTimeKHR appears to return values in microseconds instead of nanoseconds and values seem to be completely off from what
             //        XrFrameState::predicateDisplayTime values are.   
             //
-            static_assert(sizeof(XrTime) == sizeof(std::int64_t) && std::is_signed< XrTime>::value);
-            constexpr const auto NSecPerSec = 1000000000L;
-            xrTimeNow = (static_cast<XrTime>(ts.tv_sec) * NSecPerSec) + ts.tv_nsec;
+            return { static_cast<XrTime>(tsNs), tsNs };
         }
-        else if (m_pfnConvertTimespecTimeToTimeKHR(m_instance, &ts, &xrTimeNow) == XR_ERROR_TIME_INVALID)
-            return { -1, std::uint64_t(-1) };
-        return { xrTimeNow, ToTimeUs(ts) };
+        XrTime xrTimeNow;
+        if (XR_FAILED(m_pfnConvertTimespecTimeToTimeKHR(m_instance, &ts, &xrTimeNow)))
+            return { static_cast<XrTime>(tsNs), tsNs };
+        return { xrTimeNow, tsNs };
 #endif
     }
 
@@ -3416,12 +3414,12 @@ struct OpenXrProgram final : IOpenXrProgram {
         assert(predicatedLatencyOffsetNs >= 0);
 
         const auto trackingPredictionLatencyUs = LatencyCollector::Instance().getTrackingPredictionLatency();
-        const auto [xrTimeStamp, timeStampUs] = XrTimeNow();
-        assert(timeStampUs != std::uint64_t(-1) && xrTimeStamp >= 0);
+        const auto [xrTimeStamp, timeStampNs] = XrTimeNow();
+        assert(timeStampNs >= 0 && xrTimeStamp >= 0);
 
         const XrDuration totalLatencyOffsetNs = static_cast<XrDuration>(trackingPredictionLatencyUs * 1000) + predicatedLatencyOffsetNs;
         const auto predicatedDisplayTimeXR = xrTimeStamp + totalLatencyOffsetNs;      
-        const auto predicatedDisplayTimeNs = (timeStampUs * 1000) + static_cast<std::uint64_t>(totalLatencyOffsetNs);
+        const auto predicatedDisplayTimeNs = static_cast<std::uint64_t>(timeStampNs + totalLatencyOffsetNs);
 
         std::array<XrView, 2> newViews { IdentityView, IdentityView };
         LocateViews(predicatedDisplayTimeXR, (const std::uint32_t)newViews.size(), newViews.data());
