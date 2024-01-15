@@ -10,13 +10,16 @@ Sample app for FB_body_tracking
 #include <cstdio>
 
 #include "XrApp.h"
-#include <openxr/fb_body_tracking.h>
 
 #include "Input/SkeletonRenderer.h"
 #include "Input/ControllerRenderer.h"
 #include "Input/TinyUI.h"
 #include "Input/AxisRenderer.h"
 #include "Render/SimpleBeamRenderer.h"
+
+#include <openxr/meta_body_tracking_full_body.h>
+#include <openxr/meta_body_tracking_fidelity.h>
+#include <openxr/meta_body_tracking_calibration.h>
 
 class XrBodyApp : public OVRFW::XrApp {
    public:
@@ -28,6 +31,9 @@ class XrBodyApp : public OVRFW::XrApp {
     virtual std::vector<const char*> GetExtensions() override {
         std::vector<const char*> extensions = XrApp::GetExtensions();
         extensions.push_back(XR_FB_BODY_TRACKING_EXTENSION_NAME);
+        extensions.push_back(XR_META_BODY_TRACKING_FIDELITY_EXTENSION_NAME);
+        extensions.push_back(XR_META_BODY_TRACKING_FULL_BODY_EXTENSION_NAME);
+        extensions.push_back(XR_META_BODY_TRACKING_CALIBRATION_EXTENSION_NAME);
         return extensions;
     }
 
@@ -45,6 +51,13 @@ class XrBodyApp : public OVRFW::XrApp {
             XR_TYPE_SYSTEM_BODY_TRACKING_PROPERTIES_FB};
         XrSystemProperties systemProperties{
             XR_TYPE_SYSTEM_PROPERTIES, &bodyTrackingSystemProperties};
+        XrSystemPropertiesBodyTrackingFullBodyMETA fullBodyTrackingSystemProperties{
+            XR_TYPE_SYSTEM_PROPERTIES_BODY_TRACKING_FULL_BODY_META, nullptr};
+        XrSystemPropertiesBodyTrackingCalibrationMETA calibrationSystemProperties{
+            XR_TYPE_SYSTEM_PROPERTIES_BODY_TRACKING_CALIBRATION_META, &fullBodyTrackingSystemProperties};
+        XrSystemPropertiesBodyTrackingFidelityMETA fidelitySystemProperties{
+            XR_TYPE_SYSTEM_PROPERTIES_BODY_TRACKING_FIDELITY_META, &calibrationSystemProperties};
+        bodyTrackingSystemProperties.next = &fidelitySystemProperties;
         OXR(xrGetSystemProperties(GetInstance(), GetSystemId(), &systemProperties));
         if (!bodyTrackingSystemProperties.supportsBodyTracking) {
             // The system does not support body tracking
@@ -52,7 +65,27 @@ class XrBodyApp : public OVRFW::XrApp {
             return false;
         } else {
             ALOG(
-                "xrGetSystemProperties XR_TYPE_SYSTEM_BODY_TRACKING_PROPERTIES_FB OK - initiallizing body tracking...");
+                "xrGetSystemProperties XR_TYPE_SYSTEM_BODY_TRACKING_PROPERTIES_FB OK - initializing body tracking...");
+        }
+        if (!fullBodyTrackingSystemProperties.supportsFullBodyTracking) {
+            // The system does not support full body tracking.
+            ALOG("xrGetSystemProperties XR_TYPE_SYSTEM_PROPERTIES_BODY_TRACKING_FULL_BODY_META FAILED.");
+        } else {
+            supportsFullBody_ = true;
+        }
+
+        if (!fidelitySystemProperties.supportsBodyTrackingFidelity) {
+            // The system does not support body tracking fidelity.
+            ALOG("xrGetSystemProperties XR_TYPE_SYSTEM_PROPERTIES_BODY_TRACKING_FIDELITY_META FAILED.");
+        } else {
+            supportsFidelity_ = true;
+        }
+
+        if (!calibrationSystemProperties.supportsHeightOverride) {
+            // The system does not support body tracking calibration overrides.
+            ALOG("xrGetSystemProperties XR_TYPE_SYSTEM_PROPERTIES_BODY_TRACKING_CALIBRATION_META FAILED.");
+        } else {
+            supportsCalibrationOverride_ = true;
         }
 
         /// Hook up extensions for body tracking
@@ -69,6 +102,15 @@ class XrBodyApp : public OVRFW::XrApp {
         OXR(xrGetInstanceProcAddr(
             GetInstance(), "xrGetBodySkeletonFB", (PFN_xrVoidFunction*)(&xrGetSkeletonFB_)));
 
+        if (supportsFidelity_) {
+            OXR(xrGetInstanceProcAddr(
+                GetInstance(), "xrRequestBodyTrackingFidelityMETA", (PFN_xrVoidFunction*)(&xrRequestBodyTrackingFidelityMETA_)));
+        }
+
+        if (supportsCalibrationOverride_) {
+            OXR(xrGetInstanceProcAddr(
+                GetInstance(), "xrSuggestBodyTrackingCalibrationOverrideMETA", (PFN_xrVoidFunction*)(&xrSuggestBodyTrackingCalibrationOverrideMETA_)));
+        }
         return true;
     }
 
@@ -78,6 +120,9 @@ class XrBodyApp : public OVRFW::XrApp {
         xrDestroyBodyTrackerFB_ = nullptr;
         xrLocateBodyJointsFB_ = nullptr;
         xrGetSkeletonFB_ = nullptr;
+
+        xrRequestBodyTrackingFidelityMETA_ = nullptr;
+        xrSuggestBodyTrackingCalibrationOverrideMETA_ = nullptr;
 
         OVRFW::XrApp::AppShutdown(context);
         ui_.Shutdown();
@@ -101,8 +146,18 @@ class XrBodyApp : public OVRFW::XrApp {
         /// Body Trackers
         if (xrCreateBodyTrackerFB_) {
             XrBodyTrackerCreateInfoFB createInfo{XR_TYPE_BODY_TRACKER_CREATE_INFO_FB};
-            createInfo.bodyJointSet = XR_BODY_JOINT_SET_DEFAULT_FB;
+            createInfo.bodyJointSet = supportsFullBody_ ? XR_BODY_JOINT_SET_FULL_BODY_META : XR_BODY_JOINT_SET_DEFAULT_FB;
             OXR(xrCreateBodyTrackerFB_(GetSession(), &createInfo, &bodyTracker_));
+
+            if (supportsFidelity_) {
+                OXR(xrRequestBodyTrackingFidelityMETA_(bodyTracker_, XrBodyTrackingFidelityMETA::XR_BODY_TRACKING_FIDELITY_HIGH_META));
+            }
+
+            if (supportsCalibrationOverride_) {
+                XrBodyTrackingCalibrationInfoMETA calibrationInfo{XR_TYPE_BODY_TRACKING_CALIBRATION_INFO_META};
+                calibrationInfo.bodyHeight = 2.0f;
+                OXR(xrSuggestBodyTrackingCalibrationOverrideMETA_(bodyTracker_, &calibrationInfo));
+            }
             ALOG("xrCreateBodyTrackerFB bodyTracker_=%llx", (long long)bodyTracker_);
         }
 
@@ -131,7 +186,14 @@ class XrBodyApp : public OVRFW::XrApp {
         if (bodyTracker_ != XR_NULL_HANDLE) {
             XrBodyJointLocationsFB locations{XR_TYPE_BODY_JOINT_LOCATIONS_FB};
             locations.next = nullptr;
-            locations.jointCount = XR_BODY_JOINT_COUNT_FB;
+            locations.jointCount = supportsFullBody_ ? static_cast<int>(XR_FULL_BODY_JOINT_COUNT_META) : static_cast<int>(XR_BODY_JOINT_COUNT_FB);
+
+            XrBodyTrackingCalibrationStatusMETA calibrationStatus{XR_TYPE_BODY_TRACKING_CALIBRATION_STATUS_META};
+            locations.next = &calibrationStatus;
+
+            XrBodyTrackingFidelityStatusMETA fidelityStatus{XR_TYPE_BODY_TRACKING_FIDELITY_STATUS_META};
+            calibrationStatus.next = &fidelityStatus;
+
             locations.jointLocations = jointLocations_;
 
             XrBodyJointsLocateInfoFB locateInfo{XR_TYPE_BODY_JOINTS_LOCATE_INFO_FB};
@@ -140,9 +202,20 @@ class XrBodyApp : public OVRFW::XrApp {
 
             OXR(xrLocateBodyJointsFB_(bodyTracker_, &locateInfo, &locations));
 
+            if (supportsCalibrationOverride_ && calibrationStatus.status != XR_BODY_TRACKING_CALIBRATION_STATE_VALID_META) {
+                // Ignore body tracking, don't render it for example.
+                ALOGV("Body tracking calibration is not yet valid");
+            }
+
+            // Application logic:
+            if (supportsFidelity_ && fidelityStatus.fidelity != XR_BODY_TRACKING_FIDELITY_HIGH_META) {
+                // Body tracking may be less accurate. Scoring may be adjusted for example.
+                ALOGV("Body tracking fidelity is low");
+            }
+
             XrBodySkeletonFB skeleton{XR_TYPE_BODY_SKELETON_FB};
             skeleton.next = nullptr;
-            skeleton.jointCount = XR_BODY_JOINT_COUNT_FB;
+            skeleton.jointCount = locations.jointCount;
             skeleton.joints = skeletonJoints_;
 
             OXR(xrGetSkeletonFB_(bodyTracker_, &skeleton));
@@ -160,17 +233,17 @@ class XrBodyApp : public OVRFW::XrApp {
 
             std::vector<OVR::Posef> bodyJoints;
             if (locations.isActive) {
-                for (int i = 0; i < XR_BODY_JOINT_COUNT_FB; ++i) {
-                        if (!displaySkeleton_) {
-                            if ((jointLocations_[i].locationFlags & isValid)) {
-                                bodyJoints.push_back(FromXrPosef(jointLocations_[i].pose));
-                            }
-                        } else {
-                            // Please note that skeleton is intended only for retargeting,
-                            // not for rendering! Here it's rendered only for giving you
-                            // an opportunity see the data by eyes.
-                            bodyJoints.push_back(FromXrPosef(skeleton.joints[i].pose));
+                for (uint32_t i = 0; i < locations.jointCount; ++i) {
+                    if (!displaySkeleton_) {
+                        if ((jointLocations_[i].locationFlags & isValid)) {
+                            bodyJoints.push_back(FromXrPosef(jointLocations_[i].pose));
                         }
+                    } else {
+                        // Please note that skeleton is intended only for retargeting,
+                        // not for rendering! Here it's rendered only for giving you
+                        // an opportunity see the data by eyes.
+                        bodyJoints.push_back(FromXrPosef(skeleton.joints[i].pose));
+                    }
 
                 }
                 // The skeletonChangedCount parameter is changed each time when
@@ -227,13 +300,20 @@ class XrBodyApp : public OVRFW::XrApp {
     PFN_xrDestroyBodyTrackerFB xrDestroyBodyTrackerFB_ = nullptr;
     PFN_xrLocateBodyJointsFB xrLocateBodyJointsFB_ = nullptr;
     PFN_xrGetBodySkeletonFB xrGetSkeletonFB_ = nullptr;
+    PFN_xrRequestBodyTrackingFidelityMETA xrRequestBodyTrackingFidelityMETA_ = nullptr;
+    PFN_xrSuggestBodyTrackingCalibrationOverrideMETA xrSuggestBodyTrackingCalibrationOverrideMETA_ = nullptr;
     /// Bodys - tracker bodyles
     XrBodyTrackerFB bodyTracker_ = XR_NULL_HANDLE;
     /// Bodys - data buffers
-    XrBodyJointLocationFB jointLocations_[XR_BODY_JOINT_COUNT_FB];
-    XrBodySkeletonJointFB skeletonJoints_[XR_BODY_JOINT_COUNT_FB];
+
+    XrBodyJointLocationFB jointLocations_[XR_FULL_BODY_JOINT_COUNT_META];
+    XrBodySkeletonJointFB skeletonJoints_[XR_FULL_BODY_JOINT_COUNT_META];
 
    private:
+    bool supportsFullBody_ = false;
+    bool supportsFidelity_ = false;
+    bool supportsCalibrationOverride_ = false;
+
     OVRFW::ControllerRenderer controllerRenderL_;
     OVRFW::ControllerRenderer controllerRenderR_;
     OVRFW::TinyUI ui_;

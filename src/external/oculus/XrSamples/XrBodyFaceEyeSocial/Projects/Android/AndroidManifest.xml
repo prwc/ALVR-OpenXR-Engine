@@ -16,6 +16,9 @@
 	<uses-feature android:name="oculus.software.face_tracking" android:required="true" />
 	<uses-permission android:name="com.oculus.permission.FACE_TRACKING" />
 
+	<!-- Tell the system this app can handle audio-driven face tracking -->
+	<uses-permission android:name="android.permission.RECORD_AUDIO" />
+
 	<!-- Tell the system this app requires OpenGL ES 3.1. -->
 	<uses-feature android:glEsVersion="0x00030001" android:required="true" />
 

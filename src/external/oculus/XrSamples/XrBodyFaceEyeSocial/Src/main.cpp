@@ -14,8 +14,8 @@ Authors     :   John Kearney
 #include <array>
 
 #include "XrApp.h"
-#include <openxr/fb_body_tracking.h>
 #include <openxr/fb_eye_tracking_social.h>
+#include <openxr/fb_face_tracking2.h>
 
 
 #include "Input/SkeletonRenderer.h"
@@ -50,6 +50,8 @@ class XrBodyFaceEyeSocialApp : public OVRFW::XrApp {
         extensions.push_back(XR_FB_BODY_TRACKING_EXTENSION_NAME);
         extensions.push_back(XR_FB_EYE_TRACKING_SOCIAL_EXTENSION_NAME);
         extensions.push_back(XR_FB_FACE_TRACKING_EXTENSION_NAME);
+        extensions.push_back(XR_FB_FACE_TRACKING2_EXTENSION_NAME);
+
 
 
         return extensions;
@@ -66,8 +68,12 @@ class XrBodyFaceEyeSocialApp : public OVRFW::XrApp {
             XR_TYPE_SYSTEM_BODY_TRACKING_PROPERTIES_FB};
         XrSystemEyeTrackingPropertiesFB eyeTrackingSystemProperties{
             XR_TYPE_SYSTEM_EYE_TRACKING_PROPERTIES_FB};
+
+        XrSystemFaceTrackingProperties2FB faceTrackingSystemProperties2 {
+            XR_TYPE_SYSTEM_FACE_TRACKING_PROPERTIES2_FB};
+
         XrSystemFaceTrackingPropertiesFB faceTrackingSystemProperties{
-            XR_TYPE_SYSTEM_FACE_TRACKING_PROPERTIES_FB};
+            XR_TYPE_SYSTEM_FACE_TRACKING_PROPERTIES_FB, &faceTrackingSystemProperties2};
 
         eyeTrackingSystemProperties.next = &bodyTrackingSystemProperties;
         bodyTrackingSystemProperties.next = &faceTrackingSystemProperties;
@@ -119,10 +125,23 @@ class XrBodyFaceEyeSocialApp : public OVRFW::XrApp {
                 GetInstance(), "xrGetEyeGazesFB", (PFN_xrVoidFunction*)(&xrGetEyeGazesFB_)));
         }
 
-        if (!faceTrackingSystemProperties.supportsFaceTracking) {
-            // The system does not support face tracking
-            ALOG("xrGetSystemProperties XR_TYPE_SYSTEM_FACE_TRACKING_PROPERTIES_FB FAILED.");
-        } else {
+         if (faceTrackingSystemProperties2.supportsAudioFaceTracking || faceTrackingSystemProperties2.supportsVisualFaceTracking) {
+            ALOG(
+                "xrGetSystemProperties XR_TYPE_SYSTEM_FACE_TRACKING_PROPERTIES2_FB OK - tongue and audio-driven face tracking are supported.");
+            /// Hook up extensions for face tracking (v2)
+            OXR(xrGetInstanceProcAddr(
+                GetInstance(),
+                "xrCreateFaceTracker2FB",
+                (PFN_xrVoidFunction*)(&xrCreateFaceTracker2FB_)));
+            OXR(xrGetInstanceProcAddr(
+                GetInstance(),
+                "xrDestroyFaceTracker2FB",
+                (PFN_xrVoidFunction*)(&xrDestroyFaceTracker2FB_)));
+            OXR(xrGetInstanceProcAddr(
+                GetInstance(),
+                "xrGetFaceExpressionWeights2FB",
+                (PFN_xrVoidFunction*)(&xrGetFaceExpressionWeights2FB_)));
+        } else if (faceTrackingSystemProperties.supportsFaceTracking) {
             ALOG(
                 "xrGetSystemProperties XR_TYPE_SYSTEM_FACE_TRACKING_PROPERTIES_FB OK - initializing face tracking...");
             /// Hook up extensions for face tracking
@@ -138,6 +157,9 @@ class XrBodyFaceEyeSocialApp : public OVRFW::XrApp {
                 GetInstance(),
                 "xrGetFaceExpressionWeightsFB",
                 (PFN_xrVoidFunction*)(&xrGetFaceExpressionWeightsFB_)));
+        } else {
+            // The system does not support face tracking
+            ALOG("xrGetSystemProperties XR_TYPE_SYSTEM_FACE_TRACKING_PROPERTIES_FB FAILED.");
         }
 
         return true;
@@ -159,6 +181,11 @@ class XrBodyFaceEyeSocialApp : public OVRFW::XrApp {
         xrCreateFaceTrackerFB_ = nullptr;
         xrDestroyFaceTrackerFB_ = nullptr;
         xrGetFaceExpressionWeightsFB_ = nullptr;
+
+        /// unhook extensions for face tracking (v2)
+        xrCreateFaceTracker2FB_ = nullptr;
+        xrDestroyFaceTracker2FB_ = nullptr;
+        xrGetFaceExpressionWeights2FB_ = nullptr;
 
         OVRFW::XrApp::AppShutdown(context);
         ui_.Shutdown();
@@ -207,7 +234,18 @@ class XrBodyFaceEyeSocialApp : public OVRFW::XrApp {
             ALOG("xrCreateEyeTrackerFB eyeTracker_=%llx", (long long)eyeTracker_);
         }
 
-        if (xrCreateFaceTrackerFB_) {
+        if (xrCreateFaceTracker2FB_) {
+            // Request face tracking data from visual or audio data source
+            XrFaceTrackerCreateInfo2FB createInfo{XR_TYPE_FACE_TRACKER_CREATE_INFO2_FB};
+            createInfo.faceExpressionSet = XR_FACE_EXPRESSION_SET2_DEFAULT_FB;
+            createInfo.requestedDataSourceCount = 2;
+            XrFaceTrackingDataSource2FB dataSources[2] = {
+                XR_FACE_TRACKING_DATA_SOURCE2_VISUAL_FB,
+                XR_FACE_TRACKING_DATA_SOURCE2_AUDIO_FB};
+            createInfo.requestedDataSources = dataSources;
+            OXR(xrCreateFaceTracker2FB_(GetSession(), &createInfo, &faceTracker2_));
+            ALOG("xrCreateFaceTracker2FB faceTracker2_=%llx", (long long)faceTracker_);
+        } else if (xrCreateFaceTrackerFB_) {
             XrFaceTrackerCreateInfoFB createInfo{XR_TYPE_FACE_TRACKER_CREATE_INFO_FB};
             OXR(xrCreateFaceTrackerFB_(GetSession(), &createInfo, &faceTracker_));
             ALOG("xrCreateFaceTrackerFB faceTracker_=%llx", (long long)faceTracker_);
@@ -241,7 +279,9 @@ class XrBodyFaceEyeSocialApp : public OVRFW::XrApp {
         if (xrDestroyEyeTrackerFB_) {
             OXR(xrDestroyEyeTrackerFB_(eyeTracker_));
         }
-        if (xrDestroyFaceTrackerFB_) {
+        if (xrDestroyFaceTracker2FB_) {
+            OXR(xrDestroyFaceTracker2FB_(faceTracker2_));
+        } else if (xrDestroyFaceTrackerFB_) {
             OXR(xrDestroyFaceTrackerFB_(faceTracker_));
         }
 
@@ -391,39 +431,72 @@ class XrBodyFaceEyeSocialApp : public OVRFW::XrApp {
             }
         }
 
+        // NOTE - The following logic is used only to showcase how face tracking works.
+        // It is NOT intended to be used as a reliable mechanism to detect facial expressions.
         auto simpleExpression =
             [](const XrFaceExpressionWeightsFB& expressionWeights) -> EmojiExpression {
-            // Recover original eyesClosed
-            float eyesclosedL = expressionWeights.weights[XR_FACE_EXPRESSION_EYES_CLOSED_L_FB];
-            float eyesclosedR = expressionWeights.weights[XR_FACE_EXPRESSION_EYES_CLOSED_R_FB];
-            if (expressionWeights.status.isEyeFollowingBlendshapesValid == XR_TRUE) {
-                eyesclosedL += expressionWeights.weights[XR_FACE_EXPRESSION_EYES_LOOK_DOWN_L_FB];
-                eyesclosedR += expressionWeights.weights[XR_FACE_EXPRESSION_EYES_LOOK_DOWN_R_FB];
-            }
-
-            if (expressionWeights.weights[XR_FACE_EXPRESSION_INNER_BROW_RAISER_L_FB] > 0.15 &&
-                expressionWeights.weights[XR_FACE_EXPRESSION_INNER_BROW_RAISER_R_FB] > 0.15 &&
-                expressionWeights.weights[XR_FACE_EXPRESSION_JAW_DROP_FB] > 0.5) {
-                return EmojiExpression::Surprise;
-            } else if (
-                expressionWeights.weights[XR_FACE_EXPRESSION_LIP_CORNER_PULLER_L_FB] > 0.5 &&
+            if (expressionWeights.weights[XR_FACE_EXPRESSION_LIP_CORNER_PULLER_L_FB] > 0.5 &&
                 expressionWeights.weights[XR_FACE_EXPRESSION_LIP_CORNER_PULLER_R_FB] > 0.5) {
                 return EmojiExpression::Smile;
             } else if (
                 expressionWeights.weights[XR_FACE_EXPRESSION_LIP_PUCKER_L_FB] > 0.25 &&
                 expressionWeights.weights[XR_FACE_EXPRESSION_LIP_PUCKER_R_FB] > 0.25) {
                 return EmojiExpression::Kiss;
-            } else if (eyesclosedL > 0.5 && eyesclosedR < 0.35) {
-                return EmojiExpression::WinkLeft;
-            } else if (eyesclosedR > 0.5 && eyesclosedL < 0.35) {
-                return EmojiExpression::WinkRight;
+            } else {
+                return EmojiExpression::Neutral;
+            }
+        };
+
+        // NOTE - The following logic is used only to showcase how face tracking works.
+        // It is NOT intended to be used as a reliable mechanism to detect facial expressions.
+        auto simpleExpression2 =
+            [](const XrFaceExpressionWeights2FB& expressionWeights) -> EmojiExpression {
+            // If source is audio and any of the weights are non-zero, then audio-driven expression.
+            if (expressionWeights.dataSource == XR_FACE_TRACKING_DATA_SOURCE2_AUDIO_FB) {
+                for (int i = 0; i < XR_FACE_EXPRESSION2_COUNT_FB; ++i) {
+                    if (expressionWeights.weights[i] > 0.01) {
+                        return EmojiExpression::AudioDriven;
+                    }
+                }
+                return EmojiExpression::Neutral;
+            } else if (expressionWeights.weights[XR_FACE_EXPRESSION2_LIP_CORNER_PULLER_L_FB] > 0.5 &&
+                expressionWeights.weights[XR_FACE_EXPRESSION2_LIP_CORNER_PULLER_R_FB] > 0.5) {
+                return EmojiExpression::Smile;
+            } else if (
+                expressionWeights.weights[XR_FACE_EXPRESSION2_LIP_PUCKER_L_FB] > 0.25 &&
+                expressionWeights.weights[XR_FACE_EXPRESSION2_LIP_PUCKER_R_FB] > 0.25) {
+                return EmojiExpression::Kiss;
+             } else if (expressionWeights.weights[XR_FACE_EXPRESSION2_TONGUE_OUT_FB] > 0.5) {
+                return EmojiExpression::TongueOut;
             } else {
                 return EmojiExpression::Neutral;
             }
         };
 
         /// Face
-        if (faceTracker_ != XR_NULL_HANDLE) {
+       if (faceTracker2_ != XR_NULL_HANDLE) {
+            float weights_[XR_FACE_EXPRESSION2_COUNT_FB] = {};
+            float confidence_[XR_FACE_CONFIDENCE2_COUNT_FB] = {};
+
+            XrFaceExpressionWeights2FB expressionWeights{XR_TYPE_FACE_EXPRESSION_WEIGHTS2_FB};
+            expressionWeights.next = nullptr;
+            expressionWeights.weights = weights_;
+            expressionWeights.confidences = confidence_;
+            expressionWeights.weightCount = XR_FACE_EXPRESSION2_COUNT_FB;
+            expressionWeights.confidenceCount = XR_FACE_CONFIDENCE2_COUNT_FB;
+
+            XrFaceExpressionInfo2FB expressionInfo{XR_TYPE_FACE_EXPRESSION_INFO2_FB};
+            expressionInfo.time = ToXrTime(in.PredictedDisplayTime);
+
+
+            {
+                OXR(xrGetFaceExpressionWeights2FB_(faceTracker2_, &expressionInfo, &expressionWeights));
+            }
+
+            emojiExpression_ = simpleExpression2(expressionWeights);
+
+            mouthLabel_->SetText(EmojiExpressionString[(size_t)emojiExpression_]);
+        } else if (faceTracker_ != XR_NULL_HANDLE) {
             float weights_[XR_FACE_EXPRESSION_COUNT_FB] = {};
             float confidence_[XR_FACE_CONFIDENCE_COUNT_FB] = {};
 
@@ -540,27 +613,31 @@ class XrBodyFaceEyeSocialApp : public OVRFW::XrApp {
     PFN_xrDestroyFaceTrackerFB xrDestroyFaceTrackerFB_ = nullptr;
     PFN_xrGetFaceExpressionWeightsFB xrGetFaceExpressionWeightsFB_ = nullptr;
 
+    /// Face (v2) - extension functions
+    PFN_xrCreateFaceTracker2FB xrCreateFaceTracker2FB_ = nullptr;
+    PFN_xrDestroyFaceTracker2FB xrDestroyFaceTracker2FB_ = nullptr;
+    PFN_xrGetFaceExpressionWeights2FB xrGetFaceExpressionWeights2FB_ = nullptr;
+
     /// Face - tracker handle
     XrFaceTrackerFB faceTracker_ = XR_NULL_HANDLE;
+    XrFaceTracker2FB faceTracker2_ = XR_NULL_HANDLE;
 
     /// Face data
     enum class EmojiExpression {
         Neutral = 0,
         Smile = 1,
-        Surprise = 2,
-        Kiss = 3,
-        WinkLeft = 4,
-        WinkRight = 5,
+        Kiss = 2,
+        TongueOut = 3,
+        AudioDriven = 4,
         COUNT
     };
 
     std::array<const char*, static_cast<size_t>(EmojiExpression::COUNT)> EmojiExpressionString{
         "Neutral Expression",
         "Smile Expression",
-        "Surprised Expression",
         "Kiss Expression",
-        "Wink Left Expression",
-        "Wink Right Expression",
+        "Tongue Out Expression",
+        "Audio-driven Expression",
     };
 
     EmojiExpression emojiExpression_ = EmojiExpression::Neutral;

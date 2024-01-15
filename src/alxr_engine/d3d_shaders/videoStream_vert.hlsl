@@ -10,53 +10,46 @@ struct PSVertex {
 #endif
 };
 
-struct Vertex {
-    float3 Pos : POSITION;
-    float2 uv : TEXCOORD;
-
-#ifdef ENABLE_SM6_MULTI_VIEW
-    uint ViewId : SV_ViewID;
-#elif defined(ENABLE_SM5_MULTI_VIEW)
-    uint ViewId : SV_InstanceID;
-#endif
-};
-cbuffer ModelConstantBuffer : register(b0) {
-    float4x4 Model;
-};
-cbuffer ViewProjectionConstantBuffer : register(b1) {
-#ifdef MULTI_VIEW_ENABLED
-    float4x4 ViewProjection[2];
-#else
+#ifndef MULTI_VIEW_ENABLED
+cbuffer ViewIDConstantBuffer : register(b1) {
     float4x4 ViewProjection;
-    uint ViewID;
+    uint ViewId;
+};
 #endif
+
+static const float2 TriPositions[3] =
+{
+    float2(-1.0f, -1.0f),
+    float2(-1.0f, 3.0f),
+    float2(3.0f, -1.0f)
+};
+static const float2 UVs[2][3] =
+{
+    {
+        float2(0.0f, 1.0f),
+        float2(0.0f, -1.0f),
+        float2(1.0f, 1.0f)
+    },
+    {
+        float2(0.5f, 1.0f),
+        float2(0.5f, -1.0f),
+        float2(1.5f, 1.0f)
+    }
 };
 
-#ifdef MULTI_VIEW_ENABLED
-    #define VS_GET_VIEW_INDEX(input) input.ViewId
-    #define VS_GET_VIEW_PROJ(input) ViewProjection[input.ViewId]
-#else
-    #define VS_GET_VIEW_INDEX(input) ViewID
-    #define VS_GET_VIEW_PROJ(input) ViewProjection
+PSVertex MainVS(uint VertexID : SV_VertexID
+#ifdef ENABLE_SM6_MULTI_VIEW
+    , uint ViewId : SV_ViewID
+#elif defined(ENABLE_SM5_MULTI_VIEW)
+    , uint ViewId : SV_InstanceID
 #endif
-
-#ifdef ENABLE_MVP_TRANSFORM
-    #define VS_MVP_TRANSFORM(input, pos) mul(mul(float4(input.Pos, 1), Model), VS_GET_VIEW_PROJ(input))
-#else
-    #define VS_MVP_TRANSFORM(input, pos) float4(input.Pos, 1)
-#endif
-
-PSVertex MainVS(Vertex input) {
+)
+{
     PSVertex output;
-    output.Pos = VS_MVP_TRANSFORM(input, Position);
-
-    output.uv = input.uv;    
-    if (VS_GET_VIEW_INDEX(input) > 0) {
-        output.uv.x += 0.5f;
-    }
-
+    output.Pos = float4(TriPositions[VertexID], 0.0f, 1.0f);
+    output.uv = UVs[ViewId][VertexID];
 #ifdef ENABLE_SM5_MULTI_VIEW
-    output.ViewId = input.ViewId;
+    output.ViewId = ViewId;
 #endif
     return output;
 }

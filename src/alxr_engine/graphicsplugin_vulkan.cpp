@@ -131,49 +131,6 @@ inline VkResult CheckVkResult(VkResult res, const char* originator = nullptr, co
 #define CHECK_VKCMD(cmd) CheckVkResult(cmd, #cmd, FILE_AND_LINE);
 #define CHECK_VKRESULT(res, cmdStr) CheckVkResult(res, cmdStr, FILE_AND_LINE);
 
-#ifdef USE_ONLINE_VULKAN_SHADERC
-constexpr char VertexShaderGlsl[] =
-    R"_(
-    #version 430
-    #extension GL_ARB_separate_shader_objects : enable
-
-    layout (std140, push_constant) uniform buf
-    {
-        mat4 mvp;
-    } ubuf;
-
-    layout (location = 0) in vec3 Position;
-    layout (location = 1) in vec3 Color;
-
-    layout (location = 0) out vec4 oColor;
-    out gl_PerVertex
-    {
-        vec4 gl_Position;
-    };
-
-    void main()
-    {
-        oColor.rgba  = Color.rgba;
-        gl_Position = ubuf.mvp * Position;
-    }
-)_";
-
-constexpr char FragmentShaderGlsl[] =
-    R"_(
-    #version 430
-    #extension GL_ARB_separate_shader_objects : enable
-
-    layout (location = 0) in vec4 oColor;
-
-    layout (location = 0) out vec4 FragColor;
-
-    void main()
-    {
-        FragColor = oColor;
-    }
-)_";
-#endif  // USE_ONLINE_VULKAN_SHADERC
-
 struct MemoryAllocator {
     void Init(VkPhysicalDevice physicalDevice, VkDevice device) {
         m_physicalDevice = physicalDevice;
@@ -705,7 +662,7 @@ struct ShaderProgram {
 
         CHECK_VKCMD(vkCreateShaderModule(m_vkDevice, &modInfo, nullptr, &si.module));
 
-        Log::Write(Log::Level::Info, Fmt("Loaded %s shader", name.c_str()));
+        Log::Write(Log::Level::Verbose, Fmt("Loaded %s shader", name.c_str()));
     }
 };
 
@@ -1815,6 +1772,8 @@ struct PipelineLayout {
         Clear();
         m_vkDevice = device;
         m_vkinstance = vkinstance;
+        static_assert(sizeof(MultiViewProjectionUniform) <= 128);
+        static_assert(sizeof(ViewProjectionUniform) <= 128);
         // MVP matrix is a push_constant
         const VkPushConstantRange pcr {
             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
@@ -1871,18 +1830,19 @@ struct PipelineLayout {
             .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
             .pNext = &ycbcrConverInfo,
             .flags = 0,            
-            .magFilter = VK_FILTER_LINEAR,
-            .minFilter = VK_FILTER_LINEAR,
-            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR,
+            .magFilter = conversionInfo.chromaFilter,
+            .minFilter = conversionInfo.chromaFilter,
+            .mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST,
             .addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
             .addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
             .addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
             .mipLodBias = 0.0f,            
             .anisotropyEnable = VK_FALSE,
+            .maxAnisotropy = 1.0f,
             .compareEnable = VK_FALSE,
-            .compareOp = VK_COMPARE_OP_ALWAYS,
+            .compareOp = VK_COMPARE_OP_NEVER,
             .minLod = 0.0f,
-            .maxLod = 1.0f,
+            .maxLod = 0.0f,
             .borderColor = VK_BORDER_COLOR_FLOAT_OPAQUE_BLACK,
             .unnormalizedCoordinates = VK_FALSE,
         };
@@ -1905,13 +1865,10 @@ struct PipelineLayout {
         };
         CHECK_VKCMD(vkCreateDescriptorSetLayout(device, &layoutInfo, nullptr, &descriptorSetLayout));
 
-        static_assert(sizeof(MultiViewProjectionUniform) <= 128);
-        static_assert(sizeof(ViewProjectionUniform) <= 128);
-        // MVP matrix is a push_constant
-        const VkPushConstantRange pcr {
+        constexpr const VkPushConstantRange pcr {
             .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
             .offset = 0,
-            .size = (std::uint32_t)(isMultiview ? sizeof(MultiViewProjectionUniform) : sizeof(ViewProjectionUniform)),
+            .size = (std::uint32_t)sizeof(std::uint32_t),
         };
         CHECK(pcr.size <= 128);
         const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo {
@@ -1919,8 +1876,8 @@ struct PipelineLayout {
             .pNext = nullptr,
             .setLayoutCount = 1,
             .pSetLayouts = &descriptorSetLayout,
-            .pushConstantRangeCount = 1,
-            .pPushConstantRanges = &pcr
+            .pushConstantRangeCount = isMultiview ? 0u : 1u,
+            .pPushConstantRanges = isMultiview ? nullptr : &pcr,
         };
         CHECK_VKCMD(vkCreatePipelineLayout(m_vkDevice, &pipelineLayoutCreateInfo, nullptr, &layout));
     }
@@ -1949,7 +1906,7 @@ struct Pipeline {
     //void Dynamic(VkDynamicState state) { dynamicStateEnables.emplace_back(state); }
 
     void Create(VkDevice device, VkExtent2D size, const PipelineLayout& layout, const RenderPass& rp, const ShaderProgram& sp,
-                const VertexBufferBase& vb) {
+                const VertexBufferBase* vb = nullptr) {
         m_vkDevice = device;
 
         const VkPipelineDynamicStateCreateInfo dynamicState {
@@ -1962,10 +1919,10 @@ struct Pipeline {
         const VkPipelineVertexInputStateCreateInfo vi {
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             .pNext = nullptr,
-            .vertexBindingDescriptionCount = 1,
-            .pVertexBindingDescriptions = &vb.bindDesc,
-            .vertexAttributeDescriptionCount = (uint32_t)vb.attrDesc.size(),
-            .pVertexAttributeDescriptions = vb.attrDesc.data()
+            .vertexBindingDescriptionCount = vb ? 1u : 0u,
+            .pVertexBindingDescriptions = vb ? &vb->bindDesc : nullptr,
+            .vertexAttributeDescriptionCount = vb ? (uint32_t)vb->attrDesc.size() : 0u,
+            .pVertexAttributeDescriptions = vb ? vb->attrDesc.data() : nullptr,
         };
 
         constexpr const VkPipelineInputAssemblyStateCreateInfo ia {
@@ -2226,7 +2183,7 @@ struct SwapchainImageContext {
         
         depthBuffer.Create(m_vkDevice, memAllocator, depthFormat, swapchainCreateInfo);
         rp.Create(m_vkDevice, colorFormat, depthFormat, arraySize);
-        pipe.Create(m_vkDevice, size, layout, rp, sp, vb);
+        pipe.Create(m_vkDevice, size, layout, rp, sp, &vb);
 
         swapchainImages.resize(capacity);
         renderTarget.resize(capacity);
@@ -2308,6 +2265,10 @@ struct Swapchain {
             hWnd = nullptr;
             UnregisterClassW(L"alxr-client", hInst);
         }
+        if (hUser32Dll != NULL) {
+            ::FreeLibrary(hUser32Dll);
+            hUser32Dll = NULL;
+        }
 #endif
 
         m_vkDevice = nullptr;
@@ -2321,6 +2282,7 @@ struct Swapchain {
 #if defined(VK_USE_PLATFORM_WIN32_KHR)
     HINSTANCE hInst{NULL};
     HWND hWnd{NULL};
+    HINSTANCE hUser32Dll{NULL};
 #endif
     const VkExtent2D size{640, 480};
     VkInstance m_vkInstance{VK_NULL_HANDLE};
@@ -2349,8 +2311,13 @@ void Swapchain::Create(VkInstance instance, VkPhysicalDevice physDevice, VkDevic
 
 // adjust the window size and show at InitDevice time
 #if defined(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2)
-    // Make sure we're 1:1 for HMD pixels
-    SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    typedef DPI_AWARENESS_CONTEXT(WINAPI * PFN_SetThreadDpiAwarenessContext)(DPI_AWARENESS_CONTEXT);
+    hUser32Dll = ::LoadLibraryA("user32.dll");
+    if (PFN_SetThreadDpiAwarenessContext SetThreadDpiAwarenessContextFn =
+            reinterpret_cast<PFN_SetThreadDpiAwarenessContext>(::GetProcAddress(hUser32Dll, "SetThreadDpiAwarenessContext"))) {
+        // Make sure we're 1:1 for HMD pixels
+        SetThreadDpiAwarenessContextFn(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+    }
 #endif
     RECT rect{0, 0, (LONG)size.width, (LONG)size.height};
     AdjustWindowRect(&rect, WS_OVERLAPPEDWINDOW, false);
@@ -3059,24 +3026,11 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
         }
 
         if (!m_videoCpyCmdBuffer.Init(m_vkDevice, m_queueFamilyIndexVideoCpy)) THROW("Failed to create command buffer");
-
-        m_quadBuffer.Init(m_vkDevice, &m_memAllocator,
-            { {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Geometry::QuadVertex, position)},
-             {1, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Geometry::QuadVertex, uv)} });
-        const std::uint32_t quadIndexCount = sizeof(Geometry::QuadIndices) / sizeof(Geometry::QuadIndices[0]);
-        const std::uint32_t quadVertexCount = sizeof(Geometry::QuadVertices) / sizeof(Geometry::QuadVertices[0]);
-        m_quadBuffer.Create(quadIndexCount, quadVertexCount);
-        m_quadBuffer.UpdateIndices(Geometry::QuadIndices.data(), quadIndexCount, 0);
-        m_quadBuffer.UpdateVertices(Geometry::QuadVertices.data(), quadVertexCount, 0);
     }
 
     using CodeBuffer = ShaderProgram::CodeBuffer;
 
     void InitializeResources() {
-#ifdef USE_ONLINE_VULKAN_SHADERC
-        auto vertexSPIRV = CompileGlslShader("vertex", shaderc_glsl_default_vertex_shader, VertexShaderGlsl);
-        auto fragmentSPIRV = CompileGlslShader("fragment", shaderc_glsl_default_fragment_shader, FragmentShaderGlsl);
-#else
 
         CodeBuffer vertexSPIRV, fragmentSPIRV;
         if (IsMultiViewEnabled()) {
@@ -3099,7 +3053,6 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
                     #include "shaders/lobby_frag.spv"
                 SPV_SUFFIX;
         }
-#endif
 
         if (vertexSPIRV.empty()) THROW("Failed to compile vertex shader");
         if (fragmentSPIRV.empty()) THROW("Failed to compile fragment shader");
@@ -3247,9 +3200,9 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             .stencil = 0
         }
     };
-    constexpr static const std::array<const ClearValueT, 4> ConstClearValues{
+    constexpr static const std::array<const ClearValueT, 3> ConstClearValues{
         OpaqueClear {
-            VkClearValue {.color {.float32 = { DarkGraySlate[0], DarkGraySlate[1], DarkGraySlate[2], 1.0f}}},
+            VkClearValue {.color {.float32 = { DarkGraySlate[0], DarkGraySlate[1], DarkGraySlate[2], 0.2f}}},
             ClearDepthStencilValue
         },
         AdditiveClear {
@@ -3257,19 +3210,21 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             ClearDepthStencilValue
         },
         AlphaBlendClear {
-            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.5f }}},
-            ClearDepthStencilValue
-        },
-        OpaqueClear { // for XR_FB_passthrough / Passthrough Modes.
-            VkClearValue {.color {.float32 = { DarkGraySlate[0], DarkGraySlate[1], DarkGraySlate[2], 0.2f}}},
+            // set the alpha channel to zero to show passthrough and render elements on top.
+            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.0f }}},
             ClearDepthStencilValue
         },
     };
-    static_assert(ConstClearValues.size() >= 4);
+    static_assert(ConstClearValues.size() >= 3);
 
-    constexpr static const std::array<const ClearValueT, 4> VideoClearValues{
+    constexpr static const std::array<const ClearValueT, 3> VideoClearValues{
         OpaqueClear {
-            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 1.0f }}},
+            //
+            // Typically the alpha channel is ignored for XR_ENVIRONMENT_BLEND_MODE_OPAQUE but
+            // for runtimes which only support passthrough via explicit extensions such as XR_FB_passthrough & XR_HTC_passthrough
+            // and only have the an Opaque blend, the alpha channel is relevent/used in this case.
+            // 
+            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.2f }}},
             ClearDepthStencilValue
         },
         AdditiveClear {
@@ -3277,18 +3232,18 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             ClearDepthStencilValue
         },
         AlphaBlendClear {
-            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.5f }}},
-            ClearDepthStencilValue
-        },
-        OpaqueClear { // for XR_FB_passthrough / Passthrough Modes.
-            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.2f}}},
+            //
+            // set the alpha channel to zero to show passthrough, if a video frame isn't rendered for whatever reason
+            // only the passthrough feed will show rather than jarring random black-opaque frames popping in
+            //
+            VkClearValue {.color {.float32 = { CClear[0], CClear[1], CClear[2], 0.0f }}},
             ClearDepthStencilValue
         },
     };
-    static_assert(VideoClearValues.size() >= 4);
+    static_assert(VideoClearValues.size() >= 3);
 
-    inline std::size_t ClearValueIndex(const PassthroughMode ptMode) const {       
-        return ptMode == PassthroughMode::None ? m_clearColorIndex : 3u;
+    inline std::size_t ClearValueIndex(const PassthroughMode /*ptMode*/) const {       
+        return m_clearColorIndex;
     }
 
     void RenderMultiView
@@ -3662,8 +3617,7 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
                 swapChainInfo.size,
                 m_videoStreamLayout,
                 swapChainInfo.rp,
-                videoShader,
-                m_quadBuffer
+                videoShader
             );
             // null-out pSpecializationInfo as it refers to local stack vars.
             fragShaderInfo.pSpecializationInfo = nullptr;
@@ -4344,12 +4298,8 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             vkCmdBindPipeline(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_videoStreamPipelines[static_cast<std::size_t>(newMode)].pipe);
             vkCmdBindDescriptorSets(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_videoStreamLayout.layout, 0, 1, m_descriptorSets.data(), 0, nullptr);
 
-            // Bind index and vertex buffers
-            vkCmdBindIndexBuffer(m_cmdBuffer.buf, m_quadBuffer.idxBuf, 0, VK_INDEX_TYPE_UINT16);
-            constexpr static const VkDeviceSize offset = 0;
-            vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &m_quadBuffer.vtxBuf, &offset);
+            vkCmdDraw(m_cmdBuffer.buf, 3, 1, 0, 0);
 
-            vkCmdDrawIndexed(m_cmdBuffer.buf, m_quadBuffer.count.idx, 1, 0, 0, 0);
             vkCmdEndRenderPass(m_cmdBuffer.buf);
         });
     }
@@ -4387,20 +4337,16 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
             vkCmdBindPipeline(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_videoStreamPipelines[static_cast<std::size_t>(mode)].pipe);
             vkCmdBindDescriptorSets(m_cmdBuffer.buf, VK_PIPELINE_BIND_POINT_GRAPHICS, m_videoStreamLayout.layout, 0, 1, m_descriptorSets.data(), 0, nullptr);
 
-            // Bind index and vertex buffers
-            vkCmdBindIndexBuffer(m_cmdBuffer.buf, m_quadBuffer.idxBuf, 0, VK_INDEX_TYPE_UINT16);
-            constexpr static const VkDeviceSize offset = 0;
-            vkCmdBindVertexBuffers(m_cmdBuffer.buf, 0, 1, &m_quadBuffer.vtxBuf, &offset);
+            vkCmdPushConstants(m_cmdBuffer.buf, m_videoStreamLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(std::uint32_t), &viewID);
+            vkCmdDraw(m_cmdBuffer.buf, 3, 1, 0, 0);
 
-            const ViewProjectionUniform mvp1{ .ViewID = viewID };
-            vkCmdPushConstants(m_cmdBuffer.buf, m_videoStreamLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ViewProjectionUniform), &mvp1);
-
-            vkCmdDrawIndexed(m_cmdBuffer.buf, m_quadBuffer.count.idx, 1, 0, 0, 0);
             vkCmdEndRenderPass(m_cmdBuffer.buf);
         });
     }
 
     virtual inline void SetEnvironmentBlendMode(const XrEnvironmentBlendMode newMode) override {
+        static_assert(XR_ENVIRONMENT_BLEND_MODE_OPAQUE == 1);
+        assert(newMode > 0 && newMode < 4);
         m_clearColorIndex = (newMode - 1);
     }
 
@@ -4462,7 +4408,6 @@ struct VulkanGraphicsPlugin : public IGraphicsPlugin {
     using VideoShaderMap  = std::array<VideoShaderList, size_t(VideoFragShaderType::TypeCount)>;
     VideoShaderMap m_videoShaders {};
     
-    VertexBuffer<Geometry::QuadVertex> m_quadBuffer{};
     PipelineLayout m_videoStreamLayout{};
     using PipelineList = std::array<Pipeline, size_t(PassthroughMode::TypeCount)>;
     PipelineList m_videoStreamPipelines{};

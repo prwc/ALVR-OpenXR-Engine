@@ -780,13 +780,13 @@ class Vector3 {
     // FIXME: default initialization of a vector class can be very expensive in a full-blown
     // application.  A few hundred thousand vector constructions is not unlikely and can add
     // up to milliseconds of time on processors like the PS3 PPU.
-    Vector3() : x(0), y(0), z(0) {}
-    Vector3(T x_, T y_, T z_ = 0) : x(x_), y(y_), z(z_) {}
-    explicit Vector3(T s) : x(s), y(s), z(s) {}
-    explicit Vector3(const Vector3<typename Math<T>::OtherFloatType>& src)
+    constexpr Vector3() : x(0), y(0), z(0) {}
+    constexpr Vector3(T x_, T y_, T z_ = 0) : x(x_), y(y_), z(z_) {}
+    constexpr explicit Vector3(T s) : x(s), y(s), z(s) {}
+    constexpr explicit Vector3(const Vector3<typename Math<T>::OtherFloatType>& src)
         : x((T)src.x), y((T)src.y), z((T)src.z) {}
     // MERGE_MOBILE_SDK
-    Vector3(const Vector2<T>& xy, const T z_) : x(xy.x), y(xy.y), z(z_) {}
+    constexpr Vector3(const Vector2<T>& xy, const T z_) : x(xy.x), y(xy.y), z(z_) {}
     // MERGE_MOBILE_SDK
 
     static const Vector3 ZERO;
@@ -1036,11 +1036,12 @@ class Vector4 {
     // FIXME: default initialization of a vector class can be very expensive in a full-blown
     // application.  A few hundred thousand vector constructions is not unlikely and can add
     // up to milliseconds of time on processors like the PS3 PPU.
-    Vector4() : x(0), y(0), z(0), w(0) {}
-    Vector4(T x_, T y_, T z_, T w_) : x(x_), y(y_), z(z_), w(w_) {}
-    explicit Vector4(T s) : x(s), y(s), z(s), w(s) {}
-    explicit Vector4(const Vector3<T>& v, const T w_ = T(1)) : x(v.x), y(v.y), z(v.z), w(w_) {}
-    explicit Vector4(const Vector4<typename Math<T>::OtherFloatType>& src)
+    constexpr Vector4() : x(0), y(0), z(0), w(0) {}
+    constexpr Vector4(T x_, T y_, T z_, T w_) : x(x_), y(y_), z(z_), w(w_) {}
+    constexpr explicit Vector4(T s) : x(s), y(s), z(s), w(s) {}
+    constexpr explicit Vector4(const Vector3<T>& v, const T w_ = T(1))
+        : x(v.x), y(v.y), z(v.z), w(w_) {}
+    constexpr explicit Vector4(const Vector4<typename Math<T>::OtherFloatType>& src)
         : x((T)src.x), y((T)src.y), z((T)src.z), w((T)src.w) {}
 
     static const Vector4 ZERO;
@@ -1623,7 +1624,9 @@ class Quat {
     }
 
     // Constructs quaternion for rotation around one of the coordinate axis by an angle.
-    Quat(Axis A, T angle, RotateDirection d = Rotate_CCW, HandedSystem s = Handed_R) {
+    Quat(Axis A, T angle, RotateDirection dEnum = Rotate_CCW, HandedSystem sEnum = Handed_R) {
+        const T d = static_cast<T>(dEnum);
+        const T s = static_cast<T>(sEnum);
         T sinHalfAngle = s * d * static_cast<T>(sin(angle * T(0.5)));
         T v[3];
         v[0] = v[1] = v[2] = T(0);
@@ -2190,11 +2193,13 @@ class Quat {
     // is followed by rotation a around axis A1
     // rotations are CCW or CW (D) in LH or RH coordinate system (S)
     //
-    template <Axis A1, Axis A2, Axis A3, RotateDirection D, HandedSystem S>
+    template <Axis A1, Axis A2, Axis A3, RotateDirection Denum, HandedSystem Senum>
     void GetEulerAngles(T* a, T* b, T* c) const {
         OVR_MATH_ASSERT(IsNormalized());
         OVR_MATH_STATIC_ASSERT(
             (A1 != A2) && (A2 != A3) && (A1 != A3), "(A1 != A2) && (A2 != A3) && (A1 != A3)");
+        const T D = static_cast<T>(Denum);
+        const T S = static_cast<T>(Senum);
 
         T Q[3] = {x, y, z}; // Quaternion components x,y,z
 
@@ -2261,10 +2266,12 @@ class Quat {
     // is followed by rotation b around axis A2
     // is followed by rotation c around axis A1
     // Rotations are CCW or CW (D) in LH or RH coordinate system (S)
-    template <Axis A1, Axis A2, RotateDirection D, HandedSystem S>
+    template <Axis A1, Axis A2, RotateDirection Denum, HandedSystem Senum>
     void GetEulerAnglesABA(T* a, T* b, T* c) const {
         OVR_MATH_ASSERT(IsNormalized());
         OVR_MATH_STATIC_ASSERT(A1 != A2, "A1 != A2");
+        const T D = static_cast<T>(Denum);
+        const T S = static_cast<T>(Senum);
 
         T Q[3] = {x, y, z}; // Quaternion components
 
@@ -2967,10 +2974,12 @@ class Matrix4 {
     // is followed by rotation b around axis A2
     // is followed by rotation c around axis A3
     // rotations are CCW or CW (D) in LH or RH coordinate system (S)
-    template <Axis A1, Axis A2, Axis A3, RotateDirection D, HandedSystem S>
+    template <Axis A1, Axis A2, Axis A3, RotateDirection Denum, HandedSystem Senum>
     void ToEulerAngles(T* a, T* b, T* c) const {
         OVR_MATH_STATIC_ASSERT(
             (A1 != A2) && (A2 != A3) && (A1 != A3), "(A1 != A2) && (A2 != A3) && (A1 != A3)");
+        const T D = static_cast<T>(Denum);
+        const T S = static_cast<T>(Senum);
 
         T psign = T(-1);
         if (((A1 + 1) % 3 == A2) && ((A2 + 1) % 3 == A3)) // Determine whether even permutation
@@ -2999,9 +3008,11 @@ class Matrix4 {
     // is followed by rotation b around axis A2
     // is followed by rotation c around axis A1
     // rotations are CCW or CW (D) in LH or RH coordinate system (S)
-    template <Axis A1, Axis A2, RotateDirection D, HandedSystem S>
+    template <Axis A1, Axis A2, RotateDirection Denum, HandedSystem Senum>
     void ToEulerAnglesABA(T* a, T* b, T* c) const {
         OVR_MATH_STATIC_ASSERT(A1 != A2, "A1 != A2");
+        const T D = static_cast<T>(Denum);
+        const T S = static_cast<T>(Senum);
 
         // Determine the axis that was not supplied
         int m = 3 - A1 - A2;
@@ -3119,7 +3130,9 @@ class Matrix4 {
 
     // Creates a rotation matrix rotating around the X axis by 'angle' radians.
     // Just for quick testing.  Not for final API.  Need to remove case.
-    static Matrix4 RotationAxis(Axis A, T angle, RotateDirection d, HandedSystem s) {
+    static Matrix4 RotationAxis(Axis A, T angle, RotateDirection dEnum, HandedSystem sEnum) {
+        const T d = static_cast<T>(dEnum);
+        const T s = static_cast<T>(sEnum);
         T sina = s * d * sin(angle);
         T cosa = cos(angle);
 

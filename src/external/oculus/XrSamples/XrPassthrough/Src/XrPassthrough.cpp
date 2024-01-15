@@ -323,7 +323,6 @@ void Egl::DestroyContext() {
 
 void App::Clear() {
 #if defined(XR_USE_PLATFORM_ANDROID)
-    NativeWindow = NULL;
     Resumed = false;
 #endif // defined(XR_USE_PLATFORM_ANDROID)
     ShouldExit = false;
@@ -358,7 +357,6 @@ void App::HandleSessionStateChanges(XrSessionState state) {
     if (state == XR_SESSION_STATE_READY) {
 #if defined(XR_USE_PLATFORM_ANDROID)
         assert(Resumed);
-        assert(NativeWindow != NULL);
 #endif // defined(XR_USE_PLATFORM_ANDROID)
         assert(SessionActive == false);
 
@@ -562,19 +560,17 @@ static void app_handle_cmd(struct android_app* androidApp, int32_t cmd) {
         case APP_CMD_DESTROY: {
             ALOGV("onDestroy()");
             ALOGV("    APP_CMD_DESTROY");
-            app.NativeWindow = NULL;
+            app.Clear();
             break;
         }
         case APP_CMD_INIT_WINDOW: {
             ALOGV("surfaceCreated()");
             ALOGV("    APP_CMD_INIT_WINDOW");
-            app.NativeWindow = androidApp->window;
             break;
         }
         case APP_CMD_TERM_WINDOW: {
             ALOGV("surfaceDestroyed()");
             ALOGV("    APP_CMD_TERM_WINDOW");
-            app.NativeWindow = NULL;
             break;
         }
     }
@@ -1007,7 +1003,7 @@ int main() {
         ALOGV("Created stage space");
     }
 
-    auto projections = new XrView[NUM_EYES];
+    XrView projections[NUM_EYES];
     for (int eye = 0; eye < NUM_EYES; eye++) {
         projections[eye] = XrView{XR_TYPE_VIEW};
     }
@@ -1523,10 +1519,7 @@ int main() {
 
     AppInput_shutdown();
 
-    delete[] projections;
-
-    app.egl.DestroyContext();
-
+    OXR(xrDestroySwapchain(app.ColorSwapChain));
     OXR(xrDestroySpace(app.HeadSpace));
     OXR(xrDestroySpace(app.LocalSpace));
     // StageSpace is optional.
@@ -1536,6 +1529,7 @@ int main() {
     OXR(xrDestroySession(app.Session));
     OXR(xrDestroyInstance(app.Instance));
 
+	app.egl.DestroyContext();
 #if defined(XR_USE_PLATFORM_ANDROID)
     (*androidApp->activity->vm).DetachCurrentThread();
 #endif // defined(XR_USE_PLATFORM_ANDROID)

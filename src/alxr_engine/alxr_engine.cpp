@@ -19,6 +19,7 @@
 #include <mutex>
 
 #include "alxr_engine.h"
+#include "alxr_facial_eye_tracking_packet.h"
 
 #include "timing.h"
 #include "interaction_manager.h"
@@ -44,9 +45,9 @@ constexpr inline const ALXREyeInfo EyeInfoZero {
 };
 
 using IOpenXrProgramPtr = std::shared_ptr<IOpenXrProgram>;
-using RustCtxPtr = std::shared_ptr<const ALXRRustCtx>;
+using ClientCtxPtr = std::shared_ptr<const ALXRClientCtx>;
 
-RustCtxPtr        gRustCtx{ nullptr };
+ClientCtxPtr      gClientCtx{ nullptr };
 IOpenXrProgramPtr gProgram{ nullptr };
 XrDecoderThread   gDecoderThread{};
 std::mutex        gRenderMutex{};
@@ -81,7 +82,7 @@ constexpr inline auto graphics_api_str(const ALXRGraphicsApi gcp)
     }
 }
 
-constexpr inline bool is_valid(const ALXRRustCtx& rCtx)
+constexpr inline bool is_valid(const ALXRClientCtx& rCtx)
 {
     return  rCtx.inputSend != nullptr &&
             rCtx.viewsConfigSend != nullptr &&
@@ -89,7 +90,7 @@ constexpr inline bool is_valid(const ALXRRustCtx& rCtx)
             rCtx.requestIDR != nullptr;
 }
 
-bool alxr_init(const ALXRRustCtx* rCtx, /*[out]*/ ALXRSystemProperties* systemProperties) {
+bool alxr_init(const ALXRClientCtx* rCtx, /*[out]*/ ALXRSystemProperties* systemProperties) {
     try {
         if (rCtx == nullptr || !is_valid(*rCtx))
         {
@@ -97,8 +98,8 @@ bool alxr_init(const ALXRRustCtx* rCtx, /*[out]*/ ALXRSystemProperties* systemPr
             return false;
         }
         
-        gRustCtx = std::make_shared<ALXRRustCtx>(*rCtx);
-        const auto &ctx = *gRustCtx;
+        gClientCtx = std::make_shared<ALXRClientCtx>(*rCtx);
+        const auto &ctx = *gClientCtx;
         if (ctx.verbose)
             Log::SetLevel(Log::Level::Verbose);
         
@@ -112,17 +113,29 @@ bool alxr_init(const ALXRRustCtx* rCtx, /*[out]*/ ALXRSystemProperties* systemPr
         assert(options->AppSpace == "Stage");
         assert(options->ViewConfiguration == "Stereo");
         options->DisableLinearizeSrgb = ctx.disableLinearizeSrgb;
+#ifdef XR_USE_OXR_LYNX
+#pragma message ("Force disable sRGB gamma correction for Lynx-R1 runtime bug.")
+        options->DisableLinearizeSrgb = true;
+#endif
         options->DisableSuggestedBindings = ctx.noSuggestedBindings;
         options->NoServerFramerateLock = ctx.noServerFramerateLock;
         options->NoFrameSkip = ctx.noFrameSkip;
         options->DisableLocalDimming = ctx.disableLocalDimming;
         options->HeadlessSession = ctx.headlessSession;
+        options->NoFTServer = ctx.noFTServer;
+        options->NoPassthrough = ctx.noPassthrough;
+        options->NoHandTracking = ctx.noHandTracking;
+        options->FacialTracking = ctx.facialTracking;
+        options->EyeTracking = ctx.eyeTracking;
         options->DisplayColorSpace = static_cast<XrColorSpaceFB>(ctx.displayColorSpace);
         const auto& fmVersion = ctx.firmwareVersion;
         options->firmwareVersion = { fmVersion.major, fmVersion.minor, fmVersion.patch };
+        options->TrackingServerPortNo = static_cast<std::uint16_t>(ctx.trackingServerPortNo);
+        options->SimulateHeadless = ctx.simulateHeadless;
+        options->PassthroughMode = ctx.passthroughMode;
         if (options->GraphicsPlugin.empty())
             options->GraphicsPlugin = graphics_api_str(ctx.graphicsApi);
-        if (options->HeadlessSession)
+        if (options->EnableHeadless())
             options->GraphicsPlugin = "Headless";
 
         const auto platformData = std::make_shared<PlatformData>();
@@ -142,6 +155,9 @@ bool alxr_init(const ALXRRustCtx* rCtx, /*[out]*/ ALXRSystemProperties* systemPr
                 .applicationContext = ctx.applicationActivity
             };
             initializeLoader((const XrLoaderInitInfoBaseHeaderKHR *) &loaderInitInfoAndroid);
+        }
+        else {
+            Log::Write(Log::Level::Error, "Failed to initialize android loader!");
         }
 
         //av_jni_set_java_vm(ctx.applicationVM, nullptr);
@@ -187,6 +203,11 @@ void alxr_stop_decoder_thread()
 }
 
 void alxr_destroy() {
+    const auto clientCtx = gClientCtx;
+    if (clientCtx == nullptr) {
+        assert(gProgram == nullptr);
+        return;
+    }
     Log::Write(Log::Level::Info, "openxrShutdown: Shuttingdown");
     if (const auto programPtr = gProgram) {
         if (const auto graphicsPtr = programPtr->GetGraphicsPlugin()) {
@@ -196,7 +217,7 @@ void alxr_destroy() {
     }
     alxr_stop_decoder_thread();
     gProgram.reset();
-    gRustCtx.reset();
+    gClientCtx.reset();
 }
 
 void alxr_request_exit_session() {
@@ -207,6 +228,7 @@ void alxr_request_exit_session() {
 
 void alxr_process_frame(bool* exitRenderLoop /*= non-null */, bool* requestRestart /*= non-null */) {
     assert(exitRenderLoop != nullptr && requestRestart != nullptr);
+    assert(gProgram != nullptr);
 
     gProgram->PollEvents(exitRenderLoop, requestRestart);
     if (*exitRenderLoop || !gProgram->IsSessionRunning())
@@ -216,6 +238,35 @@ void alxr_process_frame(bool* exitRenderLoop /*= non-null */, bool* requestResta
     {
         std::scoped_lock lk(gRenderMutex);
         gProgram->RenderFrame();
+    }
+}
+
+void alxr_process_frame2(ALXRProcessFrameResult* frameResult) {
+    try {
+        if (frameResult == nullptr)
+            return;
+
+        assert(gProgram != nullptr);
+        gProgram->PollEvents(&frameResult->exitRenderLoop, &frameResult->requestRestart);
+        if (frameResult->exitRenderLoop || !gProgram->IsSessionRunning())
+            return;
+
+        {
+            std::scoped_lock lk(gRenderMutex);
+            gProgram->RenderFrame();
+        }
+
+        gProgram->PollHandTracking(frameResult->handTracking);
+        gProgram->PollFaceEyeTracking(frameResult->facialEyeTracking);
+
+    } catch (const std::exception& ex) {
+        frameResult->exitRenderLoop = true;
+        frameResult->requestRestart = false;
+        Log::Write(Log::Level::Error, ex.what());
+    } catch (...) {
+        frameResult->exitRenderLoop = true;
+        frameResult->requestRestart = false;
+        Log::Write(Log::Level::Error, "Unknown Error!");
     }
 }
 
@@ -254,7 +305,7 @@ void alxr_set_stream_config(const ALXRStreamConfig config)
         const XrDecoderThread::StartCtx startCtx{
             .decoderConfig = config.decoderConfig,
             .programPtr = programPtr,
-            .rustCtx = gRustCtx
+            .clientCtx = gClientCtx
         };
         gDecoderThread.Start(startCtx);
         Log::Write(Log::Level::Info, "Decoder Thread started.");
@@ -262,7 +313,7 @@ void alxr_set_stream_config(const ALXRStreamConfig config)
 #endif
     // OpenXR does not have functions to query the battery levels of devices.
     const auto SendDummyBatteryLevels = []() {
-        const auto rCtx = gRustCtx;
+        const auto rCtx = gClientCtx;
         if (rCtx == nullptr)
             return;
         const auto head_path        = rCtx->pathStringToHash(ALXRStrings::HeadPath);
@@ -288,9 +339,9 @@ void alxr_on_server_disconnect()
 ALXRGuardianData alxr_get_guardian_data()
 {
     ALXRGuardianData gd {
-        .shouldSync = false,
         .areaWidth = 0,
-        .areaHeight = 0
+        .areaHeight = 0,
+        .shouldSync = false,
     };
     if (const auto programPtr = gProgram) {
         programPtr->GetGuardianData(gd);
@@ -332,8 +383,8 @@ inline void LogViewConfig(const ALXREyeInfo& newEyeInfo)
 
 void alxr_on_tracking_update(const bool clientsidePrediction)
 {
-    const auto rustCtx = gRustCtx;
-    if (rustCtx == nullptr)
+    const auto clientCtx = gClientCtx;
+    if (clientCtx == nullptr)
         return;
     const auto xrProgram = gProgram;
     if (xrProgram == nullptr || !xrProgram->IsSessionRunning())
@@ -347,7 +398,7 @@ void alxr_on_tracking_update(const bool clientsidePrediction)
         std::abs(newEyeInfo.eyeFov[1].left - gLastEyeInfo.eyeFov[1].left) > 0.01f)
     {
         gLastEyeInfo = newEyeInfo;
-        gRustCtx->viewsConfigSend(&newEyeInfo);
+        gClientCtx->viewsConfigSend(&newEyeInfo);
         LogViewConfig(newEyeInfo);
     }
 
@@ -356,7 +407,7 @@ void alxr_on_tracking_update(const bool clientsidePrediction)
     TrackingInfo newInfo;
     if (!xrProgram->GetTrackingInfo(newInfo, clientsidePrediction))
         return;
-    rustCtx->inputSend(&newInfo);
+    clientCtx->inputSend(&newInfo);
 }
 
 void alxr_on_receive(const unsigned char* packet, unsigned int packetSize)

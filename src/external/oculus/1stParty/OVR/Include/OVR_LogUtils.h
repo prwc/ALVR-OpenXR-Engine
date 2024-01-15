@@ -12,6 +12,10 @@ Authors     :   Jonathan E. Wright
 #if !defined(OVRLib_Log_h)
 #define OVRLib_Log_h
 
+#include <atomic>
+#include <chrono>
+#include <memory>
+
 #include "OVR_Types.h"
 #include "OVR_Std.h"
 #include <stdlib.h>
@@ -68,6 +72,35 @@ inline void LogWithTag(const int prio, const char* tag, const char* fmt, ...) {
 #warning "LogWithTag not implemented for this given OVR_OS_"
 #endif
 }
+
+/// The log timer is copied from XR_LOG's log timer
+namespace {
+struct OVR_LogTimer {
+    explicit constexpr OVR_LogTimer(std::chrono::steady_clock::duration duration)
+        : nextLogTime_(std::chrono::steady_clock::time_point::min().time_since_epoch().count()),
+          duration_(duration.count()) {}
+
+    bool OVR_shouldLogNow() {
+        const auto now = std::chrono::steady_clock::now().time_since_epoch().count();
+        auto nextLogTime = nextLogTime_.load(std::memory_order_relaxed);
+        // It is possible that multiple shouldLogNow() calls observe nextLogTime <= now
+        // simultaneously, the compare-exchange however will only succeed for one of them.
+        return nextLogTime <= now &&
+            nextLogTime_.compare_exchange_strong(
+                nextLogTime, now + duration_, std::memory_order_relaxed);
+    }
+
+   private:
+    std::atomic<std::chrono::steady_clock::duration::rep> nextLogTime_;
+    const std::chrono::steady_clock::duration::rep duration_;
+};
+
+template <typename T1, typename T2>
+bool OVR_shouldLogNow(T1 nanoseconds, T2 dummyLambda) {
+    static OVR_LogTimer timer{std::chrono::steady_clock::duration(nanoseconds)};
+    return timer.OVR_shouldLogNow();
+}
+} // namespace
 
 // Strips the directory and extension from fileTag to give a concise log tag
 inline void FilePathToTag(const char* filePath, char* strippedTag, const int strippedTagSize) {
@@ -179,8 +212,14 @@ inline void LogWithFileTag(const int prio, const char* fileTag, const char* fmt,
 
 #define OVR_LOG(...) LogWithFileTag(0, __FILE__, __VA_ARGS__)
 #define OVR_WARN(...) LogWithFileTag(0, __FILE__, __VA_ARGS__)
-#define OVR_ERROR(...) \
+
+// This used to be called OVR_ERROR, but it would crash on mobile devices,
+// but not on Windows. This was surprising to many devs and has led to multiple serious incidents.
+// Please do not use this function. Be more explicit about the intended behavior, and use FAIL or
+// WARN instead.
+#define OVR_ERROR_CRASH_MOBILE_USE_WARN_OR_FAIL(...) \
     { LogWithFileTag(0, __FILE__, __VA_ARGS__); }
+
 #define OVR_FAIL(...)                             \
     {                                             \
         LogWithFileTag(0, __FILE__, __VA_ARGS__); \
@@ -201,8 +240,14 @@ inline void LogWithFileTag(const int prio, const char* fileTag, const char* fmt,
 #ifdef OVR_LOG_TAG
 #define OVR_LOG(...) ((void)LogWithTag(ANDROID_LOG_INFO, OVR_LOG_TAG, __VA_ARGS__))
 #define OVR_WARN(...) ((void)LogWithTag(ANDROID_LOG_WARN, OVR_LOG_TAG, __VA_ARGS__))
-#define OVR_ERROR(...) \
+
+// This used to be called OVR_ERROR, but it would crash on mobile devices,
+// but not on Windows. This was surprising to many devs and has led to multiple serious incidents.
+// Please do not use this function. Be more explicit about the intended behavior, and use FAIL or
+// WARN instead.
+#define OVR_ERROR_CRASH_MOBILE_USE_WARN_OR_FAIL(...) \
     { (void)LogWithTag(ANDROID_LOG_ERROR, OVR_LOG_TAG, __VA_ARGS__); }
+
 #define OVR_FAIL(...)                                                  \
     {                                                                  \
         (void)LogWithTag(ANDROID_LOG_ERROR, OVR_LOG_TAG, __VA_ARGS__); \
@@ -211,8 +256,14 @@ inline void LogWithFileTag(const int prio, const char* fileTag, const char* fmt,
 #else
 #define OVR_LOG(...) LogWithFileTag(ANDROID_LOG_INFO, __FILE__, __VA_ARGS__)
 #define OVR_WARN(...) LogWithFileTag(ANDROID_LOG_WARN, __FILE__, __VA_ARGS__)
-#define OVR_ERROR(...) \
+
+// This used to be called OVR_ERROR, but it would crash on mobile devices,
+// but not on Windows. This was surprising to many devs and has led to multiple serious incidents.
+// Please do not use this function. Be more explicit about the intended behavior, and use FAIL or
+// WARN instead.
+#define OVR_ERROR_CRASH_MOBILE_USE_WARN_OR_FAIL(...) \
     { LogWithFileTag(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__); }
+
 #define OVR_FAIL(...)                                             \
     {                                                             \
         LogWithFileTag(ANDROID_LOG_ERROR, __FILE__, __VA_ARGS__); \
@@ -268,20 +319,43 @@ inline void LogWithFileTag(const int prio, const char* fileTag, const char* fmt,
 
 // Helper that converts a printf-style format string to an std::string. Needed
 // because the folly macros don't accept printf-style strings.
-#define FORMAT_STR(...)                                                 \
-    ([&] {                                                              \
-        size_t _buf_len = snprintf(nullptr, 0, __VA_ARGS__);            \
-        std::string _format_str_result;                                 \
-        _format_str_result.resize(_buf_len);                            \
-        snprintf(_format_str_result.data(), _buf_len + 1, __VA_ARGS__); \
-        return _format_str_result;                                      \
-    }())
+static inline std::string ovrLogConvertPrintfToString(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
 
-#define OVR_LOG(...) XLOG(INFO, FORMAT_STR(__VA_ARGS__))
-#define OVR_WARN(...) XLOG(WARN, FORMAT_STR(__VA_ARGS__))
-#define OVR_ERROR(...) XLOG(ERR, FORMAT_STR(__VA_ARGS__))
-#define OVR_FAIL(...) XLOG(FATAL, FORMAT_STR(__VA_ARGS__))
+    // Determine the required size of the formatted string
+    va_list argsCopy; // we can't reuse va_list, so copy
+    va_copy(argsCopy, args);
+    const int size = std::vsnprintf(nullptr, 0, format, argsCopy);
+    va_end(argsCopy);
+
+    if (size <= 0) {
+        va_end(args);
+        return "";
+    }
+
+    // Allocate and format the string
+    std::string result(size, '\0');
+    std::vsnprintf(result.data(), result.size() + 1, format, args);
+
+    va_end(args);
+
+    return result;
+}
+
+#define OVR_LOG(...) XLOG(INFO, ovrLogConvertPrintfToString(__VA_ARGS__))
+#define OVR_WARN(...) XLOG(WARN, ovrLogConvertPrintfToString(__VA_ARGS__))
+
+// This used to be called OVR_ERROR, but it would crash on mobile devices,
+// but not on Windows. This was surprising to many devs and has led to multiple serious incidents.
+// Please do not use this function. Be more explicit about the intended behavior, and use FAIL or
+// WARN instead.
+#define OVR_ERROR_CRASH_MOBILE_USE_WARN_OR_FAIL(...) \
+    XLOG(ERR, ovrLogConvertPrintfToString(__VA_ARGS__))
+
+#define OVR_FAIL(...) XLOG(FATAL, ovrLogConvertPrintfToString(__VA_ARGS__))
 #define OVR_LOG_WITH_TAG(__tag__, ...) OVR_LOG(__VA_ARGS__)
+#define OVR_WARN_WITH_TAG(__tag__, ...) OVR_WARN(__VA_ARGS__)
 #define OVR_ASSERT_WITH_TAG(__expr__, __tag__)           \
     {                                                    \
         if (!(__expr__)) {                               \
@@ -325,5 +399,14 @@ inline void LogWithFileTag(const int prio, const char* fileTag, const char* fmt,
             OVR_WARN(__VA_ARGS__);      \
         }                               \
     }
+
+#define OVR_LOG_EVERY_N_SEC(n, ...)                                                       \
+    OVR_LOG_IF(                                                                           \
+        (n) == 0 ? true : OVR_shouldLogNow(static_cast<long long>(1.0e9 * (n)), []() {}), \
+        __VA_ARGS__)
+#define OVR_WARN_EVERY_N_SEC(n, ...)                                                      \
+    OVR_WARN_IF(                                                                          \
+        (n) == 0 ? true : OVR_shouldLogNow(static_cast<long long>(1.0e9 * (n)), []() {}), \
+        __VA_ARGS__)
 
 #endif // OVRLib_Log_h

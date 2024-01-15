@@ -29,7 +29,6 @@ Copyright   :   Copyright (c) Facebook Technologies, LLC and its affiliates. All
 #endif
 
 #include <openxr/openxr.h>
-#include <openxr/openxr_oculus.h>
 #include <openxr/openxr_oculus_helpers.h>
 #include <openxr/openxr_platform.h>
 
@@ -49,8 +48,8 @@ class KeyboardRenderer {
     OVR::Vector3f SpecularLightDirection;
     OVR::Vector3f SpecularLightColor;
     OVR::Vector3f AmbientLightColor;
-    bool UseSolidTexture = true;
     float Opacity = 1.0f;
+    bool ShowModel = true;
 
    private:
     float AlphaBlendFactor = 1.0f;

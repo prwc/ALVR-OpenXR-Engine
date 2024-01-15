@@ -93,9 +93,10 @@ def makeGenOpts(args):
     allFeatures = allExtensions = r'.*'
 
     # Turn lists of names/patterns into matching regular expressions
-    emitExtensionsPat    = makeREstring(emitExtensions, allExtensions)
-    featuresPat          = makeREstring(features, allFeatures)
+    emitExtensionsPat = makeREstring(emitExtensions, allExtensions)
+    featuresPat = makeREstring(features, allFeatures)
 
+    # REUSE-IgnoreStart
     # Copyright text prefixing all headers (list of strings).
     prefixStrings = [
         '/*',
@@ -115,6 +116,7 @@ def makeGenOpts(args):
         '*/',
         ''
     ]
+    # REUSE-IgnoreEnd
 
     # Text specific to OpenXR headers
     xrPrefixStrings = [
@@ -132,222 +134,215 @@ def makeGenOpts(args):
         genOpts['function_info.cpp'] = [
             ConformanceGenerator,
             AutomaticSourceGeneratorOptions(
-                conventions       = conventions,
-                filename          = 'function_info.cpp',
-                directory         = directory,
-                apiname           = 'openxr',
-                profile           = None,
-                versions          = featuresPat,
-                emitversions      = featuresPat,
-                defaultExtensions = 'openxr',
-                addExtensions     = None,
-                removeExtensions  = None,
-                emitExtensions    = emitExtensionsPat,
-                prefixText        = prefixStrings + xrPrefixStrings,
-                protectFeature    = False,
-                protectProto      = '#ifndef',
-                protectProtoStr   = 'XR_NO_PROTOTYPES',
-                apicall           = 'XRAPI_ATTR ',
-                apientry          = 'XRAPI_CALL ',
-                apientryp         = 'XRAPI_PTR *',
-                alignFuncParam    = 48)
-            ]
+                conventions=conventions,
+                filename='function_info.cpp',
+                directory=directory,
+                apiname='openxr',
+                profile=None,
+                versions=featuresPat,
+                emitversions=featuresPat,
+                defaultExtensions='openxr',
+                addExtensions=None,
+                removeExtensions=None,
+                emitExtensions=emitExtensionsPat,
+                prefixText=prefixStrings + xrPrefixStrings,
+                protectFeature=False,
+                protectProto='#ifndef',
+                protectProtoStr='XR_NO_PROTOTYPES',
+                apicall='XRAPI_ATTR ',
+                apientry='XRAPI_CALL ',
+                apientryp='XRAPI_PTR *',
+                alignFuncParam=48)
+        ]
 
         genOpts['gen_dispatch.cpp'] = [
             ConformanceLayerGenerator,
             AutomaticSourceGeneratorOptions(
-                conventions       = conventions,
-                filename          = 'gen_dispatch.cpp',
-                directory         = directory,
-                apiname           = 'openxr',
-                profile           = None,
-                versions          = featuresPat,
-                emitversions      = featuresPat,
-                defaultExtensions = 'openxr',
-                addExtensions     = None,
-                removeExtensions  = None,
-                emitExtensions    = emitExtensionsPat,
-                apicall           = 'XRAPI_ATTR ',
-                apientry          = 'XRAPI_CALL ',
-                apientryp         = 'XRAPI_PTR *',)
-            ]
+                conventions=conventions,
+                filename='gen_dispatch.cpp',
+                directory=directory,
+                apiname='openxr',
+                profile=None,
+                versions=featuresPat,
+                emitversions=featuresPat,
+                defaultExtensions='openxr',
+                addExtensions=None,
+                removeExtensions=None,
+                emitExtensions=emitExtensionsPat,
+                apicall='XRAPI_ATTR ',
+                apientry='XRAPI_CALL ',
+                apientryp='XRAPI_PTR *',)
+        ]
 
         genOpts['gen_dispatch.h'] = [
             ConformanceLayerGenerator,
             AutomaticSourceGeneratorOptions(
-                conventions       = conventions,
-                filename          = 'gen_dispatch.h',
-                directory         = directory,
-                apiname           = 'openxr',
-                profile           = None,
-                versions          = featuresPat,
-                emitversions      = featuresPat,
-                defaultExtensions = 'openxr',
-                addExtensions     = None,
-                removeExtensions  = None,
-                emitExtensions    = emitExtensionsPat,
-                apicall           = 'XRAPI_ATTR ',
-                apientry          = 'XRAPI_CALL ',
-                apientryp         = 'XRAPI_PTR *',)
-            ]
-
-    genOpts['xr_generated_dispatch_table.h'] = [
-          UtilitySourceOutputGenerator,
-          AutomaticSourceGeneratorOptions(
-            conventions       = conventions,
-            filename          = 'xr_generated_dispatch_table.h',
-            directory         = directory,
-            apiname           = 'openxr',
-            profile           = None,
-            versions          = featuresPat,
-            emitversions      = featuresPat,
-            defaultExtensions = 'openxr',
-            addExtensions     = None,
-            removeExtensions  = None,
-            emitExtensions    = emitExtensionsPat)
+                conventions=conventions,
+                filename='gen_dispatch.h',
+                directory=directory,
+                apiname='openxr',
+                profile=None,
+                versions=featuresPat,
+                emitversions=featuresPat,
+                defaultExtensions='openxr',
+                addExtensions=None,
+                removeExtensions=None,
+                emitExtensions=emitExtensionsPat,
+                apicall='XRAPI_ATTR ',
+                apientry='XRAPI_CALL ',
+                apientryp='XRAPI_PTR *',)
         ]
 
-    genOpts['xr_generated_dispatch_table.c'] = [
-          UtilitySourceOutputGenerator,
-          AutomaticSourceGeneratorOptions(
-            conventions       = conventions,
-            filename          = 'xr_generated_dispatch_table.c',
-            directory         = directory,
-            apiname           = 'openxr',
-            profile           = None,
-            versions          = featuresPat,
-            emitversions      = featuresPat,
-            defaultExtensions = 'openxr',
-            addExtensions     = None,
-            removeExtensions  = None,
-            emitExtensions    = emitExtensionsPat)
+    DISPATCH_TABLE_FILES = [
+        'xr_generated_dispatch_table.h',
+        'xr_generated_dispatch_table.c',
+        'xr_generated_dispatch_table_core.h',
+        'xr_generated_dispatch_table_core.c',
+    ]
+
+    for filename in DISPATCH_TABLE_FILES:
+        genOpts[filename] = [
+            UtilitySourceOutputGenerator,
+            AutomaticSourceGeneratorOptions(
+                conventions=conventions,
+                filename=filename,
+                directory=directory,
+                apiname='openxr',
+                profile=None,
+                versions=featuresPat,
+                emitversions=featuresPat,
+                defaultExtensions='openxr',
+                addExtensions=None,
+                removeExtensions=None,
+                emitExtensions=emitExtensionsPat)
         ]
 
     genOpts['xr_generated_loader.hpp'] = [
-          LoaderSourceOutputGenerator,
-          AutomaticSourceGeneratorOptions(
-            conventions       = conventions,
-            filename          = 'xr_generated_loader.hpp',
-            directory         = directory,
-            apiname           = 'openxr',
-            profile           = None,
-            versions          = featuresPat,
-            emitversions      = featuresPat,
-            defaultExtensions = 'openxr',
-            addExtensions     = None,
-            removeExtensions  = None,
-            emitExtensions    = emitExtensionsPat,
-            prefixText        = prefixStrings + xrPrefixStrings,
-            protectFeature    = False,
-            protectProto      = '#ifndef',
-            protectProtoStr   = 'XR_NO_PROTOTYPES',
-            apicall           = 'XRAPI_ATTR ',
-            apientry          = 'XRAPI_CALL ',
-            apientryp         = 'XRAPI_PTR *',
-            alignFuncParam    = 48)
-        ]
+        LoaderSourceOutputGenerator,
+        AutomaticSourceGeneratorOptions(
+            conventions=conventions,
+            filename='xr_generated_loader.hpp',
+            directory=directory,
+            apiname='openxr',
+            profile=None,
+            versions=featuresPat,
+            emitversions=featuresPat,
+            defaultExtensions='openxr',
+            addExtensions=None,
+            removeExtensions=None,
+            emitExtensions=emitExtensionsPat,
+            prefixText=prefixStrings + xrPrefixStrings,
+            protectFeature=False,
+            protectProto='#ifndef',
+            protectProtoStr='XR_NO_PROTOTYPES',
+            apicall='XRAPI_ATTR ',
+            apientry='XRAPI_CALL ',
+            apientryp='XRAPI_PTR *',
+            alignFuncParam=48)
+    ]
 
     genOpts['xr_generated_loader.cpp'] = [
-          LoaderSourceOutputGenerator,
-          AutomaticSourceGeneratorOptions(
-            conventions       = conventions,
-            filename          = 'xr_generated_loader.cpp',
-            directory         = directory,
-            apiname           = 'openxr',
-            profile           = None,
-            versions          = featuresPat,
-            emitversions      = featuresPat,
-            defaultExtensions = 'openxr',
-            addExtensions     = None,
-            removeExtensions  = None,
-            emitExtensions    = emitExtensionsPat,
-            prefixText        = prefixStrings + xrPrefixStrings,
-            protectFeature    = False,
-            protectProto      = '#ifndef',
-            protectProtoStr   = 'XR_NO_PROTOTYPES',
-            apicall           = 'XRAPI_ATTR ',
-            apientry          = 'XRAPI_CALL ',
-            apientryp         = 'XRAPI_PTR *',
-            alignFuncParam    = 48)
-        ]
+        LoaderSourceOutputGenerator,
+        AutomaticSourceGeneratorOptions(
+            conventions=conventions,
+            filename='xr_generated_loader.cpp',
+            directory=directory,
+            apiname='openxr',
+            profile=None,
+            versions=featuresPat,
+            emitversions=featuresPat,
+            defaultExtensions='openxr',
+            addExtensions=None,
+            removeExtensions=None,
+            emitExtensions=emitExtensionsPat,
+            prefixText=prefixStrings + xrPrefixStrings,
+            protectFeature=False,
+            protectProto='#ifndef',
+            protectProtoStr='XR_NO_PROTOTYPES',
+            apicall='XRAPI_ATTR ',
+            apientry='XRAPI_CALL ',
+            apientryp='XRAPI_PTR *',
+            alignFuncParam=48)
+    ]
 
     # Source files generated for the api_dump layer
     genOpts['xr_generated_api_dump.cpp'] = [
-          ApiDumpOutputGenerator,
-          AutomaticSourceGeneratorOptions(
-            conventions       = conventions,
-            filename          = 'xr_generated_api_dump.cpp',
-            directory         = directory,
-            apiname           = 'openxr',
-            profile           = None,
-            versions          = featuresPat,
-            emitversions      = featuresPat,
-            defaultExtensions = 'openxr',
-            addExtensions     = None,
-            removeExtensions  = None,
-            emitExtensions    = emitExtensionsPat,
-            apicall           = 'XRAPI_ATTR ',
-            apientry          = 'XRAPI_CALL ',
-            apientryp         = 'XRAPI_PTR *')
-        ]
+        ApiDumpOutputGenerator,
+        AutomaticSourceGeneratorOptions(
+            conventions=conventions,
+            filename='xr_generated_api_dump.cpp',
+            directory=directory,
+            apiname='openxr',
+            profile=None,
+            versions=featuresPat,
+            emitversions=featuresPat,
+            defaultExtensions='openxr',
+            addExtensions=None,
+            removeExtensions=None,
+            emitExtensions=emitExtensionsPat,
+            apicall='XRAPI_ATTR ',
+            apientry='XRAPI_CALL ',
+            apientryp='XRAPI_PTR *')
+    ]
 
     genOpts['xr_generated_api_dump.hpp'] = [
-          ApiDumpOutputGenerator,
-          AutomaticSourceGeneratorOptions(
-            conventions       = conventions,
-            filename          = 'xr_generated_api_dump.hpp',
-            directory         = directory,
-            apiname           = 'openxr',
-            profile           = None,
-            versions          = featuresPat,
-            emitversions      = featuresPat,
-            defaultExtensions = 'openxr',
-            addExtensions     = None,
-            removeExtensions  = None,
-            emitExtensions    = emitExtensionsPat,
-            apicall           = 'XRAPI_ATTR ',
-            apientry          = 'XRAPI_CALL ',
-            apientryp         = 'XRAPI_PTR *')
-        ]
+        ApiDumpOutputGenerator,
+        AutomaticSourceGeneratorOptions(
+            conventions=conventions,
+            filename='xr_generated_api_dump.hpp',
+            directory=directory,
+            apiname='openxr',
+            profile=None,
+            versions=featuresPat,
+            emitversions=featuresPat,
+            defaultExtensions='openxr',
+            addExtensions=None,
+            removeExtensions=None,
+            emitExtensions=emitExtensionsPat,
+            apicall='XRAPI_ATTR ',
+            apientry='XRAPI_CALL ',
+            apientryp='XRAPI_PTR *')
+    ]
 
     # Source files generated for the core validation layer
     genOpts['xr_generated_core_validation.hpp'] = [
-          ValidationSourceOutputGenerator,
-          AutomaticSourceGeneratorOptions(
-            conventions       = conventions,
-            filename          = 'xr_generated_core_validation.hpp',
-            directory         = directory,
-            apiname           = 'openxr',
-            profile           = None,
-            versions          = featuresPat,
-            emitversions      = featuresPat,
-            defaultExtensions = 'openxr',
-            addExtensions     = None,
-            removeExtensions  = None,
-            emitExtensions    = emitExtensionsPat,
-            apicall           = 'XRAPI_ATTR ',
-            apientry          = 'XRAPI_CALL ',
-            apientryp         = 'XRAPI_PTR *')
-        ]
+        ValidationSourceOutputGenerator,
+        AutomaticSourceGeneratorOptions(
+            conventions=conventions,
+            filename='xr_generated_core_validation.hpp',
+            directory=directory,
+            apiname='openxr',
+            profile=None,
+            versions=featuresPat,
+            emitversions=featuresPat,
+            defaultExtensions='openxr',
+            addExtensions=None,
+            removeExtensions=None,
+            emitExtensions=emitExtensionsPat,
+            apicall='XRAPI_ATTR ',
+            apientry='XRAPI_CALL ',
+            apientryp='XRAPI_PTR *')
+    ]
 
     genOpts['xr_generated_core_validation.cpp'] = [
-          ValidationSourceOutputGenerator,
-          AutomaticSourceGeneratorOptions(
-            conventions       = conventions,
-            filename          = 'xr_generated_core_validation.cpp',
-            directory         = directory,
-            apiname           = 'openxr',
-            profile           = None,
-            versions          = featuresPat,
-            emitversions      = featuresPat,
-            defaultExtensions = 'openxr',
-            addExtensions     = None,
-            removeExtensions  = None,
-            emitExtensions    = emitExtensionsPat,
-            apicall           = 'XRAPI_ATTR ',
-            apientry          = 'XRAPI_CALL ',
-            apientryp         = 'XRAPI_PTR *')
-        ]
+        ValidationSourceOutputGenerator,
+        AutomaticSourceGeneratorOptions(
+            conventions=conventions,
+            filename='xr_generated_core_validation.cpp',
+            directory=directory,
+            apiname='openxr',
+            profile=None,
+            versions=featuresPat,
+            emitversions=featuresPat,
+            defaultExtensions='openxr',
+            addExtensions=None,
+            removeExtensions=None,
+            emitExtensions=emitExtensionsPat,
+            apicall='XRAPI_ATTR ',
+            apientry='XRAPI_CALL ',
+            apientryp='XRAPI_PTR *')
+    ]
+
 
 def genTarget(args):
     """Create an API generator and corresponding generator options based on
@@ -388,6 +383,7 @@ def genTarget(args):
         write('No generator options for unknown target:',
               args.target, file=sys.stderr)
         sys.exit(1)
+
 
 # -feature name
 # -extension name
@@ -459,7 +455,7 @@ if __name__ == '__main__':
 
     if args.time:
         # Log diagnostics and warnings
-        setLogFile(setDiag = True, setWarn = True, filename = '-')
+        setLogFile(setDiag=True, setWarn=True, filename='-')
 
     # Create the API generator & generator options
     (gen, options) = genTarget(args)

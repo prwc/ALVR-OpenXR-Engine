@@ -248,4 +248,40 @@ inline GlGeometry BuildAxis(float sideLength = 0.1f, float sideRatio = 0.25f) {
     return GlGeometry(d.attribs, d.indices);
 }
 
+GlGeometry::Descriptor BuildWedgeDescriptor(
+    const float radius,
+    const float height,
+    const float angleStart, // radians
+    const float angleStop, // radians
+    const OVR::Vector4f& color,
+    const TriangleIndex divisions,
+    const bool sides = true); // add sides to wedges (not needed for discs)
+
+inline GlGeometry BuildWedge(
+    const float radius,
+    const float height,
+    const float angleStart,
+    const float angleStop,
+    const OVR::Vector4f& color,
+    const TriangleIndex divisions) {
+    const GlGeometry::Descriptor d =
+        BuildWedgeDescriptor(radius, height, angleStart, angleStop, color, divisions);
+    return GlGeometry(d.attribs, d.indices);
+}
+
+GlGeometry::Descriptor BuildDiscDescriptor(
+    const float radius,
+    const float height,
+    const OVR::Vector4f& color,
+    const TriangleIndex divisions);
+
+inline GlGeometry BuildDisc(
+    const float radius,
+    const float height,
+    const OVR::Vector4f& color,
+    const TriangleIndex divisions) {
+    const GlGeometry::Descriptor d = BuildDiscDescriptor(radius, height, color, divisions);
+    return GlGeometry(d.attribs, d.indices);
+}
+
 } // namespace OVRFW

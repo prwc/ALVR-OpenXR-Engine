@@ -79,7 +79,10 @@
 #include "wayland-client.h"
 #endif  // XR_USE_PLATFORM_WAYLAND
 
-#ifdef XR_USE_GRAPHICS_API_OPENGL
+#ifdef XR_USE_PLATFORM_EGL
+#include <EGL/egl.h>
+#endif  // XR_USE_PLATFORM_EGL
+
 #if defined(XR_USE_PLATFORM_XLIB) || defined(XR_USE_PLATFORM_XCB)
 #ifdef Success
 #undef Success
@@ -93,4 +96,3 @@
 #undef None
 #endif  // None
 #endif  // defined(XR_USE_PLATFORM_XLIB) || defined(XR_USE_PLATFORM_XCB)
-#endif  // XR_USE_GRAPHICS_API_OPENGL

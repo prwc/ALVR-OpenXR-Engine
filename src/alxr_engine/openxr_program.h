@@ -11,6 +11,8 @@ struct ALXRStreamConfig;
 struct ALXRSystemProperties;
 struct ALXRGuardianData;
 struct ALXREyeInfo;
+struct ALXRFacialEyePacket;
+struct ALXRHandTracking;
 struct TrackingInfo;
 
 namespace ALXR {;
@@ -34,6 +36,7 @@ enum class OxrRuntimeType
     Pico,
     HTCWave,
     MagicLeap,
+    SnapdragonMonado,
     Unknown,
 ////////////////////////
     TypeCount
@@ -48,6 +51,7 @@ constexpr inline std::string_view ToString(const OxrRuntimeType t) {
     case OxrRuntimeType::Pico:      return "Pico";
     case OxrRuntimeType::HTCWave:   return "VIVE WAVE";
     case OxrRuntimeType::MagicLeap: return "MAGICLEAP";
+    case OxrRuntimeType::SnapdragonMonado: return "Snapdragon";
     default: return "Unknown";
     }
 }
@@ -90,6 +94,10 @@ struct IOpenXrProgram {
     // Sample input actions and generate haptic feedback.
     virtual void PollActions() = 0;
 
+    virtual void PollFaceEyeTracking(ALXRFacialEyePacket& newPacket) = 0;
+
+    virtual void PollHandTracking(ALXRHandTracking& handTrackingData) = 0;
+    
     // Create and submit a frame.
     virtual void RenderFrame() = 0;
 
@@ -120,7 +128,7 @@ struct IOpenXrProgram {
     virtual std::shared_ptr<const IGraphicsPlugin> GetGraphicsPlugin() const = 0;
     virtual std::shared_ptr<IGraphicsPlugin> GetGraphicsPlugin() = 0;
 
-    virtual std::tuple<XrTime, std::uint64_t> XrTimeNow() const = 0;
+    virtual std::tuple<XrTime, std::int64_t> XrTimeNow() const = 0;
 
     virtual void Pause() = 0;
     virtual void Resume() = 0;
@@ -128,6 +136,10 @@ struct IOpenXrProgram {
     virtual inline bool SetAndroidAppThread(const AndroidThreadType) { return false; }
 
     virtual bool IsHeadlessSession() const = 0;
+
+    virtual bool IsHandTrackingEnabled() const = 0;
+    virtual bool IsFacialTrackingEnabled() const = 0;
+    virtual bool IsEyeTrackingEnabled() const = 0;
 };
 
 struct Swapchain {

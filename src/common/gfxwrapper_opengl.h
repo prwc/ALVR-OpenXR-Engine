@@ -1,35 +1,33 @@
+// Copyright (c) 2017-2023, The Khronos Group Inc.
+// Copyright (c) 2016, Oculus VR, LLC.
+// Portions of macOS, iOS, functionality copyright (c) 2016, The Brenwill Workshop Ltd.
+//
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+/* REUSE-IgnoreStart */
+/* The following has copyright notices that duplicate the header above */
+
 /*
 ================================================================================================
 
-Description	:	Convenient wrapper for the OpenGL API.
-Author		:	J.M.P. van Waveren
-Date		:	12/21/2014
-Language	:	C99
-Format		:	Real tabs with the tab size equal to 4 spaces.
-Copyright	:	Copyright (c) 2016 Oculus VR, LLC. All Rights reserved.
-                        :	Portions copyright (c) 2016 The Brenwill Workshop Ltd. All Rights reserved.
-
-
-LICENSE
-=======
-
-Copyright (c) 2016 Oculus VR, LLC.
-Portions of macOS, iOS, functionality copyright (c) 2016 The Brenwill Workshop Ltd.
-
-SPDX-License-Identifier: Apache-2.0
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-
+Description  : Convenient wrapper for the OpenGL API.
+Orig. Author : J.M.P. van Waveren
+Orig. Date   : 12/21/2014
+Language     : C99
+Copyright    : Copyright (c) 2016 Oculus VR, LLC. All Rights reserved.
+             : Portions copyright (c) 2016 The Brenwill Workshop Ltd. All Rights reserved.
 
 IMPLEMENTATION
 ==============
@@ -192,7 +190,7 @@ Platform headers / declarations
 #define USE_SYNC_OBJECT 0  // 0 = GLsync, 1 = EGLSyncKHR, 2 = storage buffer
 
 #if !defined(_XOPEN_SOURCE)
-#if __STDC_VERSION__ >= 199901L
+#if defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901L
 #define _XOPEN_SOURCE 600
 #else
 #define _XOPEN_SOURCE 500
@@ -215,6 +213,18 @@ Platform headers / declarations
 #include <X11/extensions/Xrandr.h>     // for resolution changes
 #include <GL/glx.h>
 
+#ifdef Success
+#undef Success
+#endif  // Success
+
+#ifdef Always
+#undef Always
+#endif  // Always
+
+#ifdef None
+#undef None
+#endif  // None
+
 #elif defined(OS_LINUX_XCB) || defined(OS_LINUX_XCB_GLX)
 #define XR_USE_PLATFORM_XCB 1
 
@@ -226,6 +236,18 @@ Platform headers / declarations
 #include <xcb/glx.h>
 #include <xcb/dri2.h>
 #include <GL/glx.h>
+
+#ifdef Success
+#undef Success
+#endif  // Success
+
+#ifdef Always
+#undef Always
+#endif  // Always
+
+#ifdef None
+#undef None
+#endif  // None
 
 #elif defined(OS_LINUX_WAYLAND)
 #define XR_USE_PLATFORM_WAYLAND 1
@@ -247,12 +269,6 @@ Platform headers / declarations
 
 #define GRAPHICS_API_OPENGL 1
 #define OUTPUT_PATH ""
-
-#if !defined(__USE_GNU)
-// These prototypes are only included when __USE_GNU is defined but that causes other compile errors.
-extern int pthread_setname_np(pthread_t __target_thread, __const char *__name);
-extern int pthread_setaffinity_np(pthread_t thread, size_t cpusetsize, const cpu_set_t *cpuset);
-#endif  // !__USE_GNU
 
 #elif defined(OS_APPLE_MACOS)
 
@@ -497,6 +513,7 @@ extern PFNGLGENVERTEXARRAYSPROC glGenVertexArrays;
 extern PFNGLDELETEVERTEXARRAYSPROC glDeleteVertexArrays;
 extern PFNGLBINDVERTEXARRAYPROC glBindVertexArray;
 extern PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
+extern PFNGLVERTEXATTRIBIPOINTERPROC glVertexAttribIPointer;
 extern PFNGLVERTEXATTRIBDIVISORPROC glVertexAttribDivisor;
 extern PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray;
 extern PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
@@ -598,6 +615,21 @@ extern PFNGLXCREATECONTEXTATTRIBSARBPROC glXCreateContextAttribsARB;
 extern PFNGLXSWAPINTERVALEXTPROC glXSwapIntervalEXT;
 extern PFNGLXDELAYBEFORESWAPNVPROC glXDelayBeforeSwapNV;
 #endif
+
+extern PFNGLBINDSAMPLERPROC glBindSampler;
+extern PFNGLDELETESAMPLERSPROC glDeleteSamplers;
+extern PFNGLGENSAMPLERSPROC glGenSamplers;
+extern PFNGLGETSAMPLERPARAMETERIIVPROC glGetSamplerParameterIiv;
+extern PFNGLGETSAMPLERPARAMETERIUIVPROC glGetSamplerParameterIuiv;
+extern PFNGLGETSAMPLERPARAMETERFVPROC glGetSamplerParameterfv;
+extern PFNGLGETSAMPLERPARAMETERIVPROC glGetSamplerParameteriv;
+extern PFNGLISSAMPLERPROC glIsSampler;
+extern PFNGLSAMPLERPARAMETERIIVPROC glSamplerParameterIiv;
+extern PFNGLSAMPLERPARAMETERIUIVPROC glSamplerParameterIuiv;
+extern PFNGLSAMPLERPARAMETERFPROC glSamplerParameterf;
+extern PFNGLSAMPLERPARAMETERFVPROC glSamplerParameterfv;
+extern PFNGLSAMPLERPARAMETERIPROC glSamplerParameteri;
+extern PFNGLSAMPLERPARAMETERIVPROC glSamplerParameteriv;
 
 #elif defined(OS_APPLE_MACOS)
 

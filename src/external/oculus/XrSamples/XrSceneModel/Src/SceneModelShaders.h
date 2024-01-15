@@ -51,3 +51,10 @@ static const char STAGE_FRAGMENT_SHADER[] = R"(
   	outColor = vec4(0.5, 0.5, 1.0, 0.5);
   }
 )";
+
+static const char MESH_FRAGMENT_SHADER[] = R"(
+  out lowp vec4 outColor;
+  void main() {
+    outColor = vec4(1.0, 1.0, 1.0, 0.8);
+  }
+)";

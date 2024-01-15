@@ -9,7 +9,7 @@ Copyright   :   Copyright (c) Meta Platforms, Inc. and affiliates. Confidential 
 
 #pragma once
 
-#include <openxr/meta_virtual_keyboard.h>
+#include <openxr/openxr.h>
 
 #include "XrHelper.h"
 

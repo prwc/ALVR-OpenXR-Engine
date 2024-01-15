@@ -96,8 +96,10 @@ class JavaObject {
             OVR_LOG("JNI exception before DeleteLocalRef!");
             Jni->ExceptionClear();
         }
-        OVR_ASSERT(Jni != NULL && Object != NULL);
-        Jni->DeleteLocalRef(Object);
+        OVR_ASSERT(Jni != NULL);
+        if (Object != NULL) {
+            Jni->DeleteLocalRef(Object);
+        }
         if (Jni->ExceptionOccurred()) {
             OVR_LOG("JNI exception occurred calling DeleteLocalRef!");
             Jni->ExceptionClear();
@@ -293,6 +295,16 @@ inline jclass ovr_GetLocalClassReferenceWithLoader(
     const char* className,
     const bool fail = true,
     const bool warn = true) {
+    if (jni == nullptr) {
+        if (fail) {
+            OVR_FAIL(
+                "ovr_GetLocalClassReferenceWithLoader: JNIEnv is NULL. Classname is %s", className);
+        } else if (warn) {
+            OVR_WARN(
+                "ovr_GetLocalClassReferenceWithLoader: JNIEnv is NULL. Classname is %s", className);
+        }
+        return nullptr;
+    }
     // This is a lambda because if it were at file scope it would need to be inlined since
     // this is a header, and that could mean the errorMsg[256] declaration could take up
     // 256 bytes on the stack each time the function is called (which is currently 3x in
@@ -403,6 +415,14 @@ ovr_GetStaticMethodID(JNIEnv* jni, jclass jniclass, const char* name, const char
         OVR_FAIL("couldn't get %s, %s", name, signature);
     }
     return method;
+}
+inline jfieldID
+ovr_GetStaticFieldID(JNIEnv* jni, jclass jniclass, const char* name, const char* signature) {
+    const jfieldID field = jni->GetStaticFieldID(jniclass, name, signature);
+    if (!field) {
+        OVR_FAIL("couldn't get %s, %s", name, signature);
+    }
+    return field;
 }
 
 // Get the code path of the current package.
@@ -699,6 +719,14 @@ ovr_GetGlobalClassReference(JNIEnv* jni, jobject activityObject, const char* cla
 }
 inline jmethodID
 ovr_GetStaticMethodID(JNIEnv* jni, jclass jniclass, const char* name, const char* signature) {
+    OVR_UNUSED(jni);
+    OVR_UNUSED(jniclass);
+    OVR_UNUSED(name);
+    OVR_UNUSED(signature);
+    return nullptr;
+}
+inline jfieldID
+ovr_GetStaticFieldID(JNIEnv* jni, jclass jniclass, const char* name, const char* signature) {
     OVR_UNUSED(jni);
     OVR_UNUSED(jniclass);
     OVR_UNUSED(name);

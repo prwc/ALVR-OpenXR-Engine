@@ -11,11 +11,11 @@
 #define XR_USE_PLATFORM_ANDROID 1
 
 #include <openxr/openxr.h>
-#include <openxr/openxr_oculus.h>
 #include <openxr/openxr_oculus_helpers.h>
 #include <openxr/openxr_platform.h>
 
 #include <openxr/fb_scene.h>
+#include <openxr/meta_spatial_entity_mesh.h>
 
 #include "OVR_Math.h"
 
@@ -27,6 +27,7 @@ struct ovrGeometry {
     void CreateStage();
     void CreatePlane(const std::vector<XrVector3f>& vertices, const XrColor4f& color);
     void CreateVolume(const std::array<XrVector3f, 8>& vertices, const XrColor4f& color);
+    void CreateMesh(const XrSpaceTriangleMeshMETA& mesh);
     void Destroy();
     void CreateVAO();
     void DestroyVAO();
@@ -117,8 +118,12 @@ struct ovrPlane {
 
     void SetZOffset(const float zOffset);
 
+    void SetVisible(const bool isVisible) {
+        IsVisible_ = isVisible;
+    }
+
     bool IsRenderable() const {
-        return IsPoseSet_ && Geometry.IsRenderable();
+        return IsVisible_ && IsPoseSet_ && Geometry.IsRenderable();
     }
 
     XrSpace Space;
@@ -127,6 +132,7 @@ struct ovrPlane {
     float ZOffset = 0.0f; // Z offset in the plane frame
 
    private:
+    bool IsVisible_ = true;
     bool IsPoseSet_ = false;
 };
 
@@ -137,8 +143,12 @@ struct ovrVolume {
 
     void SetPose(const XrPosef& T_World_Volume);
 
+    void SetVisible(const bool isVisible) {
+        IsVisible_ = isVisible;
+    }
+
     bool IsRenderable() const {
-        return IsPoseSet_ && Geometry.IsRenderable();
+        return IsVisible_ && IsPoseSet_ && Geometry.IsRenderable();
     }
 
     XrSpace Space;
@@ -146,6 +156,31 @@ struct ovrVolume {
     ovrGeometry Geometry;
 
    private:
+    bool IsVisible_ = true;
+    bool IsPoseSet_ = false;
+};
+
+struct ovrMesh {
+    explicit ovrMesh(const XrSpace space);
+
+    void Update(const XrSpaceTriangleMeshMETA& mesh);
+
+    void SetPose(const XrPosef& T_World_Mesh);
+
+    void SetVisible(const bool isVisible) {
+        IsVisible_ = isVisible;
+    }
+
+    bool IsRenderable() const {
+        return IsVisible_ && IsPoseSet_ && Geometry.IsRenderable();
+    }
+
+    XrSpace Space;
+    OVR::Posef T_World_Mesh;
+    ovrGeometry Geometry;
+
+   private:
+    bool IsVisible_ = true;
     bool IsPoseSet_ = false;
 };
 
@@ -187,10 +222,12 @@ struct ovrScene {
     ovrGeometry Axes;
     ovrProgram PlaneProgram;
     ovrProgram VolumeProgram;
+    ovrProgram MeshProgram;
     float ClearColor[4];
 
     std::vector<ovrPlane> Planes;
     std::vector<ovrVolume> Volumes;
+    std::vector<ovrMesh> Meshes;
 };
 
 struct ovrAppRenderer {

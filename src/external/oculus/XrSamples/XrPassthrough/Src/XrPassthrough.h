@@ -15,7 +15,6 @@
 #endif // defined(ANDROID)
 
 #include <openxr/openxr.h>
-#include <openxr/openxr_oculus.h>
 #include <openxr/openxr_oculus_helpers.h>
 #include <openxr/openxr_platform.h>
 
@@ -111,7 +110,6 @@ struct App {
     Egl egl;
 
 #if defined(XR_USE_PLATFORM_ANDROID)
-    ANativeWindow* NativeWindow;
     bool Resumed;
 #endif // defined(XR_USE_PLATFORM_ANDROID)
     bool ShouldExit;

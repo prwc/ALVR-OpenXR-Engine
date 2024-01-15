@@ -82,7 +82,6 @@ typedef void(GL_APIENTRY* PFNGLFRAMEBUFFERTEXTURE2DMULTISAMPLEEXTPROC)(
 #endif // defined(ANDROID)
 
 #include <openxr/openxr.h>
-#include <openxr/openxr_oculus.h>
 #include <openxr/openxr_oculus_helpers.h>
 #include <openxr/openxr_platform.h>
 
@@ -426,6 +425,11 @@ class XrApp {
     // Override this for custom action bindings, or modify the default bindings.
     virtual std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> GetSuggestedBindings(
         XrInstance instance);
+    virtual void SuggestInteractionProfileBindings(
+        const std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>>
+            allSuggestedBindings);
+
+    virtual void PreWaitFrame(XrFrameWaitInfo& waitFrameInfo) {}
 
     /// Xr Helpers
     XrInstance& GetInstance() {
@@ -496,6 +500,9 @@ class XrApp {
     // Called one time when the applicatoin process exits
     void Shutdown(const xrJava& context);
 
+    // Called on each Shutdown, reset all member variable to initial state
+    void Clear();
+
     // Called to handle any lifecycle state changes. This will call
     // AppPaused() and AppResumed()
     void HandleLifecycle(const xrJava* context);
@@ -529,7 +536,6 @@ class XrApp {
     };
 
 #if defined(ANDROID)
-    ANativeWindow* NativeWindow;
     bool Resumed = false;
 #endif // defined(ANDROID)
     bool ShouldExit = false;
@@ -600,6 +606,7 @@ class XrApp {
     bool isOverlay_ = false;
     bool IsAppFocused = false;
     bool RunWhilePaused = false;
+    bool ShouldRender = true;
 };
 
 } // namespace OVRFW

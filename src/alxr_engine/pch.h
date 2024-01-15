@@ -95,6 +95,10 @@
 #include <EGL/egl.h>
 #endif
 
+#ifdef XR_USE_PLATFORM_EGL
+#include <EGL/egl.h>
+#endif  // XR_USE_PLATFORM_EGL
+
 #ifdef XR_USE_GRAPHICS_API_VULKAN
 #ifdef XR_USE_PLATFORM_WIN32
 #define VK_USE_PLATFORM_WIN32_KHR
@@ -112,8 +116,11 @@
 #include <openxr/openxr_platform.h>
 #include <openxr/openxr_reflection.h>
 
+#ifdef XR_USE_OXR_PICO_V4
+    #include <openxr/openxr_pico.h>
+#endif
+
 #ifdef XR_USE_OXR_PICO_ANY_VERSION
-#include <openxr/openxr_pico.h>
 
 #ifdef XR_USE_OXR_PICO
     // These are no longer declared/defined in the Pico OpenXR SDK v2.1.0.
@@ -133,3 +140,5 @@
 #endif
 
 #endif
+
+#include <openxr/fb_face_tracking2.h>

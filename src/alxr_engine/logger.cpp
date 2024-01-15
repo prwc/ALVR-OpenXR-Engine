@@ -67,7 +67,7 @@ std::atomic<Log::OutputFn> g_outputFn{ defaultOuput };
 void SetLevel(Level minSeverity) { g_minSeverity = minSeverity; }
 
 void Write(Level severity, const std::string& msg) {
-    if (msg.length() == 0 || severity < g_minSeverity) {
+    if (severity < g_minSeverity || msg.length() == 0) {
         return;
     }
 

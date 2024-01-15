@@ -424,6 +424,40 @@ void ovrGeometry::CreateVolume(const std::array<XrVector3f, 8>& vertices, const 
     IsRenderable_ = true;
 }
 
+void ovrGeometry::CreateMesh(const XrSpaceTriangleMeshMETA& mesh) {
+    VertexAttribs_[0].Index = VERTEX_ATTRIBUTE_LOCATION_POSITION;
+    VertexAttribs_[0].Size = 3;
+    VertexAttribs_[0].Type = GL_FLOAT;
+    VertexAttribs_[0].Normalized = false;
+    VertexAttribs_[0].Stride = sizeof(XrVector3f);
+    VertexAttribs_[0].Pointer = (const GLvoid*)0;
+
+    GL(glGenBuffers(1, &VertexBuffer_));
+    GL(glBindBuffer(GL_ARRAY_BUFFER, VertexBuffer_));
+    GL(glBufferData(GL_ARRAY_BUFFER, mesh.vertexCountOutput * sizeof(XrVector3f), mesh.vertices, GL_STATIC_DRAW));
+    GL(glBindBuffer(GL_ARRAY_BUFFER, 0));
+
+    // Decompose triangles into lines to draw the mesh as a wireframe model with GL_LINES.
+    std::vector<uint32_t> indices;
+    indices.reserve(mesh.indexCountOutput * 2);
+    for (int i = 0; i < mesh.indexCountOutput; i += 3) {
+        for (int j = 0; j < 3; ++j) {
+            indices.push_back(mesh.indices[i + j]);
+            indices.push_back(mesh.indices[i + (j + 1) % 3]);
+        }
+    }
+
+    GL(glGenBuffers(1, &IndexBuffer_));
+    GL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBuffer_));
+    GL(glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(uint32_t), indices.data(), GL_STATIC_DRAW));
+    GL(glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0));
+    IndexCount_ = indices.size();
+
+    CreateVAO();
+
+    IsRenderable_ = true;
+}
+
 void ovrGeometry::Destroy() {
     if (IndexBuffer_ != 0) {
         GL(glDeleteBuffers(1, &IndexBuffer_));
@@ -812,6 +846,25 @@ void ovrVolume::SetPose(const XrPosef& T_World_Volume_Xr) {
 /*
 ================================================================================
 
+ovrMesh
+
+================================================================================
+*/
+
+ovrMesh::ovrMesh(const XrSpace space) : Space(space){}
+
+void ovrMesh::Update(const XrSpaceTriangleMeshMETA& mesh) {
+    Geometry.CreateMesh(mesh);
+}
+
+void ovrMesh::SetPose(const XrPosef& T_World_Mesh_Xr) {
+    T_World_Mesh = FromXrPosef(T_World_Mesh_Xr);
+    IsPoseSet_ = true;
+}
+
+/*
+================================================================================
+
 ovrScene
 
 ================================================================================
@@ -843,6 +896,12 @@ void ovrScene::Clear() {
         volume.Geometry.Clear();
     }
     Volumes.clear();
+
+    MeshProgram.Clear();
+    for (auto& mesh : Meshes) {
+        mesh.Geometry.Clear();
+    }
+    Meshes.clear();
 }
 
 bool ovrScene::IsCreated() {
@@ -901,6 +960,11 @@ void ovrScene::Create() {
     // Volumes
     if (!VolumeProgram.Create(VERTEX_SHADER, FRAGMENT_SHADER)) {
         ALOGE("Failed to compile volume program!");
+    }
+
+    // Meshes
+    if (!MeshProgram.Create(VERTEX_SHADER, MESH_FRAGMENT_SHADER)) {
+        ALOGE("Failed to compile mesh program!");
     }
 
     CreatedScene = true;
@@ -1248,6 +1312,30 @@ void ovrAppRenderer::RenderFrame(const FrameIn& frameIn) {
         }
     }
     GL(glBindVertexArray(0));
+    GL(glUseProgram(0));
+
+    // Render meshes
+    GL(glLineWidth(2.0));
+    GL(glUseProgram(Scene.MeshProgram.Program));
+    GL(glBindBufferBase(GL_UNIFORM_BUFFER, Scene.MeshProgram.UniformBinding[ovrUniform::Index::SCENE_MATRICES], Scene.SceneMatrices));
+    if (Scene.MeshProgram.UniformLocation[ovrUniform::Index::VIEW_ID] >= 0) {
+        GL(glUniform1i(Scene.MeshProgram.UniformLocation[ovrUniform::Index::VIEW_ID], 0));
+    }
+    GL(glEnable(GL_BLEND));
+    GL(glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA));
+    for (const auto& mesh : Scene.Meshes) {
+        if (!mesh.IsRenderable()) {
+            continue;
+        }
+        if (Scene.MeshProgram.UniformLocation[ovrUniform::Index::MODEL_MATRIX] >= 0) {
+            const Matrix4f transform = Matrix4f(mesh.T_World_Mesh);
+            GL(glUniformMatrix4fv(Scene.MeshProgram.UniformLocation[ovrUniform::Index::MODEL_MATRIX], 1, GL_TRUE, &transform.M[0][0]));
+        }
+        mesh.Geometry.BindVAO();
+        GL(glDrawElements(GL_LINES, mesh.Geometry.IndexCount(), GL_UNSIGNED_INT, nullptr));
+        GL(glBindVertexArray(0));
+    }
+    GL(glDisable(GL_BLEND));
     GL(glUseProgram(0));
 
     Framebuffer.Unbind();

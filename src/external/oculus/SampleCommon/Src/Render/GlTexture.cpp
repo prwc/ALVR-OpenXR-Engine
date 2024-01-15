@@ -1475,7 +1475,7 @@ GlTexture LoadTextureKTX2(
         }
     }
 
-    GLuint texid;
+    GLuint texid = 0;
     GLenum target, glerror;
     result = ktxTexture_GLUpload(kTexture, &texid, &target, &glerror);
     if (result != KTX_SUCCESS) {

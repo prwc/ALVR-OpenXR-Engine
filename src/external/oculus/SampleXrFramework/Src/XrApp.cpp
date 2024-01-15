@@ -126,19 +126,17 @@ void XrApp::HandleAndroidCmd(struct android_app* app, int32_t cmd) {
         case APP_CMD_DESTROY: {
             ALOGV("onDestroy()");
             ALOGV("    APP_CMD_DESTROY");
-            NativeWindow = NULL;
+            Clear();
             break;
         }
         case APP_CMD_INIT_WINDOW: {
             ALOGV("surfaceCreated()");
             ALOGV("    APP_CMD_INIT_WINDOW");
-            NativeWindow = app->window;
             break;
         }
         case APP_CMD_TERM_WINDOW: {
             ALOGV("surfaceDestroyed()");
             ALOGV("    APP_CMD_TERM_WINDOW");
-            NativeWindow = NULL;
             break;
         }
     }
@@ -562,6 +560,22 @@ std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> XrApp::GetSugg
     return suggestedBindings;
 }
 
+void XrApp::SuggestInteractionProfileBindings(
+    const std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> allSuggestedBindings) {
+    // Best practice is for apps to suggest bindings for *ALL* interaction profiles
+    // that the app supports. Loop over all interaction profiles we support and suggest
+    // bindings:
+    for (auto& [interactionProfilePath, bindings] : allSuggestedBindings) {
+        XrInteractionProfileSuggestedBinding suggestedBindings = {
+            XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
+        suggestedBindings.interactionProfile = interactionProfilePath;
+        suggestedBindings.suggestedBindings = (const XrActionSuggestedBinding*)bindings.data();
+        suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
+
+        OXR(xrSuggestInteractionProfileBindings(Instance, &suggestedBindings));
+    }
+}
+
 const void* XrApp::GetInstanceCreateInfoNextChain() {
     return nullptr;
 }
@@ -838,18 +852,7 @@ bool XrApp::Init(const xrJava& context) {
     const std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> allSuggestedBindings =
         GetSuggestedBindings(GetInstance());
 
-    // Best practice is for apps to suggest bindings for *ALL* interaction profiles
-    // that the app supports. Loop over all interaction profiles we support and suggest
-    // bindings:
-    for (auto& [interactionProfilePath, bindings] : allSuggestedBindings) {
-        XrInteractionProfileSuggestedBinding suggestedBindings = {
-            XR_TYPE_INTERACTION_PROFILE_SUGGESTED_BINDING};
-        suggestedBindings.interactionProfile = interactionProfilePath;
-        suggestedBindings.suggestedBindings = (const XrActionSuggestedBinding*)bindings.data();
-        suggestedBindings.countSuggestedBindings = (uint32_t)bindings.size();
-
-        OXR(xrSuggestInteractionProfileBindings(Instance, &suggestedBindings));
-    }
+    SuggestInteractionProfileBindings(allSuggestedBindings);
 
     FileSys = std::unique_ptr<OVRFW::ovrFileSys>(ovrFileSys::Create(context));
     if (FileSys) {
@@ -1078,6 +1081,59 @@ void XrApp::EndSession() {
 // Called one time when the applicatoin process exits
 void XrApp::Shutdown(const xrJava& context) {
     OXR(xrDestroyInstance(Instance));
+    Clear();
+}
+
+// Called on each Shutdown, reset all member variable to initial state
+void XrApp::Clear() {
+#if defined(ANDROID)
+    Resumed = false;
+#endif // defined(ANDROID)
+    ShouldExit = false;
+    Focused = false;
+    SkipInputHandling = false;
+
+    Instance = XR_NULL_HANDLE;
+    Session = XR_NULL_HANDLE;
+    ViewportConfig = {};
+    for (int i = 0; i < MAX_NUM_EYES; i++) {
+        ViewConfigurationView[i] = {};
+    }
+    for (int i = 0; i < MAX_NUM_EYES; i++) {
+        Projections[i] = {};
+    }
+    SystemId = XR_NULL_SYSTEM_ID;
+    HeadSpace = XR_NULL_HANDLE;
+    LocalSpace = XR_NULL_HANDLE;
+    StageSpace = XR_NULL_HANDLE;
+    CurrentSpace = XR_NULL_HANDLE;
+    SessionActive = false;
+
+    BaseActionSet = XR_NULL_HANDLE;
+    LeftHandPath = XR_NULL_PATH;
+    RightHandPath = XR_NULL_PATH;
+    AimPoseAction = XR_NULL_HANDLE;
+    GripPoseAction = XR_NULL_HANDLE;
+    JoystickAction = XR_NULL_HANDLE;
+    IndexTriggerAction = XR_NULL_HANDLE;
+    IndexTriggerClickAction = XR_NULL_HANDLE;
+    GripTriggerAction = XR_NULL_HANDLE;
+    ButtonAAction = XR_NULL_HANDLE;
+    ButtonBAction = XR_NULL_HANDLE;
+    ButtonXAction = XR_NULL_HANDLE;
+    ButtonYAction = XR_NULL_HANDLE;
+    ButtonMenuAction = XR_NULL_HANDLE;
+    /// common touch actions
+    ThumbStickTouchAction = XR_NULL_HANDLE;
+    ThumbRestTouchAction = XR_NULL_HANDLE;
+    TriggerTouchAction = XR_NULL_HANDLE;
+
+    LeftControllerAimSpace = XR_NULL_HANDLE;
+    RightControllerAimSpace = XR_NULL_HANDLE;
+    LeftControllerGripSpace = XR_NULL_HANDLE;
+    RightControllerGripSpace = XR_NULL_HANDLE;
+    LastFrameAllButtons = 0u;
+    LastFrameAllTouches = 0u;
 }
 
 // Internal Input
@@ -1248,7 +1304,9 @@ void XrApp::AppRenderFrame(const OVRFW::ovrApplFrameIn& in, OVRFW::ovrRendererOu
     }
     Scene.Frame(localIn);
     Scene.GenerateFrameSurfaceList(out.FrameMatrices, out.Surfaces);
-    Render(in, out);
+    if (ShouldRender) {
+        Render(in, out);
+    }
 
     for (int eye = 0; eye < MAX_NUM_EYES; eye++) {
         ovrFramebuffer* frameBuffer = &FrameBuffer[eye];
@@ -1296,6 +1354,7 @@ bool XrApp::AppInit(const xrJava* context) {
 // Called when the application shuts down
 void XrApp::AppShutdown(const xrJava* context) {
     SurfaceRender.Shutdown();
+    Clear();
 }
 
 // Called when the application is resumed by the system.
@@ -1415,6 +1474,8 @@ void XrApp::MainLoop(MainLoopContext& loopContext) {
         // XrWaitFrame returns the predicted display time.
         XrFrameWaitInfo waitFrameInfo = {XR_TYPE_FRAME_WAIT_INFO};
 
+        PreWaitFrame(waitFrameInfo);
+
         XrFrameState frameState = {XR_TYPE_FRAME_STATE};
 
         OXR(xrWaitFrame(Session, &waitFrameInfo, &frameState));
@@ -1425,6 +1486,7 @@ void XrApp::MainLoop(MainLoopContext& loopContext) {
         // The better the prediction, the less black will be pulled in at the edges.
         XrFrameBeginInfo beginFrameDesc = {XR_TYPE_FRAME_BEGIN_INFO};
         OXR(xrBeginFrame(Session, &beginFrameDesc));
+        ShouldRender = frameState.shouldRender;
 
         XrSpaceLocation loc = {XR_TYPE_SPACE_LOCATION};
         OXR(xrLocateSpace(HeadSpace, CurrentSpace, frameState.predictedDisplayTime, &loc));
@@ -1586,7 +1648,9 @@ void XrApp::Run() {
 #error "Platform not supported!"
 #endif // defined(ANDROID)
 
-    MainLoop(loopContext);
+    if (!IsOverlay()) {
+        MainLoop(loopContext);
+    }
 
 #if defined(ANDROID)
     (*app->activity->vm).DetachCurrentThread();

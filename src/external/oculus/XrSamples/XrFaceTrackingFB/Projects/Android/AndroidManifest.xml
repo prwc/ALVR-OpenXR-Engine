@@ -8,9 +8,15 @@
 	<!-- Tell the system this app requires OpenGL ES 3.1. -->
 	<uses-feature android:glEsVersion="0x00030001" android:required="true" />
 
+
+	<uses-feature android:name="com.oculus.experimental.enabled" android:required="true" />
+
     <!-- Tell the system this app can handle face tracking -->
     <uses-feature android:name="oculus.software.face_tracking" android:required="true" />
     <uses-permission android:name="com.oculus.permission.FACE_TRACKING" />
+
+	<!-- Tell the system this app can handle audio-driven facetracking -->
+	<uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Tell the system this app can handle eye tracking -->
     <uses-feature android:name="oculus.software.eye_tracking" android:required="true" />

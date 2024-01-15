@@ -76,7 +76,7 @@ else()
         ${D3D_SHADERS})
 endif()
 set_target_properties(alxr_engine PROPERTIES FOLDER ${SAMPLES_FOLDER})
-target_compile_definitions(alxr_engine PRIVATE ALXR_CLIENT)
+target_compile_definitions(alxr_engine PRIVATE ALXR_CLIENT ASIO_STANDALONE)
 if (XR_IS_UWP)
     target_compile_definitions(alxr_engine PRIVATE XR_USE_PLATFORM_UWP)
 endif()
@@ -178,17 +178,18 @@ endif()
 
 
     
-set(OCULUS_OXR_EXT_HEADERS)
-if (USE_OCULUS_OXR_EXT_HEADERS AND NOT ANDROID)
-    message(STATUS "Oculus OpenXR Extension Headers Enabled")
+#set(OCULUS_OXR_EXT_HEADERS)
+#if (USE_OCULUS_OXR_EXT_HEADERS AND NOT ANDROID)
+#    message(STATUS "Oculus OpenXR Extension Headers Enabled")
     set(OCULUS_OXR_EXT_HEADERS ${OCULUS_OPENXR_MOBILE_SDK}/Include)
-    add_definitions(-DXR_USE_OXR_OCULUS)
-endif()
+#    add_definitions(-DXR_USE_OXR_OCULUS)
+#endif()
 
 target_include_directories(alxr_engine
     PRIVATE
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/src/common
+    ${PROJECT_SOURCE_DIR}/src/external/asio/include
 
     # for OpenXR headers
     ${PROJECT_SOURCE_DIR}/include
@@ -197,7 +198,7 @@ target_include_directories(alxr_engine
 
     # for helper headers
     ${PROJECT_SOURCE_DIR}/external/include
-
+    
     ${ALVR_COMMON_DIR}
     ${ALVR_COMMON_DIR}/../
     ${ALVR_COMMON_DIR}/../app/src/main/cpp
@@ -238,10 +239,8 @@ if(WIN32)
     endif()
     target_link_libraries(alxr_engine ole32)
     if(MSVC)
-        # Right now can't build this on MinGW because of directxcolors, etc.
+        # Right now can't build this on MinGW because of directxcolors, directxmath, etc.
         target_link_libraries(alxr_engine dxguid d3d11 d3d12 d3dcompiler dxgi)
-    else()
-        target_compile_definitions(alxr_engine PRIVATE MISSING_DIRECTX_COLORS)
     endif()
 endif()
 

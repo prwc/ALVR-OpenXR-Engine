@@ -328,6 +328,10 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
 
         UpdateUIHitTests(in);
 
+        // Update controller poses (which may be adjusted after keyboard interaction)
+        leftAdjustedRemotePose_ = in.LeftRemotePose;
+        rightAdjustedRemotePose_ = in.RightRemotePose;
+
         if (isShowingKeyboard_) {
             UpdateKeyboardInteractions(in);
             UpdateKeyboardMoving(in);
@@ -756,8 +760,6 @@ class XrVirtualKeyboardApp : public OVRFW::XrApp {
         // Handle poke limiting
         if (result) {
             adjustedRemotePose = FromXrPosef(interactorRootPose);
-        } else {
-            adjustedRemotePose = remotePose;
         }
     }
 

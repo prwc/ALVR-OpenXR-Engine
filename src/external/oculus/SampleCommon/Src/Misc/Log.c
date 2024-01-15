@@ -47,7 +47,7 @@ static void StripPath(const char* filePath, char* strippedTag, size_t const stri
 void LogWithFilenameTag(const int priority, const char* filename, const char* fmt, ...) {
     // we keep stack allocations to a minimum to keep logging side-effects to a minimum
     char tag[32];
-    char msg[256 - sizeof(tag)];
+    char msg[512 - sizeof(tag)];
     StripPath(filename, tag, sizeof(tag));
 
     // we use vsnprintf here rather than using __android_log_vprintf so we can control the size

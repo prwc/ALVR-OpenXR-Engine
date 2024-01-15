@@ -917,4 +917,165 @@ GlGeometry::Descriptor BuildAxisDescriptor(float sideLength, float sideRatio) {
     return GlGeometry::Descriptor(attribs, indices, geometryTransfom);
 }
 
+// pie-shaped wedge
+GlGeometry::Descriptor BuildWedgeDescriptor(
+    const float radius,
+    const float height,
+    const float angleStart, // radians
+    const float angleStop,  // radians
+    const OVR::Vector4f& color,
+    const TriangleIndex divisions,
+    const bool sides) {
+
+    // 'divisions' represent the number of "pies" that compose (tesselate) the wedge
+    assert (divisions > 0);
+    assert (angleStop > angleStart);
+
+    // each division is composed of 4 triangles
+    std::vector<TriangleIndex> indices;
+    indices.resize(divisions * 3 * 4 + (sides ? 3 * 4 : 0));
+
+    // each division requires 1 (center) vertex + 2 outer vertices [face/cylinder] (on each side)
+    const int vertexCount = (1 + (divisions + 1) * 2) * 2;
+    const int vertexCountSides = sides ? 4 + 4 : 0;
+    ALOG ("BuildWedgeDescriptor() vertexCount=%d", vertexCount + vertexCountSides);
+
+    VertexAttribs attribs;
+    attribs.position.resize(vertexCount + vertexCountSides);
+    attribs.normal.resize(vertexCount + vertexCountSides);
+    attribs.color.resize(vertexCount + vertexCountSides);
+
+    // first two points are at the center of the disc, on front/back side
+    attribs.position[0].x = attribs.position[1].x = 0;
+    attribs.position[0].y = attribs.position[1].y = 0;
+    attribs.position[0].z = 0 + height / 2;
+    attribs.position[1].z = 0 - height / 2;
+    attribs.normal[0] = OVR::Vector3f(0, 0, +1).Normalized();    // front-facing
+    attribs.normal[1] = OVR::Vector3f(0, 0, -1).Normalized();    // rear-facing
+
+    for (int channel = 0; channel < 4; ++channel) {
+        attribs.color[0][channel] = color[channel];
+        attribs.color[1][channel] = color[channel];
+    }
+
+    for (int index = 0; index <= divisions; ++index) {
+        const int edge = 2 + index * 4;
+        const float angle = angleStart + (((angleStop - angleStart) / divisions) * index);
+        // build wedge in the X/Y plane
+        attribs.position[edge + 0].x = attribs.position[edge + 1].x =
+        attribs.position[edge + 2].x = attribs.position[edge + 3].x =
+            cosf(angle) * radius;
+        attribs.position[edge + 0].y = attribs.position[edge + 1].y =
+        attribs.position[edge + 2].y = attribs.position[edge + 3].y =
+            sinf(angle) * radius;
+        // "height" of wedge is represented by depth
+        attribs.position[edge + 0].z = attribs.position[edge + 1].z = 0 + height / 2;
+        attribs.position[edge + 2].z = attribs.position[edge + 3].z = 0 - height / 2;
+
+        // front-facing (use same normal as front-center vertex)
+        attribs.normal[edge + 0] = attribs.normal[0];
+        // outer (rounded) side-facing
+        attribs.normal[edge + 1] = attribs.normal[edge + 2] =
+            OVR::Vector3f(attribs.position[edge + 1].x, attribs.position[edge + 1].y, 0).Normalized();
+        // rear-facing (use same normal as back-center vertex)
+        attribs.normal[edge + 3] = attribs.normal[1];
+
+        for (int channel = 0; channel < 4; ++channel) {
+            attribs.color[edge + 0][channel] = color[channel];
+            attribs.color[edge + 1][channel] = color[channel];
+            attribs.color[edge + 2][channel] = color[channel];
+            attribs.color[edge + 3][channel] = color[channel];
+        }
+
+        // left or right sides of the wedge (if 'sides' flag is enabled)
+        if (sides && (index == 0 || index == divisions)) {
+            const int edgeSides = vertexCount + (index == divisions ? 4 : 0);
+            attribs.position[edgeSides + 0].x = attribs.position[edgeSides + 3].x = 0.0f;
+            attribs.position[edgeSides + 1].x = attribs.position[edgeSides + 2].x = attribs.position[edge + 0].x;
+
+            attribs.position[edgeSides + 0].y = attribs.position[edgeSides + 3].y = 0.0f;
+            attribs.position[edgeSides + 1].y = attribs.position[edgeSides + 2].y = attribs.position[edge + 0].y;
+
+            attribs.position[edgeSides + 0].z = attribs.position[edgeSides + 1].z = attribs.position[edge + 0].z;
+            attribs.position[edgeSides + 2].z = attribs.position[edgeSides + 3].z = attribs.position[edge + 2].z;
+
+            OVR::Vector3f normal = OVR::Vector3f(
+                attribs.position[edgeSides + 3].x - attribs.position[edgeSides + 2].x,
+                attribs.position[edgeSides + 3].y - attribs.position[edgeSides + 2].y,
+                attribs.position[edgeSides + 3].z - attribs.position[edgeSides + 2].z).Cross(
+                    OVR::Vector3f(
+                        attribs.position[edgeSides + 2].x - attribs.position[edgeSides + 1].x,
+                        attribs.position[edgeSides + 2].y - attribs.position[edgeSides + 1].y,
+                        attribs.position[edgeSides + 2].z - attribs.position[edgeSides + 1].z)
+                ).Normalized();
+            if (index == divisions) {
+                normal.x = 0 - normal.x;
+                normal.y = 0 - normal.y;
+                normal.z = 0 - normal.z;
+            }
+
+            attribs.normal[edgeSides + 0] = attribs.normal[edgeSides + 1] =
+            attribs.normal[edgeSides + 2] = attribs.normal[edgeSides + 3] = normal;
+
+            for (int channel = 0; channel < 4; ++channel) {
+                attribs.color[edgeSides + 0][channel] = color[channel];
+                attribs.color[edgeSides + 1][channel] = color[channel];
+                attribs.color[edgeSides + 2][channel] = color[channel];
+                attribs.color[edgeSides + 3][channel] = color[channel];
+            }
+
+            // quad (2 triangles) for the side
+            const int indexSides = (divisions * 3 * 4) + (index == divisions ? 6 : 0);
+            if (index == divisions) {
+                indices[indexSides +  0] = edgeSides + 0;
+                indices[indexSides +  1] = edgeSides + 1;
+                indices[indexSides +  2] = edgeSides + 2;
+
+                indices[indexSides +  3] = edgeSides + 0;
+                indices[indexSides +  4] = edgeSides + 2;
+                indices[indexSides +  5] = edgeSides + 3;
+            } else {
+                indices[indexSides +  0] = edgeSides + 0;
+                indices[indexSides +  1] = edgeSides + 2;
+                indices[indexSides +  2] = edgeSides + 1;
+
+                indices[indexSides +  3] = edgeSides + 0;
+                indices[indexSides +  4] = edgeSides + 3;
+                indices[indexSides +  5] = edgeSides + 2;
+            }
+        }
+
+        if (index < divisions) {
+            // front pie
+            indices[(index * 12) +  0] = 0;
+            indices[(index * 12) +  1] = edge + 0 + 0;
+            indices[(index * 12) +  2] = edge + 0 + 4;
+
+            // height quad
+            indices[(index * 12) +  3] = edge + 1 + 4;
+            indices[(index * 12) +  4] = edge + 1 + 0;
+            indices[(index * 12) +  5] = edge + 2 + 0;
+
+            indices[(index * 12) +  6] = edge + 2 + 0;
+            indices[(index * 12) +  7] = edge + 2 + 4;
+            indices[(index * 12) +  8] = edge + 1 + 4;
+
+            // back pie
+            indices[(index * 12) +  9] = edge + 3 + 4;
+            indices[(index * 12) + 10] = edge + 3 + 0;
+            indices[(index * 12) + 11] = 1;
+        }
+    }
+
+    return GlGeometry::Descriptor(attribs, indices, OVR::Matrix4f());
+}
+
+GlGeometry::Descriptor BuildDiscDescriptor(
+    const float radius,
+    const float height,
+    const OVR::Vector4f& color,
+    const TriangleIndex divisions) {
+    return BuildWedgeDescriptor(radius, height, 0.0f, MATH_FLOAT_PI * 2, color, divisions, false);
+}
+
 } // namespace OVRFW

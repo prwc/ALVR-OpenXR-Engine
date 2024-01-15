@@ -24,6 +24,7 @@ Language    :   C++
 
 // Add new profile
 #include <openxr/fb_touch_controller_pro.h>
+#include <openxr/meta_touch_controller_plus.h>
 
 // Add envolope haptics
 #include <openxr/fb_haptic_amplitude_envelope.h>
@@ -46,6 +47,7 @@ PFN_xrGetDeviceSampleRateFB xrGetDeviceSampleRateFB = nullptr;
 #include "Input/TinyUI.h"
 #include "Input/AxisRenderer.h"
 #include "Render/SimpleBeamRenderer.h"
+
 
 class XrControllersApp : public OVRFW::XrApp {
    public:
@@ -93,6 +95,7 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
     virtual std::vector<const char*> GetExtensions() override {
         std::vector<const char*> extensions = XrApp::GetExtensions();
         extensions.push_back(XR_FB_TOUCH_CONTROLLER_PRO_EXTENSION_NAME);
+        extensions.push_back(XR_META_TOUCH_CONTROLLER_PLUS_EXTENSION_NAME);
         extensions.push_back(XR_FB_HAPTIC_AMPLITUDE_ENVELOPE_EXTENSION_NAME);
         extensions.push_back(XR_FB_HAPTIC_PCM_EXTENSION_NAME);
         extensions.push_back(XR_FB_TOUCH_CONTROLLER_PROXIMITY_EXTENSION_NAME);
@@ -121,6 +124,13 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
             BaseActionSet,
             XR_ACTION_TYPE_FLOAT_INPUT,
             "the_trackpad_force",
+            nullptr,
+            2,
+            handSubactionPaths);
+        triggerForceAction_ = CreateAction(
+            BaseActionSet,
+            XR_ACTION_TYPE_FLOAT_INPUT,
+            "trigger_force",
             nullptr,
             2,
             handSubactionPaths);
@@ -184,7 +194,13 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
             nullptr,
             2,
             handSubactionPaths);
-
+        thumbMetaProxAction_ = CreateAction(
+            BaseActionSet,
+            XR_ACTION_TYPE_BOOLEAN_INPUT,
+            "thumb_meta_prox",
+            nullptr,
+            2,
+            handSubactionPaths);
 
         // Trigger Value
         triggerValueAction_ = CreateAction(
@@ -222,6 +238,11 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
             instance,
             "/interaction_profiles/facebook/touch_controller_pro",
             &touchProInteractionProfile));
+        XrPath touchPlusInteractionProfile = XR_NULL_PATH;
+        OXR(xrStringToPath(
+            instance,
+            "/interaction_profiles/meta/touch_controller_plus",
+            &touchPlusInteractionProfile));
 
         auto baseSuggestedBindings = XrApp::GetSuggestedBindings(instance);
 
@@ -299,9 +320,28 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
         touchProBindings.emplace_back(
             ActionSuggestedBinding(thumbHapticAction_, "/user/hand/right/output/thumb_haptic_fb"));
 
+        std::vector<XrActionSuggestedBinding> touchPlusBindings(baseTouchBindings);
+        touchPlusBindings.emplace_back(ActionSuggestedBinding(
+            thumbMetaProxAction_, "/user/hand/left/input/thumb_meta/proximity_meta"));
+        touchPlusBindings.emplace_back(ActionSuggestedBinding(
+            thumbMetaProxAction_, "/user/hand/right/input/thumb_meta/proximity_meta"));
+        touchPlusBindings.emplace_back(
+            ActionSuggestedBinding(triggerForceAction_, "/user/hand/left/input/trigger/force"));
+        touchPlusBindings.emplace_back(
+            ActionSuggestedBinding(triggerForceAction_, "/user/hand/right/input/trigger/force"));
+        touchPlusBindings.emplace_back(
+            ActionSuggestedBinding(triggerCurlAction_, "/user/hand/left/input/trigger/curl_meta"));
+        touchPlusBindings.emplace_back(
+            ActionSuggestedBinding(triggerCurlAction_, "/user/hand/right/input/trigger/curl_meta"));
+        touchPlusBindings.emplace_back(
+            ActionSuggestedBinding(triggerSlideAction_, "/user/hand/left/input/trigger/slide_meta"));
+        touchPlusBindings.emplace_back(
+            ActionSuggestedBinding(triggerSlideAction_, "/user/hand/right/input/trigger/slide_meta"));
+
         std::unordered_map<XrPath, std::vector<XrActionSuggestedBinding>> allSuggestedBindings;
         allSuggestedBindings[touchInteractionProfile] = baseTouchBindings;
         allSuggestedBindings[touchProInteractionProfile] = touchProBindings;
+        allSuggestedBindings[touchPlusInteractionProfile] = touchPlusBindings;
         return allSuggestedBindings;
     }
 
@@ -316,13 +356,19 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
 
         /// Build UI
         bigText_ = ui_.AddLabel(
-            "OpenXR Controllers Sample", {0.1f, -0.7f, -2.0f}, {1300.0f, 100.0f});
+            "OpenXR Controllers Sample", {0.0f, -0.8f, -1.9f}, {1300.0f, 100.0f});
 
         OVR::Vector2f size = {200.0f, 100.0f};
         OVR::Vector3f position = {+0.0f, 0.5f, -1.9f};
         OVR::Vector3f positionL = {-0.4f, 0.5f, -1.9f};
         OVR::Vector3f positionR = {+0.4f, 0.5f, -1.9f};
         const float dh = 0.2f;
+        position.y += dh;
+        positionL.y += dh;
+        positionR.y += dh;
+        ui_.AddLabel("Trigger Force", position, size);
+        triggerForceLText_ = ui_.AddLabel("trf L 0.0", positionL, size);
+        triggerForceRText_ = ui_.AddLabel("trf R 0.0", positionR, size);
         position.y += dh;
         positionL.y += dh;
         positionR.y += dh;
@@ -355,15 +401,20 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
         triggerProxLText_ = ui_.AddLabel("trProx L 0.0", positionL, size);
         triggerProxRText_ = ui_.AddLabel("trProx R 0.0", positionR, size);
 
-        positionL.y += dh;
-        positionR.y += dh;
+        positionL.y += dh * 3/4.0f;
+        positionR.y += dh * 3/4.0f;
         position.y += dh;
         ui_.AddLabel("Thumb Prox", position, size);
-        thumbFBProxLText_ = ui_.AddLabel("thProx L 0.0", positionL, size);
-        thumbFBProxRText_ = ui_.AddLabel("thProx R 0.0", positionR, size);
+        const OVR::Vector2f halfSize{size.x, size.y / 2.0f};
+        thumbFBProxLText_ = ui_.AddLabel("_FB: 0", positionL, halfSize);
+        thumbFBProxRText_ = ui_.AddLabel("_FB: 0", positionR, halfSize);
+        positionL.y += dh / 2.0;
+        positionR.y += dh / 2.0;
+        thumbMetaProxLText_ = ui_.AddLabel("_META: 0", positionL, halfSize);
+        thumbMetaProxRText_ = ui_.AddLabel("_META: 0", positionR, halfSize);
 
-        positionL.y += dh;
-        positionR.y += dh;
+        positionL.y += dh * 3 / 4.0f;
+        positionR.y += dh * 3 / 4.0f;
         position.y += dh;
         ui_.AddLabel("Trigger Value", position, size);
         triggerValueLText_ = ui_.AddLabel("trVal L 0.0", positionL, size);
@@ -382,6 +433,9 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
         ui_.AddLabel("Squeeze Value", position, size);
         squeezeValueLText_ = ui_.AddLabel("sqVal L 0.0", positionL, size);
         squeezeValueRText_ = ui_.AddLabel("sqVal R 0.0", positionR, size);
+
+        ipText_ = ui_.AddLabel(
+            "Interaction Profiles", {0.0f, 0.5f, -1.9f}, {600.0f, 100.0f});
 
         ui_.AddButton("Haptic Main S", {-0.8f, 0.5f, -1.9f}, size, [=]() {
             VibrateController(mainHapticAction_, LeftHandPath, XR_MIN_HAPTIC_DURATION, 157.0f, 1.0f);
@@ -713,6 +767,9 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
     virtual void Update(const OVRFW::ovrApplFrameIn& in) override {
         /// Update Input
         {
+            /// Trigger Force
+            triggerForceL_ = GetActionStateFloat(triggerForceAction_, LeftHandPath).currentState;
+            triggerForceR_ = GetActionStateFloat(triggerForceAction_, RightHandPath).currentState;
             /// TrackPad Force
             trackpadForceL_ = GetActionStateFloat(trackpadForceAction_, LeftHandPath).currentState;
             trackpadForceR_ = GetActionStateFloat(trackpadForceAction_, RightHandPath).currentState;
@@ -730,9 +787,13 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
             triggerProxR_ = GetActionStateBoolean(triggerProxAction_, RightHandPath).currentState;
             thumbFBProxL_ = GetActionStateBoolean(thumbFbProxAction_, LeftHandPath).currentState;
             thumbFBProxR_ = GetActionStateBoolean(thumbFbProxAction_, RightHandPath).currentState;
+            // same as above on touch plus
+            thumbMetaProxL_ = GetActionStateBoolean(thumbMetaProxAction_, LeftHandPath).currentState;
+            thumbMetaProxR_ = GetActionStateBoolean(thumbMetaProxAction_, RightHandPath).currentState;
             /// Trigger Value
             triggerValueL_ = GetActionStateBoolean(triggerValueAction_, LeftHandPath).currentState;
             triggerValueR_ = GetActionStateBoolean(triggerValueAction_, RightHandPath).currentState;
+
             /// Trigger Touch
             triggerTouchL_ = GetActionStateBoolean(triggerTouchAction_, LeftHandPath).currentState;
             triggerTouchR_ = GetActionStateBoolean(triggerTouchAction_, RightHandPath).currentState;
@@ -809,6 +870,47 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
 
         /// Update labels
         {
+            XrInteractionProfileState lIpState {XR_TYPE_INTERACTION_PROFILE_STATE};
+            OXR(xrGetCurrentInteractionProfile(Session, LeftHandPath, &lIpState));
+            XrInteractionProfileState rIpState {XR_TYPE_INTERACTION_PROFILE_STATE};
+            OXR(xrGetCurrentInteractionProfile(Session, LeftHandPath, &rIpState));
+
+            char lBuf[XR_MAX_PATH_LENGTH];
+            uint32_t written = 0;
+            if(lIpState.interactionProfile != XR_NULL_PATH) {
+                OXR(xrPathToString(Instance, lIpState.interactionProfile, XR_MAX_PATH_LENGTH, &written, lBuf));
+            }
+            if(written == 0) {
+                strcpy(lBuf, "<none>");
+            }
+
+            char rBuf[XR_MAX_PATH_LENGTH];
+            written = 0;
+            if(rIpState.interactionProfile != XR_NULL_PATH) {
+                OXR(xrPathToString(Instance, rIpState.interactionProfile, XR_MAX_PATH_LENGTH, &written, rBuf));
+            }
+            if(written == 0) {
+                strcpy(rBuf, "<none>");
+            }
+
+            std::stringstream ss;
+            ss << "Left IP: " << lBuf << std::endl;
+            ss << "Right IP: " << rBuf;
+            ipText_->SetText(ss.str().c_str());
+        }
+        {
+            std::stringstream ss;
+            ss << std::setprecision(4) << std::fixed;
+            ss << triggerForceL_;
+            triggerForceLText_->SetText(ss.str().c_str());
+        }
+        {
+            std::stringstream ss;
+            ss << std::setprecision(4) << std::fixed;
+            ss << triggerForceR_;
+            triggerForceRText_->SetText(ss.str().c_str());
+        }
+        {
             std::stringstream ss;
             ss << std::setprecision(4) << std::fixed;
             ss << trackpadForceL_;
@@ -878,15 +980,23 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
         }
         {
             std::stringstream ss;
-            ss << std::setprecision(4) << std::fixed;
-            ss << thumbFBProxL_;
+            ss << "_FB: " << thumbFBProxL_;
             thumbFBProxLText_->SetText(ss.str().c_str());
         }
         {
             std::stringstream ss;
-            ss << std::setprecision(4) << std::fixed;
-            ss << thumbFBProxR_;
+            ss << "_FB: " << thumbFBProxR_;
             thumbFBProxRText_->SetText(ss.str().c_str());
+        }
+        {
+            std::stringstream ss;
+            ss << "_META: " << thumbMetaProxL_;
+            thumbMetaProxLText_->SetText(ss.str().c_str());
+        }
+        {
+            std::stringstream ss;
+            ss << "_META: " << thumbMetaProxR_;
+            thumbMetaProxRText_->SetText(ss.str().c_str());
         }
         {
             std::stringstream ss;
@@ -960,6 +1070,8 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
         char stringBuffer[256];
         XrAction actionsToEnumerate[] = {
             /// new actions
+            triggerForceAction_,
+            thumbMetaProxAction_,
             trackpadForceAction_,
             stylusForceAction_,
             triggerCurlAction_,
@@ -1097,6 +1209,10 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
             v.append = XR_TRUE;
             OXR(xrApplyHapticFeedback(Session, &hai, (const XrHapticBaseHeader*)&v));
             samplesUsed = *(v.samplesConsumed);
+            if (samplesUsed == 0) {
+                ALOG("No samples used; stopping logging.");
+                break;
+            }
             totalSamplesUsed += samplesUsed;
             ALOG("Haptics PCM Buffer Count Output: %d", *(v.samplesConsumed));
         }
@@ -1118,6 +1234,12 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
     std::vector<OVRFW::ovrBeamRenderer::handle_t> beams_;
 
     OVRFW::VRMenuObject* bigText_ = nullptr;
+    OVRFW::VRMenuObject* ipText_ = nullptr;
+    XrAction triggerForceAction_ = XR_NULL_HANDLE;
+    float triggerForceL_ = 0.0f;
+    float triggerForceR_ = 0.0f;
+    OVRFW::VRMenuObject* triggerForceLText_ = nullptr;
+    OVRFW::VRMenuObject* triggerForceRText_ = nullptr;
 
     XrAction trackpadForceAction_ = XR_NULL_HANDLE;
     float trackpadForceL_ = 0.0f;
@@ -1165,6 +1287,11 @@ Function to create PCM samples from an array of amplitudes, frequency and durati
     bool thumbFBProxR_ = false;
     OVRFW::VRMenuObject* thumbFBProxLText_ = nullptr;
     OVRFW::VRMenuObject* thumbFBProxRText_ = nullptr;
+    XrAction thumbMetaProxAction_ = XR_NULL_HANDLE;
+    bool thumbMetaProxL_ = false;
+    bool thumbMetaProxR_ = false;
+    OVRFW::VRMenuObject* thumbMetaProxLText_ = nullptr;
+    OVRFW::VRMenuObject* thumbMetaProxRText_ = nullptr;
 
     // Trigger Value
     XrAction triggerValueAction_ = XR_NULL_HANDLE;
